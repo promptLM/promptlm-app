@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <style>
+        .ribbon-corner {
+            position: absolute;
+            top: 80px;
+            left: 0;
+            width: 150px;
+            height: 60px;
+            overflow: visible;
+            z-index: 1500;
+            pointer-events: none;
+        }
+
+        .ribbon-corner svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+        }
+
+        /* Ensure navbar is below the ribbon */
+        .navbar {
+            position: relative;
+            z-index: 1000;
+        }
+    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>promptLM - AI Prompt Engineering Platform</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="ribbon-corner">
+        <svg width="150" height="60" viewBox="0 0 150 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <!-- Gradient for ribbon -->
+                <linearGradient id="ribbonGradient" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stop-color="#8B5CF6"/>
+                    <stop offset="50%" stop-color="#7C3AED"/>
+                    <stop offset="100%" stop-color="#6D28D9"/>
+                </linearGradient>
+                <!-- Gradient for folded edge -->
+                <linearGradient id="foldGradient" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stop-color="#5B21B6"/>
+                    <stop offset="100%" stop-color="#6D28D9"/>
+                </linearGradient>
+                <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feDropShadow dx="2" dy="3" stdDeviation="4" flood-color="#000" flood-opacity="0.3"/>
+                </filter>
+            </defs>
+
+            <!-- Side ribbon coming from left -->
+            <g filter="url(#shadow)">
+                <!-- Main ribbon body -->
+                <rect x="10" y="10" width="140" height="40" fill="url(#ribbonGradient)"/>
+                
+                <!-- Folded right edge -->
+                <polygon points="150,10 140,10 145,30 150,50" fill="url(#foldGradient)"/>
+                
+                <!-- Left edge with decorative cuts -->
+                <polygon points="10,10 0,15 0,20 8,25 0,30 0,35 8,40 0,45 0,50 10,50" fill="url(#ribbonGradient)"/>
+                
+                <!-- Highlight on main ribbon -->
+                <rect x="10" y="10" width="140" height="18" fill="rgba(255,255,255,0.2)"/>
+                
+                <!-- Text - Two lines -->
+                <text x="80" y="26"
+                      font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif"
+                      font-size="12"
+                      font-weight="bold"
+                      fill="#fff"
+                      text-anchor="middle"
+                      letter-spacing="1">
+                    EARLY
+                </text>
+                <text x="80" y="42"
+                      font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif"
+                      font-size="12"
+                      font-weight="bold"
+                      fill="#fff"
+                      text-anchor="middle"
+                      letter-spacing="1">
+                    ALPHA
+                </text>
+            </g>
+        </svg>
+    </div>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <i class="fas fa-robot"></i>
+                <span>promptLM</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="#hero" class="nav-link">Home</a></li>
+                <li><a href="#" class="nav-link">Documentation</a></li>
+                <li><a href="#" class="nav-link">GitHub</a></li>
+            </ul>
+            <div class="nav-toggle">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section id="hero" class="hero">
+        <div class="hero-content">
+            <div class="hero-text">
+                <h1 class="hero-title">
+                    <span class="gradient-text">Revolutionize</span><br>
+                    AI Prompt Engineering
+                </h1>
+                <p class="hero-description">
+                    promptLM is an open-source framework that streamlines the development, testing, and deployment of AI prompt engineering workflows. Integrate with CI/CD pipelines for automated testing and evaluation of prompts against various language models.
+                </p>
+                <div class="hero-buttons">
+                    <button class="btn btn-primary">
+                        <i class="fas fa-rocket"></i>
+                        Get Started
+                    </button>
+                    <button class="btn btn-secondary">
+                        <i class="fab fa-github"></i>
+                        View Source
+                    </button>
+                </div>
+            </div>
+            <div class="hero-visual">
+                <div class="code-window">
+                    <div class="code-header">
+                        <div class="code-dots">
+                            <span class="dot red"></span>
+                            <span class="dot yellow"></span>
+                            <span class="dot green"></span>
+                        </div>
+                        <div class="code-title">prompt-spec.yaml</div>
+                    </div>
+                    <div class="code-content">
+                        <div class="code-line">
+                            <span class="keyword">name</span>: <span class="string">"sentiment-analysis"</span>
+                        </div>
+                        <div class="code-line">
+                            <span class="keyword">model</span>: <span class="string">"gpt-4"</span>
+                        </div>
+                        <div class="code-line">
+                            <span class="keyword">template</span>: <span class="string">"Analyze the sentiment of: {text}"</span>
+                        </div>
+                        <div class="code-line">
+                            <span class="keyword">tests</span>:</div>
+                        <div class="code-line indent">
+                            <span class="keyword">- input</span>: <span class="string">"I love this product!"</span>
+                        </div>
+                        <div class="code-line indent">
+                            <span class="keyword">expected</span>: <span class="string">"positive"</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="hero-scroll">
+            <i class="fas fa-chevron-down"></i>
+        </div>
+    </section>
+
+    <!-- Features Overview -->
+    <section id="features" class="features">
+        <div class="container">
+            <h2 class="section-title">Complete Prompt Engineering Lifecycle</h2>
+            <p class="section-subtitle">From concept to deployment, promptLM provides everything you need to build, test, and deploy reliable AI prompts.</p>
+
+            <div class="features-grid">
+                <div class="feature-card" data-section="develop">
+                    <div class="feature-icon">
+                        <i class="fas fa-code"></i>
+                    </div>
+                    <h3>Develop</h3>
+                    <p>Create and iterate on prompt specifications with powerful templating and validation tools.</p>
+                </div>
+
+                <div class="feature-card" data-section="test">
+                    <div class="feature-icon">
+                        <i class="fas fa-vial"></i>
+                    </div>
+                    <h3>Test</h3>
+                    <p>Automated testing against multiple language models with comprehensive evaluation metrics.</p>
+                </div>
+
+                <div class="feature-card" data-section="versioning">
+                    <div class="feature-icon">
+                        <i class="fas fa-history"></i>
+                    </div>
+                    <h3>Versioning</h3>
+                    <p>Track changes, manage versions, and maintain prompt evolution with full audit trails.</p>
+                </div>
+
+                <div class="feature-card" data-section="release">
+                    <div class="feature-icon">
+                        <i class="fas fa-rocket"></i>
+                    </div>
+                    <h3>Release</h3>
+                    <p>Deploy tested prompts to production environments with confidence and reliability.</p>
+                </div>
+
+                <div class="feature-card" data-section="distribute">
+                    <div class="feature-icon">
+                        <i class="fas fa-network-wired"></i>
+                    </div>
+                    <h3>Distribute</h3>
+                    <p>Share and distribute prompts across teams and organizations with integrated artifact management.</p>
+                </div>
+
+                <div class="feature-card" data-section="integrate">
+                    <div class="feature-icon">
+                        <i class="fas fa-cog"></i>
+                    </div>
+                    <h3>Integrate</h3>
+                    <p>Seamlessly integrate with existing CI/CD pipelines and development workflows.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Develop Section -->
+    <section id="develop" class="feature-section">
+        <div class="container">
+            <div class="feature-content">
+                <div class="feature-text">
+                    <h2 class="feature-title">
+                        <span class="feature-number">01</span>
+                        Develop
+                    </h2>
+                    <h3>Powerful Prompt Development</h3>
+                    <p class="feature-description">
+                        Create sophisticated prompt specifications with our intuitive YAML-based format. Define templates, validation rules, and expected outputs with full IDE support and intelligent autocomplete.
+                    </p>
+                    <ul class="feature-list">
+                        <li><i class="fas fa-check"></i> YAML-based prompt specifications</li>
+                        <li><i class="fas fa-check"></i> Template variables and dynamic content</li>
+                        <li><i class="fas fa-check"></i> Input validation and type checking</li>
+                        <li><i class="fas fa-check"></i> IDE integration and autocomplete</li>
+                        <li><i class="fas fa-check"></i> Real-time preview and testing</li>
+                    </ul>
+                </div>
+                <div class="feature-visual">
+                    <div class="demo-container">
+                        <img src="../media/Screenshot 2025-01-23 at 16.24.18.png" alt="Prompt Development Interface" class="demo-image">
+                        <div class="demo-overlay">
+                            <div class="play-button">
+                                <i class="fas fa-play"></i>
+                            </div>
+                            <span class="demo-label">Interactive Demo</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Test Section -->
+    <section id="test" class="feature-section alternate">
+        <div class="container">
+            <div class="feature-content">
+                <div class="feature-text">
+                    <h2 class="feature-title">
+                        <span class="feature-number">02</span>
+                        Test
+                    </h2>
+                    <h3>Comprehensive Testing Suite</h3>
+                    <p class="feature-description">
+                        Run automated tests against multiple language models simultaneously. Evaluate prompt performance across different scenarios, edge cases, and model variations with detailed metrics and reporting.
+                    </p>
+                    <ul class="feature-list">
+                        <li><i class="fas fa-check"></i> Multi-model testing (GPT, Claude, etc.)</li>
+                        <li><i class="fas fa-check"></i> Automated test execution</li>
+                        <li><i class="fas fa-check"></i> Performance benchmarking</li>
+                        <li><i class="fas fa-check"></i> Edge case detection</li>
+                        <li><i class="fas fa-check"></i> Detailed test reports</li>
+                    </ul>
+                </div>
+                <div class="feature-visual">
+                    <div class="demo-container">
+                        <img src="../media/Screenshot 2025-01-23 at 16.26.03.png" alt="Testing Interface" class="demo-image">
+                        <div class="demo-overlay">
+                            <div class="play-button">
+                                <i class="fas fa-play"></i>
+                            </div>
+                            <span class="demo-label">Test Execution Demo</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Versioning Section -->
+    <section id="versioning" class="feature-section">
+        <div class="container">
+            <div class="feature-content">
+                <div class="feature-text">
+                    <h2 class="feature-title">
+                        <span class="feature-number">03</span>
+                        Versioning
+                    </h2>
+                    <h3>Complete Version Control</h3>
+                    <p class="feature-description">
+                        Track every change to your prompts with full version history. Compare versions, roll back changes, and maintain complete audit trails for compliance and debugging purposes.
+                    </p>
+                    <ul class="feature-list">
+                        <li><i class="fas fa-check"></i> Git-based version control</li>
+                        <li><i class="fas fa-check"></i> Change tracking and diff views</li>
+                        <li><i class="fas fa-check"></i> Rollback capabilities</li>
+                        <li><i class="fas fa-check"></i> Audit trails and compliance</li>
+                        <li><i class="fas fa-check"></i> Branch management</li>
+                    </ul>
+                </div>
+                <div class="feature-visual">
+                    <div class="demo-container">
+                        <img src="../media/Screenshot 2025-01-23 at 16.27.10.png" alt="Version Control Interface" class="demo-image">
+                        <div class="demo-overlay">
+                            <div class="play-button">
+                                <i class="fas fa-play"></i>
+                            </div>
+                            <span class="demo-label">Version History Demo</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Release Section -->
+    <section id="release" class="feature-section alternate">
+        <div class="container">
+            <div class="feature-content">
+                <div class="feature-text">
+                    <h2 class="feature-title">
+                        <span class="feature-number">04</span>
+                        Release
+                    </h2>
+                    <h3>Seamless Deployment</h3>
+                    <p class="feature-description">
+                        Deploy tested prompts to production with confidence. Automated deployment pipelines ensure your prompts are properly validated and released across all environments.
+                    </p>
+                    <ul class="feature-list">
+                        <li><i class="fas fa-check"></i> Automated deployment pipelines</li>
+                        <li><i class="fas fa-check"></i> Environment management</li>
+                        <li><i class="fas fa-check"></i> Rollout strategies</li>
+                        <li><i class="fas fa-check"></i> Health monitoring</li>
+                        <li><i class="fas fa-check"></i> Automatic rollback</li>
+                    </ul>
+                </div>
+                <div class="feature-visual">
+                    <div class="demo-container">
+                        <img src="../media/Screenshot 2025-01-23 at 16.29.45.png" alt="Release Management Interface" class="demo-image">
+                        <div class="demo-overlay">
+                            <div class="play-button">
+                                <i class="fas fa-play"></i>
+                            </div>
+                            <span class="demo-label">Deployment Demo</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Distribute Section -->
+    <section id="distribute" class="feature-section">
+        <div class="container">
+            <div class="feature-content">
+                <div class="feature-text">
+                    <h2 class="feature-title">
+                        <span class="feature-number">05</span>
+                        Distribute
+                    </h2>
+                    <h3>Enterprise Distribution</h3>
+                    <p class="feature-description">
+                        Share and distribute prompts across teams and organizations with integrated artifact management. Publish to registries, manage dependencies, and ensure secure distribution.
+                    </p>
+                    <ul class="feature-list">
+                        <li><i class="fas fa-check"></i> Artifact registry integration</li>
+                        <li><i class="fas fa-check"></i> Dependency management</li>
+                        <li><i class="fas fa-check"></i> Access control and security</li>
+                        <li><i class="fas fa-check"></i> Team collaboration</li>
+                        <li><i class="fas fa-check"></i> Usage analytics</li>
+                    </ul>
+                </div>
+                <div class="feature-visual">
+                    <div class="demo-container">
+                        <img src="../uiux/screencapture-app-prompthub-us-projects-5772-2025-09-19-22_51_38.png" alt="Distribution Hub Interface" class="demo-image">
+                        <div class="demo-overlay">
+                            <div class="play-button">
+                                <i class="fas fa-play"></i>
+                            </div>
+                            <span class="demo-label">Distribution Demo</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Integration Section (for the 6th "test" section) -->
+    <section id="integrate" class="feature-section alternate">
+        <div class="container">
+            <div class="feature-content">
+                <div class="feature-text">
+                    <h2 class="feature-title">
+                        <span class="feature-number">06</span>
+                        Integrate
+                    </h2>
+                    <h3>CI/CD Integration</h3>
+                    <p class="feature-description">
+                        Seamlessly integrate promptLM into your existing development workflow. Connect with popular CI/CD platforms and automate your entire prompt engineering pipeline.
+                    </p>
+                    <ul class="feature-list">
+                        <li><i class="fas fa-check"></i> GitHub Actions integration</li>
+                        <li><i class="fas fa-check"></i> GitLab CI/CD support</li>
+                        <li><i class="fas fa-check"></i> Jenkins pipeline support</li>
+                        <li><i class="fas fa-check"></i> Custom webhook support</li>
+                        <li><i class="fas fa-check"></i> API-first architecture</li>
+                    </ul>
+                </div>
+                <div class="feature-visual">
+                    <div class="integration-diagram">
+                        <div class="integration-node">Git</div>
+                        <div class="integration-arrow">→</div>
+                        <div class="integration-node">CI/CD</div>
+                        <div class="integration-arrow">→</div>
+                        <div class="integration-node highlight">promptLM</div>
+                        <div class="integration-arrow">→</div>
+                        <div class="integration-node">Deploy</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact" class="contact">
+        <div class="container">
+            <h2 class="section-title">Ready to Transform Your Prompt Engineering?</h2>
+            <p class="section-subtitle">Join the growing community of developers using promptLM to build better AI applications.</p>
+
+            <div class="contact-grid">
+                <div class="contact-card">
+                    <div class="contact-icon">
+                        <i class="fab fa-github"></i>
+                    </div>
+                    <h3>View Source</h3>
+                    <p>Explore the codebase and contribute to the project on GitHub.</p>
+                    <a href="#" class="contact-button">
+                        <i class="fab fa-github"></i>
+                        GitHub Repository
+                    </a>
+                </div>
+
+                <div class="contact-card">
+                    <div class="contact-icon">
+                        <i class="fas fa-book"></i>
+                    </div>
+                    <h3>Documentation</h3>
+                    <p>Read the complete documentation and get started guides.</p>
+                    <a href="#" class="contact-button">
+                        <i class="fas fa-book"></i>
+                        Read Docs
+                    </a>
+                </div>
+
+                <div class="contact-card">
+                    <div class="contact-icon">
+                        <i class="fab fa-discord"></i>
+                    </div>
+                    <h3>Community</h3>
+                    <p>Join our Discord community for support and discussions.</p>
+                    <a href="#" class="contact-button">
+                        <i class="fab fa-discord"></i>
+                        Join Discord
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <i class="fas fa-robot"></i>
+                    <span>promptLM</span>
+                </div>
+                <div class="footer-links">
+                    <a href="#features">Features</a>
+                    <a href="#develop">Develop</a>
+                    <a href="#test">Test</a>
+                    <a href="#versioning">Versioning</a>
+                    <a href="#release">Release</a>
+                    <a href="#distribute">Distribute</a>
+                </div>
+                <div class="footer-social">
+                    <a href="#"><i class="fab fa-twitter"></i></a>
+                    <a href="#"><i class="fab fa-linkedin"></i></a>
+                    <a href="#"><i class="fab fa-github"></i></a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 promptLM. Open source under MIT License.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
