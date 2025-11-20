@@ -1,26 +1,43 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/html" xmlns="http://www.w3.org/1999/html"
+      xmlns="http://www.w3.org/1999/html">
 <head>
     <style>
-        .ribbon-corner {
-            position: absolute;
-            top: 80px;
-            left: 0;
-            width: 150px;
-            height: 60px;
-            overflow: visible;
-            z-index: 1500;
+        .corner-badge {
+            position: fixed;
+            top: 22px;
+            left: -48px;
+            transform: rotate(-14deg);
+            background: linear-gradient(135deg, #f973ff 0%, #a855f7 100%);
+            color: #0b0d10;
+            padding: 10px 70px 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 800;
+            font-size: 1rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            border-radius: 8px;
+            box-shadow: 0 10px 26px rgba(168, 85, 247, 0.45);
             pointer-events: none;
+            z-index: 1500;
         }
 
-        .ribbon-corner svg {
+        .corner-badge::before {
+            content: "";
             position: absolute;
-            top: 0;
-            left: 0;
-            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+            inset: 4px;
+            border-radius: inherit;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0));
+            opacity: 0.6;
         }
 
-        /* Ensure navbar is below the ribbon */
+        .corner-badge span {
+            display: block;
+            text-align: center;
+            position: relative;
+        }
+
+        /* Ensure navbar is below the badge */
         .navbar {
             position: relative;
             z-index: 1000;
@@ -34,72 +51,20 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div class="ribbon-corner">
-        <svg width="150" height="60" viewBox="0 0 150 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-                <!-- Gradient for ribbon -->
-                <linearGradient id="ribbonGradient" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stop-color="#8B5CF6"/>
-                    <stop offset="50%" stop-color="#7C3AED"/>
-                    <stop offset="100%" stop-color="#6D28D9"/>
-                </linearGradient>
-                <!-- Gradient for folded edge -->
-                <linearGradient id="foldGradient" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stop-color="#5B21B6"/>
-                    <stop offset="100%" stop-color="#6D28D9"/>
-                </linearGradient>
-                <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-                    <feDropShadow dx="2" dy="3" stdDeviation="4" flood-color="#000" flood-opacity="0.3"/>
-                </filter>
-            </defs>
-
-            <!-- Side ribbon coming from left -->
-            <g filter="url(#shadow)">
-                <!-- Main ribbon body -->
-                <rect x="10" y="10" width="140" height="40" fill="url(#ribbonGradient)"/>
-                
-                <!-- Folded right edge -->
-                <polygon points="150,10 140,10 145,30 150,50" fill="url(#foldGradient)"/>
-                
-                <!-- Left edge with decorative cuts -->
-                <polygon points="10,10 0,15 0,20 8,25 0,30 0,35 8,40 0,45 0,50 10,50" fill="url(#ribbonGradient)"/>
-                
-                <!-- Highlight on main ribbon -->
-                <rect x="10" y="10" width="140" height="18" fill="rgba(255,255,255,0.2)"/>
-                
-                <!-- Text - Two lines -->
-                <text x="80" y="26"
-                      font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif"
-                      font-size="12"
-                      font-weight="bold"
-                      fill="#fff"
-                      text-anchor="middle"
-                      letter-spacing="1">
-                    EARLY
-                </text>
-                <text x="80" y="42"
-                      font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif"
-                      font-size="12"
-                      font-weight="bold"
-                      fill="#fff"
-                      text-anchor="middle"
-                      letter-spacing="1">
-                    ALPHA
-                </text>
-            </g>
-        </svg>
+    <div class="corner-badge" aria-hidden="true">
+        <span>EARLY</span>
+        <span>ALPHA</span>
     </div>
     <!-- Navigation -->
     <nav class="navbar">
         <div class="nav-container">
             <div class="nav-logo">
-                <i class="fas fa-robot"></i>
-                <span>promptLM</span>
+                <img alt="promptLM logo" src="media/logo.png" height="120"/>
             </div>
             <ul class="nav-menu">
                 <li><a href="#hero" class="nav-link">Home</a></li>
                 <li><a href="#" class="nav-link">Documentation</a></li>
-                <li><a href="#" class="nav-link">GitHub</a></li>
+                <li><a href="https://github.com/promptLM/promptLM" class="nav-link" target="_blank" rel="noopener">GitHub</a></li>
             </ul>
             <div class="nav-toggle">
                 <span></span>
@@ -115,7 +80,7 @@
             <div class="hero-text">
                 <h1 class="hero-title">
                     <span class="gradient-text">Revolutionize</span><br>
-                    AI Prompt Engineering
+                    AI Prompt Lifecycle Management
                 </h1>
                 <p class="hero-description">
                     promptLM is an open-source framework that streamlines the development, testing, and deployment of AI prompt engineering workflows. Integrate with CI/CD pipelines for automated testing and evaluation of prompts against various language models.
@@ -125,10 +90,10 @@
                         <i class="fas fa-rocket"></i>
                         Get Started
                     </button>
-                    <button class="btn btn-secondary">
+                    <a class="btn btn-secondary" href="https://github.com/promptLM/promptLM" target="_blank" rel="noopener">
                         <i class="fab fa-github"></i>
                         View Source
-                    </button>
+                    </a>
                 </div>
             </div>
             <div class="hero-visual">
@@ -149,15 +114,43 @@
                             <span class="keyword">model</span>: <span class="string">"gpt-4"</span>
                         </div>
                         <div class="code-line">
-                            <span class="keyword">template</span>: <span class="string">"Analyze the sentiment of: {text}"</span>
+                            <span class="keyword">prompt</span>: <span class="string">"Analyze the sentiment of: {text}"</span>
                         </div>
                         <div class="code-line">
-                            <span class="keyword">tests</span>:</div>
-                        <div class="code-line indent">
-                            <span class="keyword">- input</span>: <span class="string">"I love this product!"</span>
+                            <span class="keyword">parameters</span>:
                         </div>
                         <div class="code-line indent">
-                            <span class="keyword">expected</span>: <span class="string">"positive"</span>
+                            <span class="keyword">- text</span>: <span class="string">"I love this product!"</span>
+                        </div>
+                        <div class="code-line indent">
+                            <span class="keyword">&nbsp;&nbsp;required</span>:
+                            <span class="boolean">true</span>
+                        </div>
+                        <div class="code-line indent">
+                            <span class="keyword">&nbsp;&nbsp;description</span>:
+                            <span class="string">"The text to analyze"</span>
+                        </div>
+                        <div class="code-line">
+                            <span class="keyword">evals</span>:
+                        </div>
+                        <div class="code-line indent">
+                            <span class="keyword">- name: </span>
+                            <span class="string">sentiment-positive</span>
+                        </div>
+                        <div class="code-line indent">
+                            <span class="keyword">&nbsp;&nbsp;type</span>: <span class="string">json</span>
+                        </div>
+                        <div class="code-line indent">
+                            <span class="keyword">&nbsp;&nbsp;path</span>: <span class="string">"$.sentiment.score"</span>
+                        </div>
+                        <div class="code-line indent">
+                            <span class="keyword">&nbsp;&nbsp;comparator</span>: <span class="string">">="</span>
+                        </div>
+                        <div class="code-line indent">
+                            <span class="keyword">&nbsp;&nbsp;expected</span>: <span class="string">">0.8"</span>
+                        </div>
+                        <div class="code-line">
+                            <span class="keyword">executions</span>: <span class="string">...</span>
                         </div>
                     </div>
                 </div>
@@ -237,7 +230,8 @@
                     </h2>
                     <h3>Powerful Prompt Development</h3>
                     <p class="feature-description">
-                        Create sophisticated prompt specifications with our intuitive YAML-based format. Define templates, validation rules, and expected outputs with full IDE support and intelligent autocomplete.
+                        Create sophisticated prompt specifications through command line interface or web-ui.
+                        Define templates, placeholder and evaluations to verify expected outputs.
                     </p>
                     <ul class="feature-list">
                         <li><i class="fas fa-check"></i> YAML-based prompt specifications</li>
@@ -455,7 +449,7 @@
                     </div>
                     <h3>View Source</h3>
                     <p>Explore the codebase and contribute to the project on GitHub.</p>
-                    <a href="#" class="contact-button">
+                    <a href="https://github.com/promptLM/promptLM" class="contact-button" target="_blank" rel="noopener">
                         <i class="fab fa-github"></i>
                         GitHub Repository
                     </a>
@@ -507,7 +501,7 @@
                 <div class="footer-social">
                     <a href="#"><i class="fab fa-twitter"></i></a>
                     <a href="#"><i class="fab fa-linkedin"></i></a>
-                    <a href="#"><i class="fab fa-github"></i></a>
+                    <a href="https://github.com/promptLM/promptLM" target="_blank" rel="noopener"><i class="fab fa-github"></i></a>
                 </div>
             </div>
             <div class="footer-bottom">
