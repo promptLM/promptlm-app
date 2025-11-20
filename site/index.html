@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/html" xmlns="http://www.w3.org/1999/html"
+      xmlns="http://www.w3.org/1999/html">
 <head>
     <style>
         .corner-badge {
@@ -113,15 +114,43 @@
                             <span class="keyword">model</span>: <span class="string">"gpt-4"</span>
                         </div>
                         <div class="code-line">
-                            <span class="keyword">template</span>: <span class="string">"Analyze the sentiment of: {text}"</span>
+                            <span class="keyword">prompt</span>: <span class="string">"Analyze the sentiment of: {text}"</span>
                         </div>
                         <div class="code-line">
-                            <span class="keyword">tests</span>:</div>
-                        <div class="code-line indent">
-                            <span class="keyword">- input</span>: <span class="string">"I love this product!"</span>
+                            <span class="keyword">parameters</span>:
                         </div>
                         <div class="code-line indent">
-                            <span class="keyword">expected</span>: <span class="string">"positive"</span>
+                            <span class="keyword">- text</span>: <span class="string">"I love this product!"</span>
+                        </div>
+                        <div class="code-line indent">
+                            <span class="keyword">&nbsp;&nbsp;required</span>:
+                            <span class="boolean">true</span>
+                        </div>
+                        <div class="code-line indent">
+                            <span class="keyword">&nbsp;&nbsp;description</span>:
+                            <span class="string">"The text to analyze"</span>
+                        </div>
+                        <div class="code-line">
+                            <span class="keyword">evals</span>:
+                        </div>
+                        <div class="code-line indent">
+                            <span class="keyword">- name: </span>
+                            <span class="string">sentiment-positive</span>
+                        </div>
+                        <div class="code-line indent">
+                            <span class="keyword">&nbsp;&nbsp;type</span>: <span class="string">json</span>
+                        </div>
+                        <div class="code-line indent">
+                            <span class="keyword">&nbsp;&nbsp;path</span>: <span class="string">"$.sentiment.score"</span>
+                        </div>
+                        <div class="code-line indent">
+                            <span class="keyword">&nbsp;&nbsp;comparator</span>: <span class="string">">="</span>
+                        </div>
+                        <div class="code-line indent">
+                            <span class="keyword">&nbsp;&nbsp;expected</span>: <span class="string">">0.8"</span>
+                        </div>
+                        <div class="code-line">
+                            <span class="keyword">executions</span>: <span class="string">...</span>
                         </div>
                     </div>
                 </div>
