@@ -111,10 +111,27 @@ h1, h2, h3, h4, h5, h6 {
 .nav-logo {
     display: flex;
     align-items: center;
+    position: relative;
     font-family: 'JetBrains Mono', monospace;
     font-size: 1.5rem;
     font-weight: 700;
     color: var(--primary-color);
+}
+
+.nav-logo img {
+    height: 56px;
+    display: block;
+    filter: grayscale(1) brightness(1.05) contrast(1.2);
+}
+
+.nav-logo::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(203, 113, 255, 0.95), rgba(99, 102, 241, 0.9));
+    mix-blend-mode: screen;
+    opacity: 0.85;
+    pointer-events: none;
 }
 
 .nav-logo i {
