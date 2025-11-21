@@ -162,6 +162,35 @@
         </div>
     </section>
 
+    <!-- Problem Statement Section -->
+    <section id="problem-statement" class="problem-section">
+        <div class="container">
+            <span class="section-eyebrow"><i class="fas fa-exclamation-triangle"></i> The Challenge</span>
+            <h2 class="section-title">Why Prompt Lifecycle Management Matters</h2>
+
+            <div class="problem-intro">
+                <p>Your prompt asking ChatGPT “What’s the capital of France?” doesn’t need a lifecycle management tool. You read the reply and move on.</p>
+                <p>But when prompts run inside your application — and their responses determine whether the application says “yes” or “no” — it’s a completely different story.</p>
+            </div>
+
+            <div class="problem-body">
+                <p>Then you want to have something better than your text editor to manage your prompts.</p>
+                <p>You’ll iteratively develop your prompts – often against different models, with different variations and wordings.<br>
+                    You’ll want to version those prompts and run evals on the responses to automatically decide which variants are “good enough” and discard the rest.<br>
+                    And you’ll need a way to get prompts into your application – and update them – without changing the application itself, because prompts follow a different lifecycle than code.</p>
+                <p>And then...</p>
+                <p>you finally have your evaluated and versioned prompts ready for your application. Yay.</p>
+                <p>Now, you better make sure that your application works as expected with the responses created by your prompts.<br>
+                    That’s when you run integration tests against a real LLM endpoint — and that’s when you start spending real money.<br>
+                    Those tests add up fast.</p>
+                <p>And your agents will probably use MCP or other tools as well, right?<br>
+                    Suddenly your test surface gets even bigger, more complex, and even more expensive.</p>
+            </div>
+
+            <p class="problem-conclusion">This is the reason why we’re building <strong>promptLM</strong> — to cover all of this, for you and for ourselves.</p>
+        </div>
+    </section>
+
     <!-- Features Overview -->
     <section id="features" class="features">
         <div class="container">

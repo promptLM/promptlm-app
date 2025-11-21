@@ -144,11 +144,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Parallax effect for hero background
     window.addEventListener('scroll', function() {
         const scrolled = window.pageYOffset;
-        const parallax = document.querySelector('.hero');
-        const speed = scrolled * 0.5;
+        const heroSection = document.querySelector('.hero');
+        const parallaxOverlay = heroSection?.querySelector(':before');
 
-        if (parallax) {
-            parallax.style.transform = `translateY(${speed}px)`;
+        if (heroSection) {
+            const offset = Math.min(scrolled * 0.25, 200);
+            heroSection.style.setProperty('--parallax-offset', `${offset * -1}px`);
         }
     });
 
