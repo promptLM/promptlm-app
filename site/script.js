@@ -180,6 +180,59 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // Problem slider carousel
+    const problemSection = document.querySelector('.problem-slider');
+    if (problemSection) {
+        const track = problemSection.querySelector('.problem-track');
+        const slides = Array.from(problemSection.querySelectorAll('.problem-slide'));
+        const dots = Array.from(problemSection.querySelectorAll('.problem-dot'));
+        const ctaButtons = problemSection.querySelectorAll('.problem-cta');
+
+        let activeIndex = parseInt(track.dataset.active || '0', 10);
+
+        function updateSlider(index) {
+            const boundedIndex = (index + slides.length) % slides.length;
+            activeIndex = boundedIndex;
+            track.dataset.active = String(boundedIndex);
+            track.style.transform = `translateX(-${boundedIndex * 100}%)`;
+
+            slides.forEach((slide, idx) => {
+                slide.classList.toggle('is-active', idx === boundedIndex);
+                slide.setAttribute('aria-hidden', idx === boundedIndex ? 'false' : 'true');
+            });
+
+            dots.forEach((dot, idx) => {
+                dot.classList.toggle('is-active', idx === boundedIndex);
+                dot.setAttribute('aria-selected', idx === boundedIndex ? 'true' : 'false');
+            });
+
+        }
+
+        dots.forEach(dot => {
+            dot.addEventListener('click', () => {
+                const target = parseInt(dot.dataset.slideTarget || '0', 10);
+                updateSlider(target);
+            });
+        });
+
+        ctaButtons.forEach(button => {
+            button.addEventListener('click', () => updateSlider(activeIndex + 1));
+        });
+
+        problemSection.addEventListener('keydown', (event) => {
+            if (event.key === 'ArrowLeft') {
+                event.preventDefault();
+                updateSlider(activeIndex - 1);
+            }
+            if (event.key === 'ArrowRight') {
+                event.preventDefault();
+                updateSlider(activeIndex + 1);
+            }
+        });
+
+        updateSlider(activeIndex);
+    }
+
     // Add click effect to buttons
     const buttons = document.querySelectorAll('.btn');
 
