@@ -165,6 +165,72 @@
         </div>
     </section>
 
+    <!-- Problem Statement Section -->
+    <section id="problem-statement" class="problem-section">
+        <div class="container">
+            <h2 class="section-title">Why Prompt Lifecycle Management Matters</h2>
+
+            <div class="problem-slider" role="region" aria-label="Prompt lifecycle story">
+                <div class="problem-track" data-active="0">
+                    <article class="problem-slide is-active" data-slide="0" aria-live="polite">
+                        <header class="problem-slide-header">
+                            <span class="slide-step">Arc 01</span>
+                            <span class="slide-kicker">Spark</span>
+                        </header>
+                        <p>Your prompt asking ChatGPT “What’s the capital of France?” doesn’t need a lifecycle management tool. You read the reply and move on.</p>
+                        <p>But when prompts run inside your application — and their responses determine whether the application says “yes” or “no” — it’s a completely different story.</p>
+                        <button class="problem-cta" type="button" data-direction="next">
+                            Read on <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </article>
+
+                    <article class="problem-slide" data-slide="1">
+                        <header class="problem-slide-header">
+                            <span class="slide-step">Arc 02</span>
+                            <span class="slide-kicker">Iteration</span>
+                        </header>
+                        <p>Then you want to have something better than your text editor to manage your prompts.</p>
+                        <p>You’ll iteratively develop your prompts – often against different models, with different variations and wordings. You’ll want to version those prompts and run evals on the responses to automatically decide which variants are “good enough” and discard the rest. And you’ll need a way to get prompts into your application – and update them – without changing the application itself, because prompts follow a different lifecycle than code. And then...</p>
+                        <button class="problem-cta" type="button" data-direction="next">
+                            Keep going <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </article>
+
+                    <article class="problem-slide" data-slide="2">
+                        <header class="problem-slide-header">
+                            <span class="slide-step">Arc 03</span>
+                            <span class="slide-kicker">Reality Check</span>
+                        </header>
+                        <p>you finally have your evaluated and versioned prompts ready for your application. Yay.</p>
+                        <p>Now, you better make sure that your application works as expected with the responses created by your prompts. That’s when you run integration tests against a real LLM endpoint — and that’s when you start spending real money. Those tests add up fast...</p>
+                        <button class="problem-cta" type="button" data-direction="next">
+                            One more thing <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </article>
+
+                    <article class="problem-slide" data-slide="3">
+                        <header class="problem-slide-header">
+                            <span class="slide-step">Arc 04</span>
+                            <span class="slide-kicker">Solution</span>
+                        </header>
+                        <p>And your agents will probably use MCP or other tools as well, right? Suddenly your test surface gets even bigger, more complex, and even more expensive.</p>
+                        <p class="problem-closing">This is the reason why we’re building <strong>promptLM</strong> — to cover all of this, for you and for ourselves.</p>
+                        <a class="problem-logo" href="#features" aria-label="Explore features section">
+                            <img src="media/logo-horizontal.png" alt="promptLM logo">
+                        </a>
+                    </article>
+                </div>
+
+                <div class="problem-indicators" role="tablist" aria-label="Story progress">
+                    <button class="problem-dot is-active" type="button" role="tab" aria-selected="true" aria-controls="problem-slide-1" data-slide-target="0"><span class="sr-only">Arc 01</span></button>
+                    <button class="problem-dot" type="button" role="tab" aria-selected="false" aria-controls="problem-slide-2" data-slide-target="1"><span class="sr-only">Arc 02</span></button>
+                    <button class="problem-dot" type="button" role="tab" aria-selected="false" aria-controls="problem-slide-3" data-slide-target="2"><span class="sr-only">Arc 03</span></button>
+                    <button class="problem-dot" type="button" role="tab" aria-selected="false" aria-controls="problem-slide-4" data-slide-target="3"><span class="sr-only">Arc 04</span></button>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Features Overview -->
     <section id="features" class="features">
         <div class="container">
