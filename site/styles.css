@@ -200,6 +200,7 @@ h1, h2, h3, h4, h5, h6 {
     position: relative;
     background: radial-gradient(ellipse at top, var(--bg-secondary) 0%, var(--bg-primary) 100%);
     overflow: hidden;
+    z-index: 1;
 }
 
 .hero::before {
@@ -414,7 +415,10 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Features Overview */
 .features {
-    padding: 6rem 0;
+    position: relative;
+    z-index: 2;
+    margin-top: clamp(10rem, 30vh, 40vh);
+    padding: 6rem 0 6rem;
     background: var(--bg-primary);
 }
 
