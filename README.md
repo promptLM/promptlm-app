@@ -1,31 +1,57 @@
 # promptLM
 
-## Static site deployment
+AI Prompt Lifecycle Management — structured, testable, yours.
 
-The repository ships with a GitHub Actions workflow that publishes the contents of [`site/`](site/) to GitHub Pages.
+promptLM is an open-source framework designed to bring modern software engineering discipline to prompt-driven systems. The project packages requirements modelling, evaluation, deterministic replay, and distribution into one workflow so teams can ship AI functionality with confidence.
 
-### How it works
+## Why promptLM
 
-- On every push to the `main` branch that touches files in `site/`, the workflow `.github/workflows/deploy-gh-pages.yml` runs automatically.
-- The workflow uploads the `site/` directory as a Pages artifact and deploys it to the GitHub Pages environment.
-- You can trigger a manual deployment from the **Actions** tab by selecting the workflow and using **Run workflow**.
+- **Build with structure:** Define prompts via declarative specifications backed by MCP tools and templating.
+- **Evaluate with confidence:** Combine built-in and custom evals to check model behaviour across scenarios and prevent regressions.
+- **Version everything:** Track prompt changes like code with full history, diff views, and release tagging.
+- **Deploy safely:** Apply automated guardrails and approvals to ship prompts to production environments.
+- **Distribute anywhere:** Publish through a prompt server, dependency packages, or direct repo access so consumers choose the retrieval flow that fits their stack.
+- **Test deterministically:** Snapshot LLM and tool responses to replay executions for fast, zero-cost regression suites.
 
-### First-time setup in GitHub
+## Project Status
 
-1. Go to your repository settings → **Pages**.
-2. Under **Build and deployment**, choose **GitHub Actions** (the workflow already exists in the repo).
-3. (Optional) If the workflow has not run yet, trigger it manually from the **Actions** tab so that Pages gets an initial deployment.
+🚧 **Early Alpha** — We are actively shaping the workflow and ecosystem. APIs and file layouts may change quickly while we validate the developer experience.
 
-Once deployed, the site will be available at `https://<your-username>.github.io/<repository-name>/` unless you configure a custom domain.
+## Roadmap Highlights
 
-### Linking a custom domain
+- ✅ Command-line and web UI authoring for prompt specs
+- ✅ Evaluation presets and custom eval integration
+- ✅ Replay engine for recorded LLM/tool responses
+- ⏳ Prompt server & package-based distribution channels
+- ⏳ Opinionated CI/CD templates for prompt releases
+- ⏳ Documentation site (AsciiDoc + GitHub Pages) with tutorials and reference guides
 
-To serve the site from your own URL:
+## Get Involved
 
-1. Add a DNS CNAME record for your domain pointing to `<your-username>.github.io`.
-2. Create a file `site/CNAME` that contains exactly your custom domain (for example, `www.example.com`). Commit and push the change.
-3. In repository settings → **Pages**, enter the same custom domain and save. GitHub will provision TLS certificates automatically.
+We are looking for committed collaborators to help build the foundation:
 
-> **Tip:** After updating DNS or the `CNAME` file, rerun the deployment workflow (push a change to `site/` or trigger it manually) so GitHub Pages picks up the new domain.
+- **Prompt engineers** to shape authoring ergonomics and eval libraries
+- **Toolsmiths** to expand MCP/test harness integrations
+- **DevOps maintainers** to design distribution and release workflows
+- **Documentation writers** to help capture the lifecycle and best practices
 
+If you want to help define the future of prompt lifecycle management:
 
+1. Star the repo and share ideas via issues or Discussions.
+2. Open a PR with your proposal or implementation (please reference an issue or start a thread first).
+3. Introduce yourself in the "Contributors" discussion — we want to elevate early committers into the core team.
+
+## Contributing
+
+We aim to keep onboarding lightweight during Alpha:
+
+1. Fork the repository and create a feature branch.
+2. Implement changes with concise commits and clear descriptions.
+3. Add or update documentation/evals relevant to your change.
+4. Open a Pull Request and request feedback. We strive for fast, collaborative reviews.
+
+Check the issue tracker for **good first issues** and **help wanted** tags. If you have ideas that are not listed, open a proposal issue — we love sparring on roadmap direction.
+
+## License
+
+promptLM is released under the MIT License.
