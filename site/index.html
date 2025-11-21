@@ -79,7 +79,10 @@
         <div class="hero-content">
             <div class="hero-text">
                 <h1 class="hero-title">
-                    <span class="gradient-text">promptLM</span> <span>Revolutionize</span><br>
+                    <div class="hero-logo">
+                        <img alt="promptLM logo" src="media/logo.png"/>
+                    </div>
+                    <span class="gradient-text">Revolutionize</span><br>
                     AI <span class="gradient-text">prompt</span>
                     <span class="hero-inline"><span class="gradient-text">L</span>ifecycle</span>
                     <span class="hero-inline"><span class="gradient-text">M</span>anagement</span>
@@ -106,7 +109,7 @@
                             <span class="dot yellow"></span>
                             <span class="dot green"></span>
                         </div>
-                        <div class="code-title">promptLM.yaml</div>
+                        <div class="code-title">prompt-spec.yaml</div>
                     </div>
                     <div class="code-content">
                         <div class="code-line">
@@ -122,10 +125,7 @@
                             <span class="keyword">parameters</span>:
                         </div>
                         <div class="code-line indent">
-                            <span class="keyword">- name</span>: <span class="string">text</span>
-                        </div>
-                        <div class="code-line indent">
-                            <span class="keyword">&nbsp;&nbsp;value</span>: <span class="string">"I love this promptLM thing!"</span>
+                            <span class="keyword">- text</span>: <span class="string">"I love this promptLM!"</span>
                         </div>
                         <div class="code-line indent">
                             <span class="keyword">&nbsp;&nbsp;required</span>:
@@ -139,8 +139,7 @@
                             <span class="keyword">evals</span>:
                         </div>
                         <div class="code-line indent">
-                            <span class="keyword">- name: </span>
-                            <span class="string">sentiment-positive</span>
+                            <span class="keyword">- name</span>: <span class="string">sentiment-positive</span>
                         </div>
                         <div class="code-line indent">
                             <span class="keyword">&nbsp;&nbsp;type</span>: <span class="string">json</span>
@@ -152,7 +151,7 @@
                             <span class="keyword">&nbsp;&nbsp;comparator</span>: <span class="string">">="</span>
                         </div>
                         <div class="code-line indent">
-                            <span class="keyword">&nbsp;&nbsp;expected</span>: <span class="string">">0.8"</span>
+                            <span class="keyword">&nbsp;&nbsp;expected</span>: <span class="string">"0.8"</span>
                         </div>
                         <div class="code-line">
                             <span class="keyword">executions</span>: <span class="string">...</span>
@@ -213,7 +212,7 @@
                     <p>Prompt Server, dependency or Repository access - pick your retrieval.</p>
                 </div>
 
-                <div class="feature-card" data-section="integrate">
+                <div class="feature-card" data-section="test-support">
                     <div class="feature-icon">
                         <i class="fas fa-cog"></i>
                     </div>
@@ -510,7 +509,7 @@
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2025 promptLM. Open source under Apache 2 License.</p>
+                <p>&copy; 2024 promptLM. Open source under MIT License.</p>
             </div>
         </div>
     </footer>
