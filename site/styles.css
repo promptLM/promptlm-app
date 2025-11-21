@@ -115,13 +115,21 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .nav-logo img {
-    height: 400px;
-    mix-blend-mode: screen;
+    height: 56px;
+    width: auto;
+    display: block;
 }
 
-.navbar.scrolled .nav-logo img,
-.navbar:hover .nav-logo img {
-    filter: invert(34%) sepia(78%) saturate(3934%) hue-rotate(244deg) brightness(103%) contrast(101%);
+.hero-logo {
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.hero-logo img {
+    max-width: 200px;
+    width: 100%;
+    height: auto;
+    display: inline-block;
 }
 
 .nav-logo i {

@@ -59,7 +59,7 @@
     <nav class="navbar">
         <div class="nav-container">
             <div class="nav-logo">
-<!--                <img alt="promptLM logo" src="media/logo.png"/>-->
+                <img alt="promptLM logo" src="media/logo-horizontal.png"/>
             </div>
             <ul class="nav-menu">
                 <li><a href="#hero" class="nav-link">Home</a></li>
@@ -79,10 +79,7 @@
         <div class="hero-content">
             <div class="hero-text">
                 <h1 class="hero-title">
-                    <div class="nav-logo">
-                        <img alt="promptLM logo" src="media/logo.png"/>
-                    </div>
-                    <span>Revolutionize</span><br>
+                    <span class="gradient-text">promptLM</span> <span>Revolutionize</span><br>
                     AI <span class="gradient-text">prompt</span>
                     <span class="hero-inline"><span class="gradient-text">L</span>ifecycle</span>
                     <span class="hero-inline"><span class="gradient-text">M</span>anagement</span>
@@ -109,7 +106,7 @@
                             <span class="dot yellow"></span>
                             <span class="dot green"></span>
                         </div>
-                        <div class="code-title">prompt-spec.yaml</div>
+                        <div class="code-title">promptLM.yaml</div>
                     </div>
                     <div class="code-content">
                         <div class="code-line">
@@ -125,7 +122,10 @@
                             <span class="keyword">parameters</span>:
                         </div>
                         <div class="code-line indent">
-                            <span class="keyword">- text</span>: <span class="string">"I love this promptLM!"</span>
+                            <span class="keyword">- name</span>: <span class="string">text</span>
+                        </div>
+                        <div class="code-line indent">
+                            <span class="keyword">&nbsp;&nbsp;value</span>: <span class="string">"I love this promptLM thing!"</span>
                         </div>
                         <div class="code-line indent">
                             <span class="keyword">&nbsp;&nbsp;required</span>:
@@ -178,7 +178,7 @@
                         <i class="fas fa-code"></i>
                     </div>
                     <h3>Develop</h3>
-                    <p>Create and iterate on prompt specifications with powerful templating and validation tools.</p>
+                    <p>Create and iterate on prompt specifications with powerful templating and MCP & tools support.</p>
                 </div>
 
                 <div class="feature-card" data-section="eval">
@@ -186,7 +186,7 @@
                         <i class="fas fa-vial"></i>
                     </div>
                     <h3>Eval</h3>
-                    <p>Automated evaluations against multiple language models with comprehensive metrics.</p>
+                    <p>Use existing or provide custom evals for the prompt responses.</p>
                 </div>
 
                 <div class="feature-card" data-section="versioning">
@@ -202,7 +202,7 @@
                         <i class="fas fa-rocket"></i>
                     </div>
                     <h3>Release</h3>
-                    <p>Deploy tested prompts to production environments with confidence and reliability.</p>
+                    <p>Deploy tested prompts to production environments with confidence.</p>
                 </div>
 
                 <div class="feature-card" data-section="distribute">
@@ -210,15 +210,15 @@
                         <i class="fas fa-network-wired"></i>
                     </div>
                     <h3>Distribute</h3>
-                    <p>Share and distribute prompts across teams and organizations with integrated artifact management.</p>
+                    <p>Prompt Server, dependency or Repository access - pick your retrieval.</p>
                 </div>
 
                 <div class="feature-card" data-section="integrate">
                     <div class="feature-icon">
                         <i class="fas fa-cog"></i>
                     </div>
-                    <h3>Integrate</h3>
-                    <p>Seamlessly integrate with existing CI/CD pipelines and development workflows.</p>
+                    <h3>Test Support</h3>
+                    <p>Replay LLM responses for cost saving and deterministic tests for your agent and workflow code.</p>
                 </div>
             </div>
         </div>
@@ -235,12 +235,13 @@
                     </h2>
                     <h3>Powerful Prompt Development</h3>
                     <p class="feature-description">
-                        Create sophisticated prompt specifications through command line interface or web-ui.
-                        Define templates, placeholder and evaluations to verify expected outputs.
+                        Create sophisticated prompt specifications through command line interface or web-ui, backed by MCP and tool integrations.
+                        Define templates, placeholders, and evaluation hooks to verify expected outputs without leaving your editor.
                     </p>
                     <ul class="feature-list">
                         <li><i class="fas fa-check"></i> YAML-based prompt specifications</li>
-                        <li><i class="fas fa-check"></i> Template variables and dynamic content</li>
+                        <li><i class="fas fa-check"></i> Template variables, dynamic content, and placeholders</li>
+                        <li><i class="fas fa-check"></i> Built-in MCP tool discovery and execution</li>
                         <li><i class="fas fa-check"></i> Input validation and type checking</li>
                         <li><i class="fas fa-check"></i> IDE integration and autocomplete</li>
                         <li><i class="fas fa-check"></i> Real-time preview and testing</li>
@@ -272,14 +273,14 @@
                     </h2>
                     <h3>Comprehensive Evaluation Suite</h3>
                     <p class="feature-description">
-                        Run automated evaluations against multiple language models simultaneously. Measure prompt performance across scenarios, edge cases, and model variations with detailed metrics and reporting.
+                        Combine built-in evaluations with your own checks to inspect prompt responses across multiple language models. Measure behaviour across scenarios, edge cases, and regressions with rich reporting.
                     </p>
                     <ul class="feature-list">
                         <li><i class="fas fa-check"></i> Multi-model evaluation (GPT, Claude, etc.)</li>
-                        <li><i class="fas fa-check"></i> Automated eval execution</li>
-                        <li><i class="fas fa-check"></i> Performance benchmarking</li>
-                        <li><i class="fas fa-check"></i> Edge case detection</li>
-                        <li><i class="fas fa-check"></i> Detailed eval reports</li>
+                        <li><i class="fas fa-check"></i> Library of reusable eval presets</li>
+                        <li><i class="fas fa-check"></i> Drop-in support for custom eval logic</li>
+                        <li><i class="fas fa-check"></i> Performance benchmarking and drift alerts</li>
+                        <li><i class="fas fa-check"></i> Detailed eval reports and dashboards</li>
                     </ul>
                 </div>
                 <div class="feature-visual">
@@ -344,7 +345,7 @@
                     </h2>
                     <h3>Seamless Deployment</h3>
                     <p class="feature-description">
-                        Deploy tested prompts to production with confidence. Automated deployment pipelines ensure your prompts are properly validated and released across all environments.
+                        Deploy tested prompts to production environments with confidence using automated guardrails and approvals tailored for prompt releases.
                     </p>
                     <ul class="feature-list">
                         <li><i class="fas fa-check"></i> Automated deployment pipelines</li>
@@ -380,7 +381,7 @@
                     </h2>
                     <h3>Enterprise Distribution</h3>
                     <p class="feature-description">
-                        Share and distribute prompts across teams and organizations with integrated artifact management. Publish to registries, manage dependencies, and ensure secure distribution.
+                        Publish prompts through a prompt server, dependency packages, or repository access—letting teams choose the retrieval flow that fits their stack.
                     </p>
                     <ul class="feature-list">
                         <li><i class="fas fa-check"></i> Artifact registry integration</li>
@@ -406,24 +407,24 @@
     </section>
 
     <!-- Integration Section (for the 6th "test" section) -->
-    <section id="integrate" class="feature-section alternate">
+    <section id="test-support" class="feature-section alternate">
         <div class="container">
             <div class="feature-content">
                 <div class="feature-text">
                     <h2 class="feature-title">
                         <span class="feature-number">06</span>
-                        Integrate
+                        Test Support
                     </h2>
-                    <h3>CI/CD Integration</h3>
+                    <h3>Deterministic Test Support</h3>
                     <p class="feature-description">
-                        Seamlessly integrate promptLM into your existing development workflow. Connect with popular CI/CD platforms and automate your entire prompt engineering pipeline.
+                        Replay captured LLM responses to slash evaluation costs and keep your tests deterministic across CI, staging, and local development.
                     </p>
                     <ul class="feature-list">
-                        <li><i class="fas fa-check"></i> GitHub Actions integration</li>
-                        <li><i class="fas fa-check"></i> GitLab CI/CD support</li>
-                        <li><i class="fas fa-check"></i> Jenkins pipeline support</li>
-                        <li><i class="fas fa-check"></i> Custom webhook support</li>
-                        <li><i class="fas fa-check"></i> API-first architecture</li>
+                        <li><i class="fas fa-check"></i> Snapshot and replay LLM responses</li>
+                        <li><i class="fas fa-check"></i> Deterministic CI pipelines without model calls</li>
+                        <li><i class="fas fa-check"></i> Cost-saving offline regression suites</li>
+                        <li><i class="fas fa-check"></i> Tool-call and agent replay fidelity</li>
+                        <li><i class="fas fa-check"></i> API-first hooks for custom runners</li>
                     </ul>
                 </div>
                 <div class="feature-visual">
@@ -492,8 +493,7 @@
         <div class="container">
             <div class="footer-content">
                 <div class="footer-logo">
-                    <i class="fas fa-robot"></i>
-                    <span>promptLM</span>
+                    <img alt="promptLM" src="media/logo-horizontal.png" />
                 </div>
                 <div class="footer-links">
                     <a href="#features">Features</a>
