@@ -36,6 +36,7 @@
     <modules>
         <module>components/promptlm-domain</module>
         <module>components/promptlm-store</module>
+        <module>components/promptlm-lifecycle</module>
 <!--        <module>apps/promptlm-cli</module>-->
 <!--        <module>apps/promptlm-web-app</module>-->
 <!--        <module>components/promptlm-web-api</module>-->
@@ -47,7 +48,6 @@
 <!--        <module>components/promptlm-evaluation</module>-->
 <!--        <module>components/promptlm-report</module>-->
 <!--        <module>components/promptlm-core</module>-->
-<!--        <module>components/promptlm-lifecycle</module>-->
 <!--        <module>components/promptlm-template</module>-->
 <!--        <module>components/repository-template</module>-->
 <!--        <module>components/promptlm-rest-docs</module>-->
