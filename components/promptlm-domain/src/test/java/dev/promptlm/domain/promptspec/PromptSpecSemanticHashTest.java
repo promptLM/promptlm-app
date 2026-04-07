@@ -1,17 +1,29 @@
+/*
+ * Copyright 2025 promptLM
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package dev.promptlm.domain.promptspec;
 
+import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 class PromptSpecSemanticHashTest {
 
@@ -138,8 +150,8 @@ class PromptSpecSemanticHashTest {
     }
 
     @Test
-    void typedBuilderPopulatesSemanticHashField() {
-        PromptSpec spec = PromptSpecBuilder.builder()
+    void stagedBuilderLeavesSemanticHashUnsetUntilExplicitlyComputed() {
+        PromptSpec spec = PromptSpec.builder()
                 .withGroup("chat-group")
                 .withName("chat-spec")
                 .withVersion("1.0")
@@ -149,8 +161,11 @@ class PromptSpecSemanticHashTest {
                 .withPlaceholders(placeholders("PromptLM"))
                 .build();
 
-        assertNotNull(spec.getSemanticHash());
-        assertEquals(spec.computeSemanticHash(), spec.getSemanticHash());
+        assertNull(spec.getSemanticHash());
+
+        PromptSpec hashed = spec.withSemanticHashComputed();
+        assertNotNull(hashed.getSemanticHash());
+        assertEquals(hashed.computeSemanticHash(), hashed.getSemanticHash());
     }
 
     private static PromptSpec createSpec(String messageContent, String placeholderValue, String description) {
