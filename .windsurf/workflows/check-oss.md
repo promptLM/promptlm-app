@@ -236,6 +236,65 @@ Produce the report as structured Markdown using the following template and save 
 `oss-readiness-report-<module-name-or-project>-<YYYY-MM-DD>.md` in the project root.
 Print the path to the saved file at the end.
 
+---
+
+## Remediation Phase
+
+After saving the report, enter the interactive remediation phase.
+
+Collect all FAIL and WARN findings from the report into an ordered list: FAILs first, then WARNs. Skip findings with no actionable fix (e.g. "Tests pass — FAIL due to compilation error" where the root cause is unclear without more context).
+
+For each finding in that list, work through the following steps **one at a time**, waiting for user confirmation before proceeding to the next:
+
+### Step R1 — Present the finding
+
+Display a short block like:
+
+```
+───────────────────────────────────────────────────
+❌ / ⚠️  [n.n Check name]
+Finding: <one-sentence summary of what was found>
+───────────────────────────────────────────────────
+```
+
+### Step R2 — Propose fix(es)
+
+For the current finding, propose one or more concrete fixes. Keep each proposal to 2–4 lines:
+- What the fix does
+- Why it resolves the finding
+- Any risk or trade-off worth noting
+
+If there are multiple fix options (e.g. "add a header to each file" vs. "configure a Maven plugin to enforce headers"), list them as numbered options.
+
+### Step R3 — Ask the user
+
+Use the `ask_user_question` tool to ask:
+
+> "How would you like to handle this finding?"
+
+Offer these options:
+- **Apply fix** — implement the proposed fix (or the chosen option if multiple were listed)
+- **Skip for now** — move on without making a change
+- **Won't fix** — acknowledge and move on; note the decision in the report
+
+If there are multiple fix options, first ask which option to apply before asking Apply / Skip / Won't fix.
+
+### Step R4 — Act on the response
+
+- **Apply fix**: implement the change using the appropriate edit/shell tools. Confirm the change was applied successfully, then update the finding's status in the saved report file to reflect it was resolved.
+- **Skip for now**: note it in chat and move to the next finding.
+- **Won't fix**: append a "Won't fix: <user's reason if given>" note to that finding's row in the saved report, then move on.
+
+### Step R5 — Continue
+
+Repeat steps R1–R4 for the next finding until all FAIL and WARN findings have been handled.
+
+At the end of the remediation phase, print a short summary:
+- How many findings were fixed
+- How many were skipped
+- How many were marked won't fix
+- Whether any FAILs remain open
+
 ```markdown
 # OSS Readiness Report
 

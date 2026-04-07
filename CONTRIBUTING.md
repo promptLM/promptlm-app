@@ -5,14 +5,14 @@ Thank you for your interest in contributing!
 ## Getting Started
 
 1. Fork the repository and clone your fork.
-2. Build the project: `./build-jdk.sh`
+2. Build the project: `mvn clean verify`
 3. Create a feature branch: `git checkout -b feat/your-feature`
 
 ## Making Changes
 
 - Follow the existing code style and package structure.
 - Add or update tests for every change.
-- Run the full build before opening a pull request: `./build-full.sh`
+- Run the full build before opening a pull request: `mvn clean verify`
 
 ## License Headers
 
