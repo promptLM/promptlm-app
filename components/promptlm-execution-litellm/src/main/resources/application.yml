@@ -1,0 +1,5 @@
+# Placeholder configuration for LiteLLM gateway module.
+promptlm:
+  gateway:
+    litellm:
+      enabled: false
