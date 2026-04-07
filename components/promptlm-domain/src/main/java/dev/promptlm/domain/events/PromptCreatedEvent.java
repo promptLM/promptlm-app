@@ -18,5 +18,8 @@ package dev.promptlm.domain.events;
 
 import dev.promptlm.domain.promptspec.PromptSpec;
 
+/**
+ * Domain event fired when a new {@link PromptSpec} has been persisted for the first time.
+ */
 public record PromptCreatedEvent(PromptSpec promptSpec) {
 }

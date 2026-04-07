@@ -25,6 +25,10 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Entry point for prompt lifecycle operations, delegating to {@link PromptLifecycleService}.
+ * Covers creation, update, and release of prompt specifications.
+ */
 @Service
 public class PromptLifecycleFacade {
 

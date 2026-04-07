@@ -22,6 +22,9 @@ import dev.promptlm.domain.promptspec.PromptSpec;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Port for rendering a raw prompt template into a fully populated {@link dev.promptlm.domain.promptspec.PromptSpec}.
+ */
 public interface PromptTemplatePort {
     PromptSpec render(String templateContent,
                       String group,

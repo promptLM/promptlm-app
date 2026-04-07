@@ -21,6 +21,9 @@ import tools.jackson.core.JacksonException;
 import dev.promptlm.domain.ObjectMapperFactory;
 import io.swagger.v3.oas.annotations.media.Schema;
 
+/**
+ * Request type for image generation API calls (e.g. OpenAI {@code images/generations}).
+ */
 public class ImagesGenerationsRequest extends BaseRequest {
 
     public static final String TYPE = "images/generations";

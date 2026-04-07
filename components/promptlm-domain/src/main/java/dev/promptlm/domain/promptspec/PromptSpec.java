@@ -347,17 +347,7 @@ public class PromptSpec {
         return this.placeholders;
     }
 
-    @Deprecated
-    // TODO: Use constructor
-    public PromptSpec withUuid(UUID uuid) {
-
-        return this.uuid == uuid ? this : new PromptSpec(this.specVersion, uuid, this.id, this.name, this.group, this.version, this.revision, this.description, this.authors, this.purpose, this.repositoryUrl, this.status, this.createdAt, this.updatedAt, this.retiredAt, this.retiredReason, this.request, this.placeholders, this.response, this.extensions, this.path, this.executions, this.semanticHash);
-    }
-
-    @Deprecated
-    // TODO: Use constructor
     public PromptSpec withId(String id) {
-
         return this.id == id ? this : new PromptSpec(this.specVersion, this.uuid, id, this.name, this.group, this.version, this.revision, this.description, this.authors, this.purpose, this.repositoryUrl, this.status, this.createdAt, this.updatedAt, this.retiredAt, this.retiredReason, this.request, this.placeholders, this.response, this.extensions, this.path, this.executions, this.semanticHash);
     }
 

@@ -16,6 +16,9 @@
 
 package dev.promptlm.domain.promptspec;
 
+/**
+ * Audio encoding formats supported by speech synthesis response types.
+ */
 public enum ResponseFormat {
     MP3, OPUS, AAC, FLAC, WAV, PCM;
 }

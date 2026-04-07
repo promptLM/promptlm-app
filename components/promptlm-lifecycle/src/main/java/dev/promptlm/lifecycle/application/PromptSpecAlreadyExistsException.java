@@ -16,6 +16,9 @@
 
 package dev.promptlm.lifecycle.application;
 
+/**
+ * Thrown when attempting to create a prompt specification that already exists in the store.
+ */
 public class PromptSpecAlreadyExistsException extends RuntimeException {
     public PromptSpecAlreadyExistsException(String group, String name) {
         super("Prompt %s already exists".formatted(group + "/" + name));

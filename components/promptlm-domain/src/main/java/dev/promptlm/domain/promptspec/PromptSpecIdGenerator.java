@@ -18,6 +18,10 @@ package dev.promptlm.domain.promptspec;
 
 import java.util.List;
 
+/**
+ * Strategy for generating a deterministic identifier for a {@link PromptSpec},
+ * typically derived from its group, name, and message content.
+ */
 public interface PromptSpecIdGenerator {
     String generateId(String group, String name, List<ChatCompletionRequest.Message> userMessage);
 

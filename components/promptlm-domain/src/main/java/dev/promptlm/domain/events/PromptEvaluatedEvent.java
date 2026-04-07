@@ -18,5 +18,8 @@ package dev.promptlm.domain.events;
 
 import dev.promptlm.domain.promptspec.PromptSpec;
 
+/**
+ * Domain event fired after evaluation has been run on a {@link PromptSpec} execution.
+ */
 public record PromptEvaluatedEvent(PromptSpec promptSpec) {
 }

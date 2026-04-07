@@ -120,7 +120,7 @@ Relevant settings:
 +
 [source,bash]
 ----
-git clone https://github.com/fabapp2/promptlm.git
+git clone https://github.com/promptlm/promptlm-app.git
 cd promptlm
 ----
 
@@ -179,3 +179,7 @@ promptLM supports the prompt lifecycle up to release and deployment:
 * *Design:* Create and version prompt specifications.
 * *Release:* Publish prompt versions for consumers.
 * *Deploy:* Use released prompts in your application via the client SDK.
+
+== License
+
+promptLM is released under the link:LICENSE[Apache License 2.0].

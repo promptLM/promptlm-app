@@ -16,6 +16,10 @@
 
 package dev.promptlm.domain.promptspec;
 
+/**
+ * The outcome of a single evaluator run against a prompt execution,
+ * including the numeric score, evaluator identity, and optional reasoning.
+ */
 public class EvaluationResult {
     private String evaluator;
     private String type;

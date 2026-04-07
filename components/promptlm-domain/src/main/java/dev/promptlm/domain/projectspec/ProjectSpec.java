@@ -24,6 +24,10 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+/**
+ * Describes a prompt store repository registered in the application, including its identity,
+ * local path, remote URL, and current health status.
+ */
 @Schema(description = "Project specification for a prompt store repository")
 public class ProjectSpec {
     private UUID id;

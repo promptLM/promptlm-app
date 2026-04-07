@@ -20,6 +20,9 @@ import dev.promptlm.domain.promptspec.ChatCompletionRequest;
 
 import java.util.List;
 
+/**
+ * Port for generating deterministic prompt specification identifiers within the lifecycle module.
+ */
 public interface PromptIdGeneratorPort {
     String generateId(String group, String name, List<ChatCompletionRequest.Message> userMessage);
 }

@@ -22,6 +22,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Default in-memory implementation of {@link AppContext}.
+ * Deduplicates projects by id, repository directory, or repository URL when adding or replacing entries.
+ */
 public class BasicAppContext implements AppContext {
 
     private List<ProjectSpec> projects = new ArrayList<>();

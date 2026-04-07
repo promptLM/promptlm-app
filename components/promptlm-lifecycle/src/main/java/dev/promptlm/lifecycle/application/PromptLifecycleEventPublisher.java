@@ -16,6 +16,9 @@
 
 package dev.promptlm.lifecycle.application;
 
+/**
+ * Port for publishing domain events produced during the prompt lifecycle.
+ */
 public interface PromptLifecycleEventPublisher {
 
     void publishEvent(Object event);

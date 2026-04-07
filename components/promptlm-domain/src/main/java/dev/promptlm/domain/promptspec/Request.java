@@ -19,6 +19,10 @@ package dev.promptlm.domain.promptspec;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
+/**
+ * Marker interface for all LLM API request types supported by a {@link dev.promptlm.domain.promptspec.PromptSpec}.
+ * Implementations are discriminated by the {@code type} JSON property.
+ */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes({
         @JsonSubTypes.Type(value = ChatCompletionRequest.class, name = ChatCompletionRequest.TYPE),

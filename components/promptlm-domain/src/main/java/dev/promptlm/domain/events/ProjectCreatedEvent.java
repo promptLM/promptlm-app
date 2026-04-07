@@ -18,6 +18,9 @@ package dev.promptlm.domain.events;
 
 import dev.promptlm.domain.projectspec.ProjectSpec;
 
+/**
+ * Domain event fired when a new {@link dev.promptlm.domain.projectspec.ProjectSpec} has been registered.
+ */
 public class ProjectCreatedEvent {
 
     private final ProjectSpec projectSpec;

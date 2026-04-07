@@ -20,6 +20,10 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 
+/**
+ * Captures the response from a chat completion LLM call, including the generated content,
+ * token usage statistics, and wall-clock duration.
+ */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonTypeName("chat/completion")
 public class ChatCompletionResponse implements Response {

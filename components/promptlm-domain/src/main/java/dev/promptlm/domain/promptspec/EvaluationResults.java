@@ -21,6 +21,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
+/**
+ * Aggregated results from all evaluators run against a prompt execution.
+ * Derives an overall {@link EvaluationStatus} from the individual results.
+ */
 public class EvaluationResults {
 
     private final List<EvaluationResult> evaluations;

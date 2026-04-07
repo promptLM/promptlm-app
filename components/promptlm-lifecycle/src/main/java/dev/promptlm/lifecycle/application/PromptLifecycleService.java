@@ -23,6 +23,10 @@ import tools.jackson.databind.JsonNode;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Core service interface for managing the full lifecycle of a prompt specification:
+ * creation, update, execution persistence, and release.
+ */
 public interface PromptLifecycleService {
 
     PromptSpec createPrompt(String group,

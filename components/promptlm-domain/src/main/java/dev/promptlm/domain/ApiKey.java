@@ -16,6 +16,9 @@
 
 package dev.promptlm.domain;
 
+/**
+ * Holds an API key used to authenticate requests against an LLM vendor API.
+ */
 public class ApiKey {
     private String key;
 

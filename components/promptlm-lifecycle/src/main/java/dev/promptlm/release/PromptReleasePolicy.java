@@ -18,6 +18,10 @@ package dev.promptlm.release;
 
 import dev.promptlm.domain.promptspec.PromptSpec;
 
+/**
+ * Strategy for validating whether a prompt specification is eligible for release.
+ * Throw {@link PromptReleaseException} to block a release.
+ */
 public interface PromptReleasePolicy {
 
     void validateRelease(PromptSpec promptSpec);

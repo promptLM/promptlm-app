@@ -24,6 +24,9 @@ import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.dataformat.yaml.YAMLMapper;
 import tools.jackson.dataformat.yaml.YAMLWriteFeature;
 
+/**
+ * Factory for pre-configured Jackson {@link ObjectMapper} instances used throughout promptLM.
+ */
 public class ObjectMapperFactory {
     public static ObjectMapper createYamlMapper() {
         return YAMLMapper.builder()

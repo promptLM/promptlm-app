@@ -37,10 +37,10 @@
         <module>components/promptlm-domain</module>
         <module>components/promptlm-store</module>
         <module>components/promptlm-lifecycle</module>
+        <module>components/promptlm-execution</module>
 <!--        <module>apps/promptlm-cli</module>-->
 <!--        <module>apps/promptlm-web-app</module>-->
 <!--        <module>components/promptlm-web-api</module>-->
-<!--        <module>components/promptlm-execution</module>-->
 <!--        <module>components/promptlm-execution-springai</module>-->
 <!--        <module>components/promptlm-execution-litellm</module>-->
 <!--        <module>components/promptlm-execution-batch</module>-->

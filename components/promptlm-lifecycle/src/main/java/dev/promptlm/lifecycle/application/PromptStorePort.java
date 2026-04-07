@@ -20,6 +20,9 @@ import dev.promptlm.domain.promptspec.PromptSpec;
 
 import java.util.Optional;
 
+/**
+ * Port for persisting and retrieving prompt specifications from the backing store.
+ */
 public interface PromptStorePort {
     Optional<PromptSpec> findPromptSpec(String group, String name);
 

@@ -20,6 +20,10 @@ import dev.promptlm.domain.projectspec.ProjectSpec;
 
 import java.util.List;
 
+/**
+ * Central application context that holds the list of known projects and tracks
+ * the currently active project.
+ */
 public interface AppContext {
 
     List<ProjectSpec> getProjects();

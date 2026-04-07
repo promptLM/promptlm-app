@@ -16,6 +16,9 @@
 
 package dev.promptlm.domain.promptspec;
 
+/**
+ * Summarises the outcome of running evaluations against a {@link PromptSpec} execution.
+ */
 public enum EvaluationStatus {
     NOT_CONFIGURED,
     EVALUATED_OK,

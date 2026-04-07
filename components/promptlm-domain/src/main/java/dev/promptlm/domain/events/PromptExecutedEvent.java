@@ -18,5 +18,8 @@ package dev.promptlm.domain.events;
 
 import dev.promptlm.domain.promptspec.PromptSpec;
 
+/**
+ * Domain event fired after a {@link PromptSpec} has been executed against an LLM and the result recorded.
+ */
 public record PromptExecutedEvent(PromptSpec promptSpec) {
 }

@@ -19,6 +19,9 @@ package dev.promptlm.release;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import org.springframework.stereotype.Component;
 
+/**
+ * Default {@link PromptReleasePolicy} that permits all releases without additional constraints.
+ */
 @Component
 public class DefaultPromptReleasePolicy implements PromptReleasePolicy {
 

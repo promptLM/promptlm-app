@@ -22,6 +22,9 @@ import tools.jackson.databind.ValueSerializer;
 
 import java.nio.file.Path;
 
+/**
+ * Jackson serializer that writes a {@link java.nio.file.Path} as its string representation.
+ */
 public class PathToStringSerializer extends ValueSerializer<Path> {
     @Override
     public void serialize(Path path, JsonGenerator gen, SerializationContext context) {

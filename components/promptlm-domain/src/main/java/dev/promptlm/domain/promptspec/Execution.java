@@ -22,6 +22,10 @@ import java.util.List;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+/**
+ * Records a single execution of a {@link PromptSpec} against an LLM, capturing the timestamp,
+ * the concrete response, the placeholder values used, and any evaluation outcomes.
+ */
 public class Execution {
     private String id;
 
