@@ -1,16 +1,20 @@
+### Maven ###
+target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+### Build output ###
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+dist/
+
 ### IntelliJ IDEA ###
-.idea/modules.xml
-.idea/jarRepositories.xml
-.idea/compiler.xml
-.idea/libraries/
+.idea/
 *.iws
-**/*.iml
+*.iml
 *.ipr
-.idea
 
 ### Eclipse ###
 .apt_generated
@@ -18,39 +22,38 @@
 .factorypath
 .project
 .settings
-.springBeanse
+.springBeans
 
 ### NetBeans ###
 /nbproject/private/
 /nbbuild/
-/dist/
 /nbdist/
 /.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
 
 ### VS Code ###
 .vscode/
 
-### Mac OS ###
+### macOS ###
 .DS_Store
-/.idea/
-.vite
-/**/target/
-**/dist/
-/.env
-/apps/promptlm-cli/spring-shell.log
-/**/node_modules/
-/components/ui/node_modules/
-/**/storybook-static
-/docker/data/
 
-### Gitea Development Data ###
-# Don't commit Gitea runtime data - use Docker volumes instead
+### Node ###
+node_modules/
+storybook-static/
+.vite
+
+### Environment & secrets ###
+.env
+.venv
+
+### Logs ###
+spring-shell.log
+
+### Docker dev data ###
 gitea-data/
 gitea-config/
 .gitea/
+docker/data/
+
+### Misc ###
 .git.bck
 .playwright-cli/
-.venv
