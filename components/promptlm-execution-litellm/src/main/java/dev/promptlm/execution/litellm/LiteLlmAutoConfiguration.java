@@ -27,6 +27,17 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.web.client.RestClient;
 
+/**
+ * Auto-configuration for the LiteLLM prompt gateway.
+ *
+ * <p>Registers a {@link LiteLlmContainerManager} that optionally manages a local Docker
+ * container, a {@link RestClient} pointed at the configured LiteLLM base URL, and a
+ * {@link dev.promptlm.execution.PromptGateway} that forwards chat/completion requests to
+ * the LiteLLM HTTP endpoint.
+ *
+ * <p>Activated when {@code promptlm.gateway.litellm.enabled=true} and
+ * {@link RestClient} is on the classpath.
+ */
 @AutoConfiguration
 @ConditionalOnClass(RestClient.class)
 @EnableConfigurationProperties(LiteLlmGatewayProperties.class)
