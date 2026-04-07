@@ -27,6 +27,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.shell.core.NonInteractiveShellRunner;
 import org.springframework.shell.core.ShellRunner;
 import org.springframework.shell.core.command.CommandParser;
+import org.springframework.shell.core.command.CommandExecutionException;
+import org.springframework.shell.core.command.CommandNotFoundException;
 import org.springframework.shell.core.command.CommandRegistry;
 
 @SpringBootApplication
@@ -59,13 +61,41 @@ public class CliApplication {
                     shellRunner.run(sourceArgs);
                 }
                 else {
-                    new NonInteractiveShellRunner(commandParser, commandRegistry).run(sourceArgs);
+                    runNonInteractive(sourceArgs, commandParser, commandRegistry);
                 }
             }
             finally {
                 applicationContext.close();
             }
         };
+    }
+
+    private static void runNonInteractive(String[] sourceArgs,
+                                          CommandParser commandParser,
+                                          CommandRegistry commandRegistry) throws Exception {
+        try {
+            new NonInteractiveShellRunner(commandParser, commandRegistry).run(sourceArgs);
+        }
+        catch (CommandNotFoundException ex) {
+            System.err.println("Error: Command '%s' not found.".formatted(ex.getCommandName()));
+        }
+        catch (CommandExecutionException ex) {
+            System.err.println("Error: " + resolveErrorMessage(ex));
+        }
+    }
+
+    private static String resolveErrorMessage(CommandExecutionException ex) {
+        Throwable current = ex;
+        String bestMessage = ex.getMessage();
+        while (current != null) {
+            if (current.getMessage() != null && !current.getMessage().isBlank()) {
+                bestMessage = current.getMessage();
+            }
+            current = current.getCause();
+        }
+        return bestMessage != null && !bestMessage.isBlank()
+                ? bestMessage
+                : "Command execution failed.";
     }
 
     private static String[] normalizeArgs(String[] sourceArgs) {
