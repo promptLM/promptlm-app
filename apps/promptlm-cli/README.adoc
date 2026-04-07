@@ -1,0 +1,43 @@
+= promptLM CLI
+
+Command-line interface for managing prompts and repositories with promptLM.
+
+== Prerequisites
+
+* Java 21+
+* Maven 3.9+
+* `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY` environment variables set
+
+== Build
+
+[source,bash]
+----
+mvn clean install -pl apps/promptlm-cli -am
+----
+
+== Run
+
+[source,bash]
+----
+java -jar target/promptlm-cli-*.jar
+----
+
+== Commands
+
+[cols="1,2"]
+|===
+| Command | Description
+
+| `prompt create` | Create a new prompt
+| `prompt change`  | Update an existing prompt
+| `prompt release` | Release a prompt version
+| `prompt show`    | Display a prompt
+| `repo create`    | Create a remote repository
+| `repo clone`     | Clone a remote repository
+| `repo use`       | Set the active repository
+| `ui`             | Launch the promptLM web UI
+|===
+
+== License
+
+Apache License 2.0 — see link:../../LICENSE[LICENSE].
