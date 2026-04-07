@@ -38,6 +38,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+/**
+ * OpenAI vendor integration backed by Spring AI, supporting all models enumerated in
+ * {@link OpenAiApi.ChatModel} plus a set of additional well-known aliases.
+ */
 @Component
 public class OpenAiVendorClient implements SpringAiVendorClient {
 

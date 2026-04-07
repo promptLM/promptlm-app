@@ -4,13 +4,16 @@ promptLM is an open-source framework designed to help you manage, version, and r
 
 With the client SDKs, you can fetch released prompt specifications and use them in your application.
 
+== Introduction
+- Why, what, how, ...
+
 == Installation
 
 [tabs]
 ====
 Windows::
 +
-`./build-jdk.sh`
+`mvn clean verify`
 
 Mac::
 +
@@ -41,7 +44,25 @@ promptLM REST API::
 
 ====
 
-== Java SDK
+== Usage
+
+=== 1. Create a Project
+// TODO: Add correct cli command
+[source,bash]
+....
+promptlm project create ...
+....
+
+=== 2. Create a Prompt
+=== 3. Release the Prompt
+=== 4. Use the Prompt
+
+
+
+
+== Developer
+
+=== Java SDK
 
 The Java client SDK is maintained in https://github.com/promptLM/promptlm-client-sdk.
 
@@ -114,6 +135,39 @@ Relevant settings:
 * `promptlm.gateway.litellm.environment.<KEY>` passes upstream API keys or model-map configuration into the container.
 * `promptlm.gateway.litellm.discovery.*` enables optional model discovery from LiteLLM.
 
+== Spring AI Execution
+
+The `promptlm-execution-springai` module provides direct vendor client implementations for OpenAI and Anthropic, backed by https://spring.io/projects/spring-ai[Spring AI].
+
+=== Configuration
+
+Add the required API key properties to your `application.yml` or as environment variables:
+
+[source,yaml]
+----
+spring:
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY}
+----
+
+=== Supported Vendors and Models
+
+[cols="1,2"]
+|===
+|Vendor |Model identifiers
+
+|`openai`
+|All values from `OpenAiApi.ChatModel` (e.g. `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`, `o1`, `o3-mini`). An empty or null model falls back to the default configured in Spring AI.
+
+|`anthropic`
+|All values from `AnthropicApi.ChatModel` (e.g. `claude-3-5-sonnet`, `claude-3-opus`, `claude-3-haiku`). An empty or null model falls back to the default configured in Spring AI.
+|===
+
+The vendor field on a `PromptSpec` request is matched case-insensitively (e.g. `"OpenAI"` and `"openai"` both route to the OpenAI client).
+
 == Development Quickstart
 
 . Clone the repository:
@@ -121,7 +175,7 @@ Relevant settings:
 [source,bash]
 ----
 git clone https://github.com/promptlm/promptlm-app.git
-cd promptlm
+cd promptlm-app
 ----
 
 . Create a `.env` file (optional) based on `.env.example`.
@@ -130,7 +184,7 @@ cd promptlm
 +
 [source,bash]
 ----
-./build-jdk.sh
+mvn clean verify
 ----
 
 == CLI

@@ -30,6 +30,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * Utility methods for mapping {@link dev.promptlm.domain.promptspec.PromptSpec} fields
+ * to Spring AI request types ({@link org.springframework.ai.chat.messages.Message}, {@link org.springframework.ai.openai.OpenAiChatOptions}).
+ */
 public final class PromptSpecUtils {
 
     private PromptSpecUtils() {

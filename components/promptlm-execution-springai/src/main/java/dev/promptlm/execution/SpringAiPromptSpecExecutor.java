@@ -18,7 +18,6 @@ package dev.promptlm.execution;
 
 import dev.promptlm.execution.gateway.GatewayRequest;
 import dev.promptlm.execution.gateway.GatewayResponse;
-//import dev.promptlm.domain.promptspec.PromptSpec;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import org.springframework.stereotype.Component;
 
@@ -27,6 +26,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+/**
+ * {@link PromptGateway} implementation that delegates to the appropriate {@link SpringAiVendorClient}
+ * based on the vendor field of the incoming request.
+ */
 @Component
 public class SpringAiPromptSpecExecutor implements PromptGateway {
 
