@@ -28,14 +28,8 @@ import org.springframework.shell.core.NonInteractiveShellRunner;
 import org.springframework.shell.core.ShellRunner;
 import org.springframework.shell.core.command.CommandParser;
 import org.springframework.shell.core.command.CommandRegistry;
-import org.springframework.shell.core.command.annotation.EnableCommand;
 
 @SpringBootApplication
-@EnableCommand({
-        dev.promptlm.cli.PromptCommands.class,
-        dev.promptlm.cli.RepositoryCommands.class,
-        dev.promptlm.cli.UiCommands.class
-})
 @Import(ObjectMapperConfiguration.class)
 public class CliApplication {
 
