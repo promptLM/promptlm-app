@@ -18,7 +18,7 @@ Set `TARGET` to the resolved path: `$ARGUMENTS` if provided, otherwise the proje
 
 Work through every check category below **in order**. For each check, use shell commands, file reads, and grep searches to gather evidence. Do **not** skip a check because you assume it will pass — verify it.
 
-After completing all checks, generate a **OSS Readiness Report** (see report format below).
+After completing all checks, generate a **OSS Readiness Report** using the format defined in the [Report Format](#report-format) section below.
 
 ---
 
@@ -27,13 +27,13 @@ After completing all checks, generate a **OSS Readiness Report** (see report for
 Before running any checks, detect which languages and build systems are present in `TARGET`. Run:
 
 ```
-find TARGET -maxdepth 3 -name "pom.xml" -o -name "package.json" -o -name "pyproject.toml" -o -name "requirements.txt" -o -name "setup.py" -o -name "setup.cfg" | grep -v node_modules | grep -v target
+find TARGET -maxdepth 3 \( -name "pom.xml" -o -name "package.json" -o -name "pyproject.toml" -o -name "requirements.txt" -o -name "setup.py" -o -name "setup.cfg" \) | grep -v node_modules | grep -v target
 ```
 
 From the results, set one or more of these flags (can be multiple):
 - **LANG_JAVA** — `pom.xml` present
 - **LANG_NODE** — `package.json` present
-- **LANG_PYTHON** — `pyproject.toml`, `requirements.txt`, or `setup.py` present
+- **LANG_PYTHON** — `pyproject.toml`, `requirements.txt`, `setup.py`, or `setup.cfg` present
 
 Also identify the primary source directories:
 - Java: `src/main/java` under each Maven module
@@ -101,7 +101,7 @@ FAIL if `.env` is tracked: `git -C PROJECT_ROOT ls-files .env`
 
 **2.4 No internal infrastructure references**
 Scan all production source files in `TARGET` for hardcoded internal hostnames, private IPs, or internal domain patterns:
-`grep -rn "localhost\|127\.0\.0\.1\|192\.168\.\|10\.\|\.internal\|\.corp\|\.lan" TARGET`
+`grep -rn "localhost\|127\.0\.0\.1\|192\.168\.[0-9]\|10\.[0-9]\+\.[0-9]\+\.[0-9]\+\|\.internal\|\.corp\|\.lan" TARGET`
 Exclude `node_modules/`, `venv/`, `.venv/`, `target/`, `dist/`, test directories.
 Occurrences in test code are WARNING (acceptable for integration tests but should be documented); occurrences in production code are FAIL.
 
@@ -129,7 +129,8 @@ Check for `CODE_OF_CONDUCT.md` at `TARGET` or the project root. Its absence is a
 
 **3.4 Public API documentation**
 Check per detected language:
-- **Java** (LANG_JAVA): `grep -rL "/\*\*" TARGET/src/main/java --include="*.java"` to find public classes/interfaces without Javadoc.
+- **Java** (LANG_JAVA): Find files declaring a public type that have no Javadoc:
+  `grep -rl "public class\|public interface\|public @interface\|public enum" TARGET/src/main/java --include="*.java" | xargs grep -L "/\*\*"`
 - **TypeScript** (LANG_NODE): `grep -rL "/\*\*" TARGET/src --include="*.ts"` (excluding `node_modules/`, `dist/`). Check for JSDoc on exported functions/classes.
 - **Python** (LANG_PYTHON): `grep -rn "^def \|^class " TARGET --include="*.py"` and check whether each is preceded by a docstring (`"""`). Exclude `venv/`, `.venv/`.
 
@@ -150,7 +151,7 @@ Check per detected build system:
 
 **4.2 No unstable or private pre-release dependencies**
 Check per build system:
-- **Java**: List all `-SNAPSHOT` dependencies from `mvn dependency:tree`. Flag any SNAPSHOT that only exists in a private registry as FAIL.
+- **Java**: List all `-SNAPSHOT` dependencies from `mvn dependency:tree`. Flag any SNAPSHOT dependency as WARNING (unstable/unreleased). If a SNAPSHOT also appears only in a private `<repository>` identified in check 4.1, escalate to FAIL.
 - **Node**: Check `package.json` for `git+`, `github:`, `file:`, or `link:` dependency URLs — these block clean installs for external contributors (FAIL if private, WARNING if public git).
 - **Python**: Check for `git+`, `file://`, or VCS dependencies in `requirements.txt` or `pyproject.toml` (WARNING if public, FAIL if private).
 
@@ -188,7 +189,7 @@ Count comment-only lines in production source per language:
 - **Java/TypeScript/JavaScript**: `grep -rn "^\s*//" TARGET --include="*.java" --include="*.ts" --include="*.js" | grep -v "\* " | wc -l`
 - **Python**: `grep -rn "^\s*#" TARGET --include="*.py" | wc -l`
 
-A very high ratio of commented-out lines to total lines is a WARNING — it may hide sensitive logic or signal unfinished work.
+If the commented-out line count exceeds 20% of total source lines in the same scope, flag as WARNING — it may hide sensitive logic or signal unfinished work.
 
 **5.4 Tests present**
 Check per detected stack:
@@ -221,5 +222,68 @@ Missing entries are WARNINGs.
 
 **6.2 Large or unexpected binary files**
 Check for tracked binary files that are unlikely to belong in source control:
-`git -C PROJECT_ROOT ls-files -- "*.png" "*.jpg" "*.pdf" "*.zip" "*.docx" | grep TARGET`
-Unexpected binary files (e.g. documents
+`git -C TARGET ls-files -- "*.png" "*.jpg" "*.pdf" "*.zip" "*.docx"`
+Unexpected binary files (e.g. documents, spreadsheets, compiled artifacts) are a FAIL.
+
+---
+
+## Report Format
+
+Write the report to a file named `oss-readiness-report-<target-name>-<YYYY-MM-DD>.md` in the project root.
+
+Structure the report as follows:
+
+```markdown
+# OSS Readiness Report — <target> (<YYYY-MM-DD>)
+
+## Summary
+| Category               | Status           |
+|------------------------|------------------|
+| 1. Legal & Licensing   | PASS / WARN / FAIL |
+| 2. Secrets & Security  | PASS / WARN / FAIL |
+| 3. Documentation       | PASS / WARN / FAIL |
+| 4. Build & Dependencies| PASS / WARN / FAIL |
+| 5. Code Quality        | PASS / WARN / FAIL |
+| 6. Repository Hygiene  | PASS / WARN / FAIL |
+
+## Findings
+
+For each check that is not PASS, list:
+- **[check id] [check name]** — `FAIL` or `WARNING`
+  - Evidence: (file path / line number / command output excerpt)
+  - Suggested fix: (one sentence)
+
+## Notes
+- Detected stack: (LANG_JAVA / LANG_NODE / LANG_PYTHON)
+- Target: (resolved TARGET path)
+- Project root: (resolved PROJECT_ROOT path)
+```
+
+---
+
+## After the Report: Interactive Fix Walkthrough
+
+After writing the report file, **do not stop**. Walk the user through every FAIL and WARNING item interactively, in priority order (FAILs first, then WARNINGs).
+
+For each item:
+
+1. **State the problem** in one sentence, referencing the exact file and line where applicable.
+2. **Propose a concrete fix** — show the exact change (code snippet, config snippet, or shell command) that would resolve it.
+3. **Ask the user what to do** by presenting the following four mutually exclusive choices. Use interactive buttons or option selectors if the environment supports them; otherwise present a numbered list. Wait for the user's response before proceeding.
+
+   - **Apply fix** — Apply the proposed fix now using the available edit tools.
+   - **Skip** — Leave this item unchanged and move to the next one.
+   - **Apply all remaining** — Apply this fix and all subsequent fixes without asking again.
+   - **Stop** — Stop the walkthrough and summarise what was done so far.
+
+4. **Act on the response**:
+   - *Apply fix*: apply the edit, confirm it was applied, then move to the next item.
+   - *Skip*: note it as skipped and move to the next item.
+   - *Apply all remaining*: apply this fix and every remaining fix without prompting, then give the final summary.
+   - *Stop*: immediately give the final summary and halt.
+
+Rules for the walkthrough:
+- Keep each proposal short and focused — one problem, one fix.
+- If a fix requires information you don't have (e.g. a Docker Hub username, a registry URL), ask the user for it before presenting the choice buttons.
+- If a fix is outside the codebase (e.g. "publish to Maven Central", "run `docker login`"), state it clearly as a manual step and move on — do not block the walkthrough.
+- After all items have been addressed (fixed, skipped, or noted as manual), give a one-sentence summary of what was fixed and what remains.
