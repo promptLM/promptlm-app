@@ -1,0 +1,198 @@
+= Refined Project Structure and Workflow for Managing and Testing LLM Prompts
+
+:toc: left
+:toc-title: Contents
+:icons: font
+:sectnums:
+
+== Introduction
+
+Building on the previously discussed repository structure, we will further refine the project organization to accommodate multi-step prompt sequences. Additionally, we will walk through examples illustrating how the workflow operates and adapts over time, highlighting the roles of references, branches, commits, and tags. This comprehensive guide ensures that your GitHub repository remains organized, scalable, and maintainable as it evolves.
+
+== Refined Directory Structure
+
+To effectively manage multi-step prompt sequences and maintain clarity, we introduce the concept of **Prompt Groups**. Prompt Groups allow you to bundle related prompts that work together to achieve a complex task. Here's the updated directory structure:
+
+    repository-root/
+    │
+    ├── projects/
+    │   ├── <project_name>/
+    │   │   ├── prompts/
+    │   │   │   ├── <prompt_group_name>/
+    │   │   │   │   ├── <prompt_name_1>/
+    │   │   │   │   │   ├── <prompt_name_1>.md          # Optional: Prompt text and metadata
+    │   │   │   │   │   ├── PromptSpec.yaml
+    │   │   │   │   │   ├── executions/
+    │   │   │   │   │   │   ├── <execution_id_1>/
+    │   │   │   │   │   │   │   ├── RequestExecution.yaml
+    │   │   │   │   │   │   │   ├── AnalysisResult.yaml
+    │   │   │   │   │   │   │   └── TestResult.yaml
+    │   │   │   │   │   │   ├── <execution_id_2>/
+    │   │   │   │   │   │   │   ├── RequestExecution.yaml
+    │   │   │   │   │   │   │   ├── AnalysisResult.yaml
+    │   │   │   │   │   │   │   └── TestResult.yaml
+    │   │   │   │   │   │   └── …
+    │   │   │   │   │   └── README.md                  # Documentation for the prompt
+    │   │   │   │   ├── <prompt_name_2>/
+    │   │   │   │   │   ├── <prompt_name_2>.md
+    │   │   │   │   │   ├── PromptSpec.yaml
+    │   │   │   │   │   ├── executions/
+    │   │   │   │   │   │   ├── <execution_id_1>/
+    │   │   │   │   │   │   │   ├── RequestExecution.yaml
+    │   │   │   │   │   │   │   ├── AnalysisResult.yaml
+    │   │   │   │   │   │   │   └── TestResult.yaml
+    │   │   │   │   │   │   └── …
+    │   │   │   │   │   └── README.md
+    │   │   │   │   └── …
+    │   │   │   └── …
+    │   │   └── README.md                              # Documentation for the project
+    │   └── …
+    │
+    ├── reports/
+    │   └── output/
+    │       ├── index.html                              # Homepage summarizing all projects
+    │       ├── <project_name>.html                     # Detailed project reports
+    │       └── …
+    │
+    └── .github/
+    └── workflows/
+    └── automation.yml                           # GitHub Actions workflows
+
+
+=== Breakdown of the Refined Structure
+
+1. **projects/<project_name>/prompts/<prompt_group_name>/<prompt_name>/**
+
+- **Prompt Groups (`<prompt_group_name>/`):**
+- A logical grouping of related prompts that form a multi-step sequence or share a common objective.
+- Example: For a customer support project, a prompt group could be "order_handling" containing prompts like "welcome_message", "order_inquiry", and "order_resolution".
+
+- **Prompts (`<prompt_name>/`):**
+- Each prompt within a group is organized in its own subdirectory.
+- **<prompt_name>.md (Optional):**
+- Contains the prompt text and any relevant metadata.
+- Alternatively, embed the prompt text directly within `PromptSpec.yaml` to avoid redundancy.
+
+- **PromptSpec.yaml:**
+- Defines the specifications and parameters for the prompt.
+- Includes a `version` property that aligns with Git tags.
+- Example:
+```yaml
+version: v1.0
+description: "Initial greeting to customers upon first contact."
+vendor: "OpenAI"
+model: "GPT-4"
+api_endpoint: "https://api.openai.com/v1/chat/completions"
+parameters:
+temperature: 0.7
+max_tokens: 150
+```
+
+- **executions/:**
+- Contains all executions related to the prompt.
+- Each execution is stored in a uniquely named subdirectory (e.g., based on timestamp).
+- **<execution_id>/:**
+- **RequestExecution.yaml:** Details of the request sent to the LLM, including a reference to the `PromptSpec.yaml` version.
+- **AnalysisResult.yaml:** Results from analyzing the execution output.
+- **TestResult.yaml:** Outcomes of tests performed on the execution results.
+- **Example (`RequestExecution.yaml`):**
+```yaml
+prompt_version: v1.0
+timestamp: "2024-04-01T10:00:00Z"
+input: "Hello! How can I assist you today?"
+output: "Hi! I need help with my order."
+environment:
+LLM_version: "GPT-4"
+parameters:
+temperature: 0.7
+max_tokens: 150
+```
+
+- **README.md:**
+- Provides documentation specific to the prompt, including its purpose, usage instructions, and any other pertinent information.
+
+2. **reports/output/:**
+
+- **index.html:**
+- Serves as the homepage, summarizing all projects and their key metrics.
+
+- **<project_name>.html:**
+- Contains detailed reports for each project, showcasing individual prompt groups, prompts, and their execution histories.
+
+- **Additional Reports:**
+- Any other necessary reports can be added as needed.
+
+3. **.github/workflows/automation.yml:**
+
+- Defines the GitHub Actions workflows to automate tasks such as verifying prompt uniqueness, executing prompts, evaluating results, running tests, and generating reports.
+- **External Actions:** All scripts and actions are handled externally (Java or Docker actions), ensuring that the repository remains free of embedded code.
+
+== Workflow Operation and Adaptation Over Time
+
+Understanding how the workflow operates and adapts over time is crucial for maintaining an efficient and scalable system. Below, we walk through examples demonstrating the roles of references, branches, commits, and tags, as well as the organization of physical files within the GitHub repository for specific versions or revisions.
+
+=== Git Branching Strategy
+
+Adopting a clear branching strategy ensures that development, testing, and deployment processes are streamlined. Here's a recommended approach:
+
+1. **Main Branch (`main`):**
+- Serves as the primary branch representing the production-ready state.
+- Contains stable prompt versions and execution histories.
+
+2. **Development Branch (`develop`):**
+- Used for active development and integration of new features or prompt updates.
+- Ensures that `main` remains stable.
+
+3. **Feature Branches (`feature/<feature_name>`):**
+- Created from `develop` for developing specific features or prompt enhancements.
+- Once development is complete, merged back into `develop`.
+
+4. **Release Branches (`release/<version>`):**
+- Created from `develop` when preparing for a new release.
+- Allows for final testing and bug fixes before merging into `main` and tagging.
+
+5. **Hotfix Branches (`hotfix/<issue>`):**
+- Created from `main` to address urgent issues or bugs.
+- After fixes, merged back into both `main` and `develop`.
+
+**Example Branching Workflow:**
+
+```bash
+# Create and switch to the develop branch
+git checkout -b develop
+
+# Create a feature branch for updating a prompt
+git checkout -b feature/update-welcome-message
+
+# After development, commit changes
+git add projects/prompts/order_handling/welcome_message/
+git commit -m "Update welcome_message prompt to handle new customer scenarios"
+
+# Merge the feature branch back into develop
+git checkout develop
+git merge feature/update-welcome-message
+
+# Delete the feature branch
+git branch -d feature/update-welcome-message
+
+# When ready to release, create a release branch
+git checkout -b release/v1.1
+
+# Perform any final testing or adjustments
+# Commit changes if necessary
+
+# Tag the release
+git tag -a v1.1 -m "Release version v1.1 of welcome_message"
+
+# Merge the release branch into main and develop
+git checkout main
+git merge release/v1.1
+git checkout develop
+git merge release/v1.1
+
+# Push changes and tags to remote
+git push origin main develop
+git push origin v1.1
+
+# Delete the release branch
+git branch -d release/v1.1

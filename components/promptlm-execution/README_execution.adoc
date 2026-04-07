@@ -1,0 +1,30 @@
+= Prompt Execution
+
+> Helps with direct or deferred (batch) executions of one or more prompts.
+
+== Direct Execution
+
+[plantuml,"prompt-execution-overview",svg]
+....
+class PromptExecutionRequest
+class PromptExecutionSpec
+class PromptExecution
+class PromptExecutionResult
+
+PromptExecutionRequest ..> PromptExecutionSpec
+PromptExecution --> PromptExecutionRequest : IN
+PromptExecution --> PromptExecutionResult : OUT
+....
+
+== Batch Execution
+[plantuml,"prompt-batch-execution-overview",svg]
+....
+class PromptBatchExecutions
+class PromptBatchExecutionCallback
+
+BatchedPromptExecutionRequest --> PromptExecutionRequest : <<wraps>>
+
+PromptBatchExecutionRequest ..> PromptBatchExecutions : IN
+PromptBatchExecutionRequest .> PromptBatchExecutionCallback : OUT
+
+....
