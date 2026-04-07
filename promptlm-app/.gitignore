@@ -1,0 +1,72 @@
+--..target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### IntelliJ IDEA ###
+.idea/modules.xml
+.idea/jarRepositories.xml
+.idea/compiler.xml
+.idea/libraries/
+*.iws
+**/*.iml
+*.ipr
+.idea
+
+### Eclipse ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeanse
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### Mac OS ###
+.DS_Store
+/.idea/
+.vite
+/**/target/
+**/dist/
+/.env
+/apps/promptlm-cli/spring-shell.log
+/**/node_modules/
+/components/ui/node_modules/
+/**/storybook-static
+/docker/data/
+
+### Gitea Development Data ###
+# Don't commit Gitea runtime data - use Docker volumes instead
+gitea-data/
+gitea-config/
+.gitea/
+.git.bck
+.playwright-cli/
+.venv
+/_internal/docs/drive-download-20260311T122302Z-3-001/Pre-Seed and Seed Fundraising Strategy for AI Startups in Germany and the EU.docx
+/_internal/docs/drive-download-20260311T122302Z-3-001/promptLM - A holistic view.docx
+/_internal/docs/drive-download-20260311T122302Z-3-001/promptLM Commercial Features.docx
+/_internal/docs/drive-download-20260311T122302Z-3-001/promptLM_ VC These.docx
+/_internal/docs/drive-download-20260311T122302Z-3-001/Vitor _ Fab – 2026_02_26 18_00 CET – Notizen von Gemini.docx
+/_internal/docs/drive-download-20260311T122302Z-3-001.zip
+/_internal/docs/market-research.pdf
+/_internal/docs/NotebookLM Mind Map.png
+/_internal/docs/unnamed.png
+/_internal/uiux/screencapture-app-prompthub-us-projects-5772-2025-09-19-22_51_38.png
+/_internal/uiux/screencapture-app-prompthub-us-projects-5772-2025-09-19-22_53_23.png
+/_internal/uiux/screencapture-platform-openai-chat-edit-2025-09-19-23_19_01.png
+/_internal/uiux/screencapture-platform-openai-chat-edit-2025-09-19-23_37_29.png
+/_internal/uiux/screencapture-platform-openai-chat-edit-2025-09-19-23_37_43.png
+/excalidraw-diagrams/
