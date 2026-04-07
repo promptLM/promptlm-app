@@ -33,19 +33,9 @@
         <url>https://github.com/promptlm/promptlm-app</url>
     </scm>
 
-    <repositories>
-        <repository>
-            <id>github</id>
-            <name>GitHub Packages (promptlm-gitea-artifactory)</name>
-            <url>https://maven.pkg.github.com/promptlm/promptlm-gitea-artifactory</url>
-            <snapshots>
-                <enabled>true</enabled>
-            </snapshots>
-        </repository>
-    </repositories>
-
     <modules>
         <module>components/promptlm-domain</module>
+        <module>components/promptlm-store</module>
 <!--        <module>apps/promptlm-cli</module>-->
 <!--        <module>apps/promptlm-web-app</module>-->
 <!--        <module>components/promptlm-web-api</module>-->
@@ -58,7 +48,6 @@
 <!--        <module>components/promptlm-report</module>-->
 <!--        <module>components/promptlm-core</module>-->
 <!--        <module>components/promptlm-lifecycle</module>-->
-<!--        <module>components/promptlm-store</module>-->
 <!--        <module>components/promptlm-template</module>-->
 <!--        <module>components/repository-template</module>-->
 <!--        <module>components/promptlm-rest-docs</module>-->
