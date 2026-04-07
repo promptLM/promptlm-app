@@ -8,17 +8,11 @@ Thank you for your interest in contributing!
 2. Build the project: `./build-jdk.sh`
 3. Create a feature branch: `git checkout -b feat/your-feature`
 
-## Development Requirements
-
-- Java 21 (Temurin recommended)
-- Maven 3.9+
-- Docker (for integration tests)
-
 ## Making Changes
 
 - Follow the existing code style and package structure.
 - Add or update tests for every change.
-- Run the full build before opening a pull request: `./build-jdk.sh`
+- Run the full build before opening a pull request: `./build-full.sh`
 
 ## License Headers
 
