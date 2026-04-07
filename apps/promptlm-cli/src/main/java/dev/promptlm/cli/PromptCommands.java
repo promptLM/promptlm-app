@@ -101,6 +101,7 @@ public class PromptCommands {
             @Option(longName = "id", required = true) String id,
             @Option(longName = "userMessage", shortName = 'u', required = true) String userMessage
     ) {
+        // FIXME: Reactivate this command
         return "prompt change is no longer supported in the CLI. Use `promptlm ui` and edit the prompt in the web UI.";
         // promptLMSpecService.updatePrompt(id, )
     }
