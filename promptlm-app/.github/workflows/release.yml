@@ -1,0 +1,215 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Type of release (major, minor, patch)'
+        required: true
+        type: choice
+        options:
+          - major
+          - minor
+          - patch
+
+jobs:
+  calculate_version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.set-version.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Determine Current Version
+        id: current-version
+        run: |
+          # Fetch the current version from your codebase (e.g., from pom.xml or VERSION file)
+          current_version=$(mvn -q -Dexec.executable=echo -Dexec.args='${project.version}' --non-recursive exec:exec)
+          echo "current_version=$current_version" >> $GITHUB_ENV
+
+      - name: Set Next Version
+        id: set-version
+        run: |
+          current_version="${{ env.current_version }}"
+          IFS='.' read -r -a version_parts <<< "$current_version"
+          
+          case "${{ github.event.inputs.release_type }}" in
+            "major")
+              ((version_parts[0]++))
+              version_parts[1]=0
+              version_parts[2]=0
+              ;;
+            "minor")
+              ((version_parts[1]++))
+              version_parts[2]=0
+              ;;
+            "patch")
+              ((version_parts[2]++))
+              ;;
+          esac
+          
+          next_version="${version_parts[0]}.${version_parts[1]}.${version_parts[2]}"
+          echo "next_version=$next_version" >> $GITHUB_ENV
+          echo "::set-output name=version::$next_version"
+
+  release:
+    needs: calculate_version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+          server-id: github
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+
+      - name: Configure Git
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+
+      - name: Setup Maven Settings
+        run: |
+          echo ${{ github.actor }}
+          echo "<settings>
+            <servers>
+              <server>
+                <id>github</id>
+                <username>${{ github.actor }}</username>
+                <password>${{ secrets.PAT_TOKEN }}</password>
+              </server>
+            </servers>
+          </settings>" > ~/.m2/settings.xml
+
+      - name: Prepare Maven Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          mvn -B release:clean release:prepare \
+            -DscmCredentialsId=github \
+            -DpushChanges=false \
+            -DcheckModificationExcludes=.m2/settings.xml \
+            -DreleaseVersion=${{ needs.calculate_version.outputs.version }}  \
+            -DdevelopmentVersion=${{ needs.calculate_version.outputs.version }}-SNAPSHOT
+
+      - name: Perform Maven Release
+        run: mvn release:perform -DlocalCheckout=true
+
+      - name: Upload JAR Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-jars
+          path: apps/**/target/*-exec.jar
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true
+
+  build-native:
+    needs: release
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: 'graalvm-community'
+          components: 'native-image'
+      - name: Build native executables
+        run: mvn -Pnative -pl apps/promptlm-cli,apps/promptlm-webapp -am -DskipTests package
+      - name: Collect native binaries
+        run: |
+          mkdir -p target/native
+          cp apps/promptlm-cli/target/promptlm-cli target/native/promptlm-cli-macos
+          cp apps/promptlm-webapp/target/promptlm-webapp target/native/promptlm-webapp-macos
+      - name: Upload Native Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-binaries
+          path: target/native/*
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true
+
+  create-github-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: write
+    needs: [release, build-native]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prep dir
+        run: |
+          mkdir -p target/jars
+          mkdir -p target/native
+
+      - name: Download JAR Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-jars
+          merge-multiple: true
+          path: target/jars
+
+      - name: Download Native Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: native-binaries
+          path: target/native
+
+      - name: "Debug: List Release Artifacts"
+        run: |
+          ls -R target/jars
+          ls -R target/native
+
+      - name: Generate Changelog
+        id: changelog
+        uses: mikepenz/release-changelog-builder-action@v5
+        with:
+          configurationJson: |
+            {
+              "template": "#{{CHANGELOG}}\n\n<details>\n<summary>Uncategorized</summary>\n\n#{{UNCATEGORIZED}}\n</details>",
+              "pr_templatze": "#{{TITLE}} (#{{ASSIGNEES[*]}})",
+              "categories": [
+                {
+                  "title": "## 🚀 Features",
+                  "labels": ["enhancement"]
+                },
+                {
+                  "title": "## 🐛 Fixes",
+                  "labels": ["bug"]
+                },
+                {
+                  "title": "## 💬 Other",
+                  "labels": ["other"]
+                }
+              ]
+            }
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+
+      - name: Create Release
+        uses: mikepenz/action-gh-release@v1
+        with:
+          tag_name: v${{ inputs.releaseVersion }}
+          files: |
+            target/jars/**/*.jar
+            target/native/*
+          body: ${{steps.changelog.outputs.changelog}}
+
