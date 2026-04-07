@@ -43,7 +43,7 @@
         <module>components/promptlm-evaluation</module>
         <module>components/repository-template</module>
         <module>components/promptlm-core</module>
-        <!--        <module>apps/promptlm-cli</module>-->
+        <module>apps/promptlm-cli</module>
         <!--        <module>apps/promptlm-web-app</module>-->
         <!--        <module>components/promptlm-web-api</module>-->
 <!--        <module>components/promptlm-execution-batch</module>-->
@@ -75,6 +75,22 @@
                 <artifactId>swagger-annotations</artifactId>
                 <version>${swagger-annotations.version}</version>
             </dependency>
+            <dependency>
+                <groupId>org.springframework.modulith</groupId>
+                <artifactId>spring-modulith-starter-core</artifactId>
+                <version>${spring-modulith.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.modulith</groupId>
+                <artifactId>spring-modulith-runtime</artifactId>
+                <version>${spring-modulith.version}</version>
+                <scope>runtime</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.modulith</groupId>
+                <artifactId>spring-modulith-events-api</artifactId>
+                <version>${spring-modulith.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -103,6 +119,9 @@
                     <groupId>org.springframework.boot</groupId>
                     <artifactId>spring-boot-maven-plugin</artifactId>
                     <version>${spring-boot-maven-plugin.version}</version>
+                    <configuration>
+                        <skip>true</skip>
+                    </configuration>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
