@@ -19,6 +19,9 @@ package dev.promptlm;
 import dev.promptlm.cli.PromptCommands;
 import dev.promptlm.cli.RepositoryCommands;
 import dev.promptlm.cli.UiCommands;
+import dev.promptlm.domain.BasicAppContext;
+import dev.promptlm.domain.projectspec.ProjectHealthStatus;
+import dev.promptlm.domain.projectspec.ProjectSpec;
 import org.springframework.aot.hint.MemberCategory;
 import org.springframework.aot.hint.RuntimeHints;
 import org.springframework.aot.hint.RuntimeHintsRegistrar;
@@ -88,6 +91,10 @@ class CliNativeConfiguration {
                                     MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
                                     MemberCategory.INVOKE_DECLARED_METHODS
                             )));
+
+            Stream.of(BasicAppContext.class, ProjectSpec.class, ProjectHealthStatus.class)
+                    .forEach(cls -> hints.reflection().registerType(cls, hint ->
+                            hint.withMembers(MemberCategory.values())));
         }
 
     }

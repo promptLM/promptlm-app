@@ -1,5 +1,4 @@
-spring.application.name: promptlm-cli
-spring.main.web-application-type: none
+spring.application.name: promptlm-webapp
 watch:
   api-polling-interval: 10_000
   dir-polling-interval: 1_000
@@ -7,6 +6,9 @@ watch:
 debug: false
 
 promptlm:
+  openapi:
+    examples:
+      enabled: false
   store:
     local:
       workspace-root: ${user.home}
@@ -19,19 +21,26 @@ promptlm:
 spring:
   ai:
     openai:
-      api-key: ${OPENAI_API_KEY}
+      api-key: ${OPENAI_API_KEY:test-mock-api-key-for-testing}
     anthropic:
-      api-key: ${ANTHROPIC_API_KEY}
+      api-key: ${ANTHROPIC_API_KEY:test-mock-anthropic-api-key-for-testing}
+
+management:
+  endpoints:
+    web:
+      base-path: /api/monitor
+      exposure:
+        include: health,info
+      path-mapping:
+        health: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+server:
+  port: 8085
 
 logging:
   level:
     root: warn
-
-management:
-  metrics:
-    binders:
-      jvm:
-        enabled: false
-    enable:
-      jvm:
-        gc: false
