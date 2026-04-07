@@ -1,0 +1,197 @@
+name: Build Prompts Bundle
+
+on:
+  workflow_call:
+    inputs:
+      skip-tests:
+        description: 'Skip running tests during the Maven build'
+        required: false
+        type: boolean
+        default: false
+      version:
+        description: 'Version string to use when packaging artifacts'
+        required: false
+        type: string
+      set-version:
+        description: 'Run mvn versions:set with the provided version before building'
+        required: false
+        type: boolean
+        default: false
+      fetch-depth:
+        description: 'Depth passed to actions/checkout'
+        required: false
+        type: number
+        default: 0
+    outputs:
+      version:
+        description: 'Resolved version used for packaging'
+        value: ${{ jobs.build.outputs.version }}
+      jar-artifact:
+        description: 'Name of the uploaded prompts JAR artifact'
+        value: ${{ jobs.build.outputs.jar-artifact }}
+      jar-path:
+        description: 'Relative path to the packaged prompts JAR file'
+        value: ${{ jobs.build.outputs.jar-path }}
+      test-support-artifact:
+        description: 'Name of the uploaded test-support artifact (if any)'
+        value: ${{ jobs.build.outputs.test-support-artifact }}
+      test-support-zip:
+        description: 'Relative path to the packaged test-support ZIP (if created)'
+        value: ${{ jobs.build.outputs.test-support-zip }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ghcr.io/catthehacker/ubuntu:act-22.04
+    env:
+      OPENAI_API_KEY: ${{ vars.OPENAI_API_KEY }}
+      REPO_REMOTE_URL: ${{ vars.REPO_REMOTE_URL }}
+      REPO_REMOTE_USERNAME: ${{ vars.REPO_REMOTE_USERNAME }}
+      REPO_REMOTE_TOKEN: ${{ vars.REPO_REMOTE_TOKEN }}
+      ARTIFACTORY_URL: ${{ vars.ARTIFACTORY_URL }}
+      ARTIFACTORY_REPOSITORY: ${{ vars.ARTIFACTORY_REPOSITORY }}
+      ARTIFACTORY_USERNAME: ${{ vars.ARTIFACTORY_USERNAME }}
+      ARTIFACTORY_PASSWORD: ${{ vars.ARTIFACTORY_PASSWORD }}
+      PROMPTLM_UPLOAD_ARTIFACTS: ${{ vars.PROMPTLM_UPLOAD_ARTIFACTS }}
+    outputs:
+      version: ${{ steps.resolve_version.outputs.version }}
+      jar-artifact: ${{ steps.package.outputs.jar_artifact }}
+      jar-path: ${{ steps.package.outputs.jar_path }}
+      test-support-artifact: ${{ steps.package.outputs.test_support_artifact }}
+      test-support-zip: ${{ steps.package.outputs.test_support_zip }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: ${{ inputs.fetch-depth }}
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Ensure Maven
+        shell: bash
+        run: |
+          if command -v mvn >/dev/null 2>&1; then
+            mvn -version
+            exit 0
+          fi
+
+          if command -v apt-get >/dev/null 2>&1; then
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update
+            apt-get install -y maven
+          else
+            echo "Unsupported package manager for Maven installation" >&2
+            exit 1
+          fi
+
+          mvn -version
+
+      - name: Cache Maven repository
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            !~/.m2/repository/dev/promptlm
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Resolve packaging version
+        id: resolve_version
+        shell: bash
+        run: |
+          VERSION="${{ inputs.version }}"
+          if [ -z "$VERSION" ]; then
+            VERSION=$(git rev-parse --short HEAD)
+          fi
+          echo "Resolved version: $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Set project version
+        if: ${{ inputs.set-version && inputs.version != '' }}
+        run: mvn -B -ntp versions:set -DnewVersion=${{ inputs.version }} -DgenerateBackupPoms=false
+
+      - name: Build project
+        shell: bash
+        run: |
+          if [ "${{ inputs.skip-tests }}" = "true" ]; then
+            mvn -B -ntp clean package -DskipTests
+          else
+            mvn -B -ntp clean verify
+          fi
+
+      - name: Generate test support artifacts
+        shell: bash
+        run: |
+          if mvn -B -ntp help:describe -Dplugin=dev.promptlm:promptlm-test-support-generator -Ddetail=false >/dev/null 2>&1; then
+            mvn -B -ntp dev.promptlm:promptlm-test-support-generator:generate-test-support
+          else
+            echo "promptlm-test-support-generator plugin is not resolvable in this environment; skipping test-support generation."
+          fi
+
+      - name: Ensure packaging prerequisites
+        run: |
+          if command -v zip >/dev/null 2>&1; then
+            echo "zip already available"
+          else
+            apt-get update
+            apt-get install -y zip
+          fi
+
+      - name: Package prompts jar
+        id: package
+        shell: bash
+        env:
+          VERSION: ${{ steps.resolve_version.outputs.version }}
+        run: |
+          mkdir -p build/jar-root/META-INF
+          cp -r prompts build/jar-root/prompts
+
+          if [ -f .promptlm/prompts-meta.json ]; then
+            cp .promptlm/prompts-meta.json build/jar-root/META-INF/prompts-meta.json
+          else
+            echo "{\"version\": \"${VERSION}\"}" > build/jar-root/META-INF/prompts-meta.json
+          fi
+
+          JAR_NAME="prompts-${VERSION}.jar"
+          jar cf "$JAR_NAME" -C build/jar-root .
+
+          TEST_SUPPORT_DIR="target/generated-test-support"
+          TEST_SUPPORT_ARTIFACT="test-support-${VERSION}"
+          TEST_SUPPORT_ZIP=""
+          if [ -d "$TEST_SUPPORT_DIR" ] && [ "$(find "$TEST_SUPPORT_DIR" -type f | wc -l)" -gt 0 ]; then
+            zip -r "${TEST_SUPPORT_ARTIFACT}.zip" "$TEST_SUPPORT_DIR"
+            TEST_SUPPORT_ZIP="${TEST_SUPPORT_ARTIFACT}.zip"
+          fi
+
+          echo "jar_path=$JAR_NAME" >> "$GITHUB_OUTPUT"
+          echo "jar_artifact=prompts-${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "test_support_artifact=${TEST_SUPPORT_ARTIFACT}" >> "$GITHUB_OUTPUT"
+          echo "test_support_zip=$TEST_SUPPORT_ZIP" >> "$GITHUB_OUTPUT"
+
+      - name: Upload prompts artifact
+        if: ${{ env.PROMPTLM_UPLOAD_ARTIFACTS != 'false' && steps.package.outputs.jar_artifact != '' }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ steps.package.outputs.jar_artifact }}
+          path: ${{ steps.package.outputs.jar_path }}
+
+      - name: Upload test support artifacts
+        if: ${{ env.PROMPTLM_UPLOAD_ARTIFACTS != 'false' && steps.package.outputs.test_support_artifact != '' }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ steps.package.outputs.test_support_artifact }}
+          path: target/generated-test-support/
+
+      - name: Upload test support ZIP
+        if: ${{ env.PROMPTLM_UPLOAD_ARTIFACTS != 'false' && steps.package.outputs.test_support_zip != '' }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ steps.package.outputs.test_support_artifact }}-zip
+          path: ${{ steps.package.outputs.test_support_zip }}

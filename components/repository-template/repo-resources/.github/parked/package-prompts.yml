@@ -1,0 +1,10 @@
+name: Package Prompts Jar
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  package:
+    uses: ./.github/workflows/build-prompts-reusable.yml

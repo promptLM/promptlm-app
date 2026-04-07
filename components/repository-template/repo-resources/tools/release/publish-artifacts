@@ -1,0 +1,179 @@
+#!/usr/bin/env python3
+import argparse
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+try:
+    import tomllib  # Python 3.11+
+except ModuleNotFoundError:  # pragma: no cover
+    tomllib = None
+
+
+def eprint(message: str) -> None:
+    print(message, file=sys.stderr)
+
+
+def run(cmd, cwd=None) -> None:
+    subprocess.run(cmd, cwd=cwd, check=True)
+
+
+def read_toml(path: Path) -> dict:
+    if tomllib is None:
+        raise RuntimeError("Python 3.11+ is required (tomllib missing).")
+    with path.open("rb") as handle:
+        return tomllib.load(handle)
+
+
+def resolve_targets(manifest: dict) -> list[str]:
+    project = manifest.get("project", {})
+    targets = project.get("targets")
+    if targets is None:
+        targets = manifest.get("targets")
+    if targets is None:
+        return []
+    if not isinstance(targets, list):
+        raise ValueError("targets must be a list")
+    return [str(t).strip() for t in targets if str(t).strip()]
+
+
+def resolve_version(manifest: dict) -> str:
+    project = manifest.get("project", {})
+    version = project.get("version")
+    if not version:
+        raise RuntimeError("project.version must be set when targets are configured")
+    return str(version)
+
+
+def publish_java(manifest: dict, version: str, profile: dict, dist_dir: Path) -> None:
+    config = manifest.get("artifacts", {}).get("java", {})
+    group_id = config.get("group_id")
+    artifact_id = config.get("artifact_id")
+    packaging = config.get("packaging", "jar")
+    if not group_id or not artifact_id:
+        raise RuntimeError("Java artifact requires group_id and artifact_id")
+
+    jar_path = dist_dir / "java" / f"{artifact_id}-{version}.jar"
+    if not jar_path.exists():
+        raise RuntimeError(f"Java artifact not found: {jar_path}")
+
+    url = profile.get("maven_repo_url")
+    if not url:
+        raise RuntimeError("maven_repo_url is required for Java deploy")
+
+    repo_id = profile.get("maven_repo_id", "artifact")
+    mvn_cmd = shutil.which("mvn")
+    if not mvn_cmd:
+        raise RuntimeError("mvn not found")
+
+    run([
+        mvn_cmd,
+        "-B",
+        "-ntp",
+        "deploy:deploy-file",
+        f"-Dfile={jar_path}",
+        f"-DgroupId={group_id}",
+        f"-DartifactId={artifact_id}",
+        f"-Dversion={version}",
+        f"-Dpackaging={packaging}",
+        f"-Durl={url}",
+        f"-DrepositoryId={repo_id}",
+        "-DgeneratePom=true",
+    ])
+
+
+def publish_python(profile: dict, dist_dir: Path) -> None:
+    repo_url = profile.get("pypi_repo_url")
+    if not repo_url:
+        raise RuntimeError("pypi_repo_url is required for Python deploy")
+    twine_cmd = shutil.which("twine")
+    if not twine_cmd:
+        raise RuntimeError("twine not found")
+
+    artifacts = sorted((dist_dir / "python").glob("*"))
+    if not artifacts:
+        raise RuntimeError("No Python artifacts found to publish")
+
+    run([twine_cmd, "upload", "--repository-url", repo_url, *[str(p) for p in artifacts]])
+
+
+def publish_js(profile: dict, dist_dir: Path) -> None:
+    repo_url = profile.get("npm_repo_url")
+    if not repo_url:
+        raise RuntimeError("npm_repo_url is required for JS deploy")
+    npm_cmd = shutil.which("npm")
+    if not npm_cmd:
+        raise RuntimeError("npm not found")
+
+    artifacts = sorted((dist_dir / "js").glob("*.tgz"))
+    if not artifacts:
+        raise RuntimeError("No JS artifacts found to publish")
+
+    for artifact in artifacts:
+        run([npm_cmd, "publish", "--registry", repo_url, str(artifact)])
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Publish prompt artifacts based on .promptlm/artifacts.toml")
+    parser.add_argument("--manifest", default=".promptlm/artifacts.toml", help="Path to artifacts.toml")
+    parser.add_argument("--profile", help="Deployment profile name")
+    parser.add_argument("--dist", default="dist", help="Output directory for artifacts")
+    parser.add_argument("--target", help="Publish only a single target (java|python|js)")
+    args = parser.parse_args()
+
+    manifest_path = Path(args.manifest)
+    if not manifest_path.exists():
+        print(f"Manifest not found at {manifest_path}; skipping deploy.")
+        return 0
+
+    manifest = read_toml(manifest_path)
+    targets = resolve_targets(manifest)
+    if not targets:
+        print("No targets configured; skipping deploy.")
+        return 0
+
+    deploy_config = manifest.get("deploy", {})
+    if not deploy_config.get("enabled", False):
+        print("Deploy disabled; skipping publish.")
+        return 0
+
+    profile_name = args.profile or deploy_config.get("profile")
+    if not profile_name:
+        raise RuntimeError("No deploy profile specified")
+
+    profiles = deploy_config.get("profiles", {})
+    profile = profiles.get(profile_name)
+    if not profile:
+        raise RuntimeError(f"Unknown deploy profile: {profile_name}")
+
+    if args.target:
+        target = args.target.strip()
+        if target not in targets:
+            print(f"Target '{target}' not configured; skipping publish.")
+            return 0
+        targets = [target]
+
+    version = resolve_version(manifest)
+    dist_dir = Path(args.dist)
+
+    for target in targets:
+        if target == "java":
+            publish_java(manifest, version, profile, dist_dir)
+        elif target == "python":
+            publish_python(profile, dist_dir)
+        elif target == "js":
+            publish_js(profile, dist_dir)
+        else:
+            raise RuntimeError(f"Unknown target: {target}")
+
+    print("Publish complete.")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except Exception as exc:  # pragma: no cover
+        eprint(f"ERROR: {exc}")
+        sys.exit(1)
