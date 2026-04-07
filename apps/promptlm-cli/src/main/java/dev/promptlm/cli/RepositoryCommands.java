@@ -28,6 +28,10 @@ import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
 
+/**
+ * Spring Shell commands for managing promptLM repositories.
+ * Provides {@code repo create}, {@code repo clone}, and {@code repo use} commands.
+ */
 @Component
 public class RepositoryCommands {
 

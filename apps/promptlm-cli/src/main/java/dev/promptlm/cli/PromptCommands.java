@@ -35,6 +35,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * Spring Shell commands for managing prompt lifecycle operations.
+ * Provides {@code prompt create}, {@code prompt change}, {@code prompt release},
+ * and {@code prompt show} commands.
+ */
 @Component
 public class PromptCommands {
 

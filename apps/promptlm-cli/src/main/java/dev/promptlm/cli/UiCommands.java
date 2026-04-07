@@ -20,6 +20,10 @@ import org.springframework.shell.core.command.annotation.Command;
 import org.springframework.shell.core.command.annotation.Option;
 import org.springframework.stereotype.Component;
 
+/**
+ * Spring Shell command for launching the promptLM web UI.
+ * Provides the {@code ui} command which starts an embedded server on a configurable port.
+ */
 @Component
 public class UiCommands {
 
