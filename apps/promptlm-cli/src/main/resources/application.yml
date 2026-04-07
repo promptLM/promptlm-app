@@ -1,0 +1,28 @@
+spring.application.name: promptlm-cli
+spring.main.web-application-type: none
+watch:
+  api-polling-interval: 10_000
+  dir-polling-interval: 1_000
+  open-ai-api-key: ${OPENAI_API_KEY}
+debug: false
+
+promptlm:
+  store:
+    local:
+      workspace-root: ${user.home}
+    remote:
+      username: ${REPO_REMOTE_USERNAME:}
+      token: ${REPO_REMOTE_TOKEN:}
+      base-url: ${REPO_REMOTE_URL}
+      allow-loopback-host-aliases: ${REPO_REMOTE_ALLOW_LOOPBACK_HOST_ALIASES:true}
+
+spring:
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:test-mock-api-key-for-testing}
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY:test-mock-anthropic-api-key-for-testing}
+
+logging:
+  level:
+    root: warn

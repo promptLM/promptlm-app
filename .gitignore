@@ -46,7 +46,7 @@ storybook-static/
 .venv
 
 ### Logs ###
-spring-shell.log
+*.log
 
 ### Docker dev data ###
 gitea-data/
