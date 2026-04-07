@@ -26,3 +26,9 @@ spring:
 logging:
   level:
     root: warn
+
+management:
+  metrics:
+    enable:
+      jvm:
+        gc: false
