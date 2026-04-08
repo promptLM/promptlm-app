@@ -18,7 +18,7 @@
         <surefire.extraArgs></surefire.extraArgs>
         <maven-surefire-plugin.version>3.5.5</maven-surefire-plugin.version>
         <maven-jar-plugin.version>3.3.0</maven-jar-plugin.version>
-        <spring-boot.version>4.0.4</spring-boot.version>
+        <spring-boot.version>4.0.5</spring-boot.version>
         <spring-ai.version>2.0.0-M2</spring-ai.version>
         <native.maven.plugin.version>0.11.5</native.maven.plugin.version>
         <spring-modulith.version>2.0.0</spring-modulith.version>
