@@ -1,0 +1,13 @@
+{
+  "files": [],
+  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@api-common/*": ["./src/api-common/*"]
+    },
+    "skipLibCheck": true,
+    "allowJs": false
+  }
+}

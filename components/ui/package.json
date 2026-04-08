@@ -1,0 +1,57 @@
+{
+  "name": "@promptlm/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node ./scripts/fix-dist-imports.mjs",
+    "test": "npm run build && mkdir -p ../../.tmp && esbuild test/ui-package-smoke.mjs --bundle --platform=node --format=cjs --external:react --external:react-dom --external:react-dom/server --external:@mui/material --external:@mui/material/* --external:@mui/icons-material --external:@mui/icons-material/* --external:@emotion/react --external:@emotion/styled --outfile=../../.tmp/ui-package-smoke.bundle.cjs && node ../../.tmp/ui-package-smoke.bundle.cjs",
+    "test:watch": "npm run test",
+    "storybook": "storybook dev -p 6006",
+    "storybook:build": "storybook build"
+  },
+  "peerDependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@mui/icons-material": "^6.5.0",
+    "@mui/material": "^6.5.0",
+    "react-day-picker": "^8.10.1",
+    "vaul": "^0.9.9",
+    "clsx": "^2.1.0",
+    "react": "^18.2.0 || ^19.0.0",
+    "react-dom": "^18.2.0 || ^19.0.0",
+    "react-is": "^18.3.1"
+  },
+  "devDependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^6.5.0",
+    "@mui/material": "^6.5.0",
+    "@storybook/addon-essentials": "^8.2.6",
+    "@storybook/addon-interactions": "^8.2.6",
+    "@storybook/react-vite": "^8.2.6",
+    "@storybook/test": "^8.2.6",
+    "@storybook/theming": "^8.2.6",
+    "@types/prop-types": "^15.7.15",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "clsx": "^2.1.1",
+    "react": "^19.0.0",
+    "react-day-picker": "^8.10.1",
+    "react-dom": "^19.0.0",
+    "react-is": "^19.2.0",
+    "vaul": "^0.9.9",
+    "storybook": "^8.2.6"
+  }
+}
