@@ -103,9 +103,6 @@ public class RemoteGitRepositoryProvisioner {
         String effectiveOwner = resolveOwner(owner);
         try {
             GitHub gitHub = buildClient(baseUrl);
-            if (!gitHub.isCredentialValid()) {
-                throw new RuntimeException("Git Remote credentials are invalid");
-            }
             log.debug("GitHub client created successfully");
             String repoFullName = effectiveOwner + "/" + repoName;
             GHRepository repository = gitHub.getRepository(repoFullName);
@@ -125,9 +122,6 @@ public class RemoteGitRepositoryProvisioner {
 
         try {
             GitHub gitHub = buildClient(gitHubProperties.getBaseUrl());
-            if (!gitHub.isCredentialValid()) {
-                throw new RuntimeException("Git Remote credentials are invalid");
-            }
 
             GHRepository r;
             String defaultOwner = getDefaultOwner();
