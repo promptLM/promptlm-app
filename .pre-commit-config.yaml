@@ -1,0 +1,24 @@
+repos:
+  - repo: https://github.com/Lucas-C/pre-commit-hooks
+    rev: v1.5.5
+    hooks:
+      - id: insert-license
+        name: License header (Java)
+        files: \.java$
+        args:
+          - --license-filepath=.license-header.txt
+          - --comment-style=/*| *| */
+
+      - id: insert-license
+        name: License header (TypeScript)
+        files: \.(ts|tsx)$
+        args:
+          - --license-filepath=.license-header.txt
+          - --comment-style=//
+
+      - id: insert-license
+        name: License header (Python / Shell)
+        files: \.(py|sh)$
+        args:
+          - --license-filepath=.license-header.txt
+          - --comment-style=#

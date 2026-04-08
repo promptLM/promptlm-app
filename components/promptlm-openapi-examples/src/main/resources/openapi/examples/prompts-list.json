@@ -1,0 +1,64 @@
+[
+  {
+    "id": "prompt-101",
+    "name": "customer_support",
+    "group": "support",
+    "description": "Handle customer support messages.",
+    "status": "ACTIVE",
+    "version": "1.0.0",
+    "revision": 4,
+    "createdAt": "2025-02-01T10:00:00Z",
+    "updatedAt": "2025-02-20T10:00:00Z",
+    "request": {
+      "type": "chat/completion",
+      "vendor": "openai",
+      "model": "gpt-4o",
+      "parameters": {
+        "temperature": 0.6,
+        "maxTokens": 256,
+        "topP": 1
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "You are a prompt assistant."
+        },
+        {
+          "role": "user",
+          "content": "Summarize the request."
+        }
+      ]
+    }
+  },
+  {
+    "id": "prompt-102",
+    "name": "release_notes",
+    "group": "release",
+    "description": "Draft weekly release notes.",
+    "status": "RETIRED",
+    "version": "0.9.0",
+    "revision": 2,
+    "createdAt": "2025-01-15T09:00:00Z",
+    "updatedAt": "2025-02-10T08:00:00Z",
+    "request": {
+      "type": "chat/completion",
+      "vendor": "anthropic",
+      "model": "claude-3-5",
+      "parameters": {
+        "temperature": 0.5,
+        "maxTokens": 512,
+        "topP": 0.9
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "You are a release note assistant."
+        },
+        {
+          "role": "user",
+          "content": "Draft release notes for this week."
+        }
+      ]
+    }
+  }
+]

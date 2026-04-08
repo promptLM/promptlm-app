@@ -1,0 +1,96 @@
+name: Deploy Prompt Artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'Deploy profile name from .promptlm/artifacts.toml'
+        required: false
+        type: string
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  deploy-java:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build Java artifacts
+        run: ./tools/release/build-artifacts --target java
+
+      - name: Publish Java artifacts
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.profile }}" ]; then
+            ./tools/release/publish-artifacts --profile "${{ github.event.inputs.profile }}" --target java
+          else
+            ./tools/release/publish-artifacts --target java
+          fi
+
+  deploy-python:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python build/upload tooling
+        run: python -m pip install --upgrade pip build twine
+
+      - name: Build Python artifacts
+        run: ./tools/release/build-artifacts --target python
+
+      - name: Publish Python artifacts
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.profile }}" ]; then
+            ./tools/release/publish-artifacts --profile "${{ github.event.inputs.profile }}" --target python
+          else
+            ./tools/release/publish-artifacts --target python
+          fi
+
+  deploy-js:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build JS artifacts
+        run: ./tools/release/build-artifacts --target js
+
+      - name: Publish JS artifacts
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.profile }}" ]; then
+            ./tools/release/publish-artifacts --profile "${{ github.event.inputs.profile }}" --target js
+          else
+            ./tools/release/publish-artifacts --target js
+          fi

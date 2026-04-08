@@ -1,0 +1,47 @@
+name: Build macOS dmg
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: 'graalvm-community'
+          components: 'native-image'
+
+      - name: Build native executable
+        # Build the Spring Boot app into a GraalVM native image
+        run: mvn -Pnative -pl apps/promptlm-webapp -am -DskipTests package
+
+      - name: Create macOS dmg with jpackage
+        if: runner.os == 'macOS'
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          jpackage \
+            --type dmg \
+            --input apps/promptlm-webapp/target \
+            --name PromptlmWebapp \
+            --app-version "$VERSION" \
+            --dest target \
+            --mac-package-identifier dev.promptlm \
+            --launcher PromptlmWebapp=promptlm-webapp
+
+      - name: Publish dmg as GitHub Release asset
+        if: runner.os == 'macOS'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: target/*.dmg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

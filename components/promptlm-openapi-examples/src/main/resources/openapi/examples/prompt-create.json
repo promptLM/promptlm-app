@@ -1,0 +1,30 @@
+{
+  "id": "prompt-201",
+  "name": "quarterly_report",
+  "group": "reporting",
+  "description": "Draft a quarterly status update.",
+  "version": "0.1.0",
+  "revision": 1,
+  "createdAt": "2025-02-27T09:00:00Z",
+  "updatedAt": "2025-02-27T09:00:00Z",
+  "request": {
+    "type": "chat/completion",
+    "vendor": "openai",
+    "model": "gpt-4o",
+    "parameters": {
+      "temperature": 0.7,
+      "maxTokens": 512,
+      "topP": 1
+    },
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are a helpful assistant."
+      },
+      {
+        "role": "user",
+        "content": "Write the quarterly update."
+      }
+    ]
+  }
+}

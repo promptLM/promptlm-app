@@ -1,0 +1,11 @@
+{
+  "id": "33333333-3333-3333-3333-333333333333",
+  "name": "Gamma Workspace",
+  "description": "Created project",
+  "promptCount": 0,
+  "createdAt": "2025-02-27T10:35:00Z",
+  "updatedAt": "2025-02-27T10:35:00Z",
+  "localPath": "/repos/gamma",
+  "repositoryUrl": "https://example.com/gamma.git",
+  "healthStatus": "HEALTHY"
+}

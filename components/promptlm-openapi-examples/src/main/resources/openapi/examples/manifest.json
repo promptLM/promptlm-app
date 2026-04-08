@@ -1,0 +1,20 @@
+{
+  "responses": [
+    {"method": "GET", "path": "/api/prompts", "status": "200", "example": "openapi/examples/prompts-list.json"},
+    {"method": "GET", "path": "/api/prompts/{promptSpecId}", "status": "200", "example": "openapi/examples/prompt-detail.json"},
+    {"method": "POST", "path": "/api/prompts", "status": "200", "example": "openapi/examples/prompt-create.json"},
+    {"method": "PUT", "path": "/api/prompts/{promptSpecId}", "status": "200", "example": "openapi/examples/prompt-update.json"},
+    {"method": "POST", "path": "/api/prompts/{promptSpecId}/execute", "status": "200", "example": "openapi/examples/prompt-execute.json"},
+    {"method": "POST", "path": "/api/prompts/execute", "status": "200", "example": "openapi/examples/prompt-execute.json"},
+    {"method": "GET", "path": "/api/prompts/template", "status": "200", "example": "openapi/examples/prompt-template.json"},
+    {"method": "POST", "path": "/api/prompts/{promptSpecId}/release", "status": "200", "example": "openapi/examples/prompt-release.json"},
+    {"method": "GET", "path": "/api/prompts/stats", "status": "200", "example": "openapi/examples/prompt-stats.json"},
+    {"method": "GET", "path": "/api/llm/catalog", "status": "200", "example": "openapi/examples/model-catalog.json"},
+    {"method": "GET", "path": "/api/store", "status": "200", "example": "openapi/examples/project-active.json"},
+    {"method": "GET", "path": "/api/store/all", "status": "200", "example": "openapi/examples/projects-list.json"},
+    {"method": "POST", "path": "/api/store", "status": "200", "example": "openapi/examples/project-created.json"},
+    {"method": "PUT", "path": "/api/store", "status": "200", "example": "openapi/examples/project-clone-id.json"},
+    {"method": "POST", "path": "/api/store/connection", "status": "200", "example": "openapi/examples/project-created.json"},
+    {"method": "GET", "path": "/api/store/owners", "status": "200", "example": "openapi/examples/repository-owners.json"}
+  ]
+}

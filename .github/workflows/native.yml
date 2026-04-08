@@ -1,0 +1,20 @@
+name: Native Build
+
+on:
+  workflow_dispatch:
+  release:
+    types: [created, published]
+
+jobs:
+  build-native:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: 'graalvm-community'
+          components: 'native-image'
+      - name: Build native executables
+        run: mvn -Pnative -pl apps/promptlm-cli,apps/promptlm-webapp -am -DskipTests package

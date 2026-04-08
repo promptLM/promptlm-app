@@ -1,0 +1,8 @@
+{
+  "name": "promptlm-acceptance-tests",
+  "version": "0.1.0",
+  "private": true,
+  "devDependencies": {
+    "@playwright/test": "1.49.0"
+  }
+}

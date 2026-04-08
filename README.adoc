@@ -1,90 +1,239 @@
-# promptLM
----
-Your prompt asking ChatGPT “What’s the capital of France?” doesn’t need a lifecycle management tool. You read the reply and move on.
+= promptLM
 
-But when prompts run inside your application - and their responses determine whether the application says “yes” or “no” - it’s a completely different story.
+promptLM is an open-source framework designed to help you manage, version, and release prompts.
 
-Then you want to have something better than your text editor to manage your prompts.
+With the client SDKs, you can fetch released prompt specifications and use them in your application.
 
-You’ll iteratively develop your prompts – often against different models, with different variations and wordings.
-You’ll want to version those prompts and run evals on the responses to automatically decide which variants are “good enough” and discard the rest.
-And you’ll need a way to get prompts into your application – and update them – without changing the application itself, because prompts follow a different lifecycle than code.
+== Introduction
+- Why, what, how, ...
 
-And then...
+== Installation
 
-you finally have your evaluated and versioned prompts ready for your application. Yay.
+[tabs]
+====
+Windows::
++
+`mvn clean verify`
 
-Now, you better make sure that your application works as expected with the responses created by your prompts.
-That’s when you run integration tests against a real LLM endpoint — and that’s when you start spending real money.
-Those tests add up fast.
+Mac::
++
+{empty}
 
-And your agents will probably use MCP or other tools as well, right?
-Suddenly your test surface gets even bigger, more complex, and even more expensive.
+Linux::
++
+{empty}
+====
 
-This is the reason why we’re building promptLM — to cover all of this, for you and for ourselves.
+== Get Started
 
----
+[tabs]
+====
+promptLM CLI::
++
+You can use the promptLM CLI with:
+
+    promptlm <command>
+
+promptLM Studio::
++
+    promptlm studio
+
+promptLM REST API::
++
+    promptlm api
+
+====
+
+== Usage
+
+=== 1. Create a Project
+// TODO: Add correct cli command
+[source,bash]
+....
+promptlm project create ...
+....
+
+=== 2. Create a Prompt
+=== 3. Release the Prompt
+=== 4. Use the Prompt
 
 
 
-Let's start from the end of a prompt's of lifecycle.
-That's where the prompt's life becomes more interesting, like ours, maybe.
 
-Prompts used in applications which direct the application in context
+== Developer
 
+=== Java SDK
 
-AI Prompt Lifecycle Management — structured, testable, yours.
+The Java client SDK is maintained in https://github.com/promptLM/promptlm-client-sdk.
 
-promptLM is an open-source framework designed to bring modern software engineering discipline to prompt-driven systems. The project packages requirements modelling, evaluation, deterministic replay, and distribution into one workflow so teams can ship AI functionality with confidence.
+Maven:
 
-## Why promptLM
+[source,xml]
+----
+<dependency>
+  <groupId>dev.promptlm</groupId>
+  <artifactId>client-library</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+</dependency>
+----
 
-- **Build with structure:** Define prompts via declarative specifications backed by MCP tools and templating.
-- **Evaluate with confidence:** Combine built-in and custom evals to check model behaviour across scenarios and prevent regressions.
-- **Version everything:** Track prompt changes like code with full history, diff views, and release tagging.
-- **Deploy safely:** Apply automated guardrails and approvals to ship prompts to production environments.
-- **Distribute anywhere:** Publish through a prompt server, dependency packages, or direct repo access so consumers choose the retrieval flow that fits their stack.
-- **Test deterministically:** Snapshot LLM and tool responses to replay executions for fast, zero-cost regression suites.
+Gradle:
 
-## Project Status
+[source,kotlin]
+----
+dependencies {
+  implementation("dev.promptlm:client-library:0.1.0-SNAPSHOT")
+}
+----
 
-🚧 **Early Alpha** — We are actively shaping the workflow and ecosystem. APIs and file layouts may change quickly while we validate the developer experience.
+TypeScript client (used by the webapp): link:apps/promptlm-webapp/src/api-common[apps/promptlm-webapp/src/api-common]
 
-## Roadmap Highlights
+== Features
 
-- ✅ Command-line and web UI authoring for prompt specs
-- ✅ Evaluation presets and custom eval integration
-- ✅ Replay engine for recorded LLM/tool responses
-- ⏳ Prompt server & package-based distribution channels
-- ⏳ Opinionated CI/CD templates for prompt releases
-- ⏳ Documentation site (AsciiDoc + GitHub Pages) with tutorials and reference guides
+* *Prompt specifications:* Define prompts as prompt specifications that can be versioned and released.
+* *Versioning & releases:* Track prompt versions and publish releases.
+* *Client SDKs:* Use promptLM from your application via the Java and TypeScript client SDKs.
+* *Multi-model execution:* Route prompts to OpenAI or Anthropic via Spring AI, or through an optional LiteLLM proxy gateway.
+* *Configurable parameters:* Tune model settings (e.g., temperature, max tokens) and reuse prompts with placeholders.
 
-## Get Involved
+== LiteLLM Gateway
 
-We are looking for committed collaborators to help build the foundation:
+PromptLM can route requests through a LiteLLM OpenAI-compatible proxy.
 
-- **Prompt engineers** to shape authoring ergonomics and eval libraries
-- **Toolsmiths** to expand MCP/test harness integrations
-- **DevOps maintainers** to design distribution and release workflows
-- **Documentation writers** to help capture the lifecycle and best practices
+* Enable it with `promptlm.gateway.litellm.enabled=true`.
+* By default PromptLM manages a local Docker container for LiteLLM. Set `promptlm.gateway.litellm.docker.manage=false` if you want to point at an existing LiteLLM deployment instead.
+* PromptLM checks Docker availability, pulls the configured image when it is missing, waits for the configured readiness endpoint, and leaves the gateway inactive with warnings if startup fails.
 
-If you want to help define the future of prompt lifecycle management:
+Example configuration:
 
-1. Star the repo and share ideas via issues or Discussions.
-2. Open a PR with your proposal or implementation (please reference an issue or start a thread first).
-3. Introduce yourself in the "Contributors" discussion — we want to elevate early committers into the core team.
+[source,yaml]
+----
+promptlm:
+  gateway:
+    litellm:
+      enabled: true
+      base-url: http://localhost:4000
+      vendor: litellm
+      model-aliases:
+        gpt-4o: openai/gpt-4o
+      environment:
+        OPENAI_API_KEY: ${OPENAI_API_KEY}
+        MODEL_LIST: ${LITELLM_MODEL_LIST:}
+      docker:
+        image: ghcr.io/berriai/litellm:latest
+        container-name: promptlm-litellm
+        port: 4000
+        readiness-path: /health
+      discovery:
+        enabled: true
+        models-path: /v1/models
+----
 
-## Contributing
+Relevant settings:
 
-We aim to keep onboarding lightweight during Alpha:
+* `promptlm.gateway.litellm.model-aliases.<prompt-model>` maps PromptLM model ids to LiteLLM routes.
+* `promptlm.gateway.litellm.environment.<KEY>` passes upstream API keys or model-map configuration into the container.
+* `promptlm.gateway.litellm.discovery.*` enables optional model discovery from LiteLLM.
 
-1. Fork the repository and create a feature branch.
-2. Implement changes with concise commits and clear descriptions.
-3. Add or update documentation/evals relevant to your change.
-4. Open a Pull Request and request feedback. We strive for fast, collaborative reviews.
+== Spring AI Execution
 
-Check the issue tracker for **good first issues** and **help wanted** tags. If you have ideas that are not listed, open a proposal issue — we love sparring on roadmap direction.
+The `promptlm-execution-springai` module provides direct vendor client implementations for OpenAI and Anthropic, backed by https://spring.io/projects/spring-ai[Spring AI].
 
-## License
+=== Configuration
 
-promptLM is released under the MIT License.
+Add the required API key properties to your `application.yml` or as environment variables:
+
+[source,yaml]
+----
+spring:
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY}
+----
+
+=== Supported Vendors and Models
+
+[cols="1,2"]
+|===
+|Vendor |Model identifiers
+
+|`openai`
+|All values from `OpenAiApi.ChatModel` (e.g. `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`, `o1`, `o3-mini`). An empty or null model falls back to the default configured in Spring AI.
+
+|`anthropic`
+|All values from `AnthropicApi.ChatModel` (e.g. `claude-3-5-sonnet`, `claude-3-opus`, `claude-3-haiku`). An empty or null model falls back to the default configured in Spring AI.
+|===
+
+The vendor field on a `PromptSpec` request is matched case-insensitively (e.g. `"OpenAI"` and `"openai"` both route to the OpenAI client).
+
+== Development Quickstart
+
+. Clone the repository:
++
+[source,bash]
+----
+git clone https://github.com/promptlm/promptlm-app.git
+cd promptlm-app
+----
+
+. Create a `.env` file (optional) based on `.env.example`.
+
+. Run a local build using:
++
+[source,bash]
+----
+mvn clean verify
+----
+
+== CLI
+
+This repository produces a command line interface via the `apps/promptlm-cli` module.
+
+Build an executable JAR:
+
+[source,bash]
+----
+mvn -pl apps/promptlm-cli -am package
+----
+
+Run the CLI (interactive when no command is provided):
+
+[source,bash]
+----
+java -jar apps/promptlm-cli/target/promptlm-cli-<version>-exec.jar
+----
+
+Run a command (non-interactive):
+
+[source,bash]
+----
+java -jar apps/promptlm-cli/target/promptlm-cli-<version>-exec.jar help
+----
+
+Build a native binary (GraalVM):
+
+[source,bash]
+----
+mvn -Pnative -pl apps/promptlm-cli -am package
+----
+
+Run the native binary:
+
+[source,bash]
+----
+./apps/promptlm-cli/target/promptlm-cli --help
+----
+
+== Full Lifecycle Management
+
+promptLM supports the prompt lifecycle up to release and deployment:
+
+* *Design:* Create and version prompt specifications.
+* *Release:* Publish prompt versions for consumers.
+* *Deploy:* Use released prompts in your application via the client SDK.
+
+== License
+
+promptLM is released under the link:LICENSE[Apache License 2.0].
