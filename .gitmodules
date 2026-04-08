@@ -1,3 +1,0 @@
-[submodule "components/promptlm-report/prompt-viewer"]
-	path = components/promptlm-report/prompt-viewer
-	url = https://github.com/promptLM/prompt-explorer

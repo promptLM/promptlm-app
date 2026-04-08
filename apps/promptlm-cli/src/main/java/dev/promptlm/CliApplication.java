@@ -44,7 +44,9 @@ public class CliApplication {
                 .properties(
                         "debug=false",
                         "spring.main.banner-mode=off",
-                        "spring.autoconfigure.exclude=org.springframework.modulith.runtime.autoconfigure.SpringModulithRuntimeAutoConfiguration"
+                        "spring.autoconfigure.exclude="
+                                + "org.springframework.modulith.runtime.autoconfigure.SpringModulithRuntimeAutoConfiguration,"
+                                + "org.springframework.boot.micrometer.metrics.autoconfigure.jvm.JvmMetricsAutoConfiguration"
                 )
                 .run(args);
     }

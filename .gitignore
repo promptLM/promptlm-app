@@ -42,7 +42,7 @@ storybook-static/
 .vite
 
 ### Environment & secrets ###
-.env
+.env*
 .venv
 
 ### Logs ###

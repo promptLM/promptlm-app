@@ -20,6 +20,13 @@
 #
 # TARGET is the directory to check (a package root or project root).
 # Output: one line per check in the format  CHECK_ID|STATUS|message
+#
+# Cross-cutting checks (license headers, secrets, CVEs, dependency licenses)
+# are handled by external tools invoked from SKILL.md:
+#   - license-eye header check     (license / SPDX headers)
+#   - gitleaks detect --no-git     (hardcoded secrets)
+#   - trivy fs --scanners vuln     (known vulnerabilities)
+#   - trivy fs --scanners license  (dependency license compatibility)
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
@@ -32,110 +39,7 @@ result() { echo "$1|$2|$3"; }
 
 # Find all package.json directories (excluding node_modules)
 pkg_dirs=$(find "$TARGET" -name "package.json" -not -path "*/node_modules/*" -exec dirname {} \; 2>/dev/null)
-
-# ── 1.2 Copyright / license headers ──────────────────────────────────────────
-
 src_dirs=$(find "$TARGET" -type d -name "src" -not -path "*/node_modules/*" -not -path "*/dist/*" 2>/dev/null)
-missing_header_files=""
-for src in $src_dirs; do
-  hits=$(grep -rL "Copyright\|license\|Licensed\|SPDX-License-Identifier" \
-    "$src" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" $EXCLUDE 2>/dev/null || true)
-  if [ -n "$hits" ]; then
-    missing_header_files="$missing_header_files
-$hits"
-  fi
-done
-missing_header_files=$(echo "$missing_header_files" | sed '/^$/d')
-
-if [ -z "$missing_header_files" ]; then
-  result "1.2" "PASS" "All JS/TS source files contain a copyright or license header"
-else
-  count=$(echo "$missing_header_files" | wc -l | tr -d ' ')
-  result "1.2" "WARN" "$count JS/TS file(s) missing copyright/license header — first: $(echo "$missing_header_files" | head -1 | sed "s|$TARGET/||")"
-fi
-
-# ── 1.3 Dependency license compatibility ─────────────────────────────────────
-
-license_fail=""
-for dir in $pkg_dirs; do
-  if command -v npx &>/dev/null; then
-    checker_output=$(cd "$dir" && npx --yes license-checker --summary 2>/dev/null || echo "CHECKER_FAILED")
-    if echo "$checker_output" | grep -qi "CHECKER_FAILED"; then
-      result "1.3" "WARN" "Could not run license-checker in $(basename "$dir") — verify manually"
-      license_fail="skip"
-      break
-    else
-      gpl_hits=$(echo "$checker_output" | grep -i "GPL\|AGPL\|CDDL" | grep -vi "LGPL" || true)
-      if [ -n "$gpl_hits" ]; then
-        result "1.3" "FAIL" "Copyleft dependency in $(basename "$dir"): $(echo "$gpl_hits" | head -1 | xargs)"
-        license_fail="yes"
-        break
-      fi
-    fi
-  else
-    result "1.3" "WARN" "npx not available — skipped dependency license check"
-    license_fail="skip"
-    break
-  fi
-done
-if [ -z "$license_fail" ]; then
-  result "1.3" "PASS" "No copyleft dependencies detected"
-fi
-
-# ── 1.5 SPDX-License-Identifier in headers ──────────────────────────────────
-
-missing_spdx=""
-for src in $src_dirs; do
-  hits=$(grep -rL "SPDX-License-Identifier" \
-    "$src" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" $EXCLUDE 2>/dev/null || true)
-  if [ -n "$hits" ]; then
-    missing_spdx="$missing_spdx
-$hits"
-  fi
-done
-missing_spdx=$(echo "$missing_spdx" | sed '/^$/d')
-
-if [ -z "$missing_spdx" ]; then
-  result "1.5" "PASS" "All JS/TS source files contain an SPDX-License-Identifier"
-else
-  count=$(echo "$missing_spdx" | wc -l | tr -d ' ')
-  result "1.5" "WARN" "$count JS/TS file(s) missing SPDX-License-Identifier — first: $(echo "$missing_spdx" | head -1 | sed "s|$TARGET/||")"
-fi
-
-# ── 2.2 Secrets in configuration files ───────────────────────────────────────
-
-config_secrets=""
-for f in $(find "$TARGET" \( -name ".env" -o -name ".env.*" -o -name "config.json" -o -name "config.js" \) \
-  -not -path "*/node_modules/*" -not -path "*/dist/*" 2>/dev/null); do
-  hits=$(grep -ni "password\|token\|api.key\|secret\|private.key" "$f" \
-    | grep -v '^\s*#\|^\s*//' \
-    | grep -vi '\${.*}\|process\.env\|placeholder\|TODO\|CHANGE_ME\|your-' || true)
-  if [ -n "$hits" ]; then
-    config_secrets="$config_secrets\n$(echo "$hits" | head -1)"
-  fi
-done
-
-if [ -z "$config_secrets" ]; then
-  result "2.2" "PASS" "No literal secrets found in Node config files"
-else
-  result "2.2" "FAIL" "Possible literal secret in config — $(echo -e "$config_secrets" | head -1 | xargs)"
-fi
-
-# ── 2.6 Known vulnerability scanning ────────────────────────────────────────
-
-for dir in $pkg_dirs; do
-  if [ -f "$dir/package-lock.json" ] && command -v npm &>/dev/null; then
-    audit_output=$(cd "$dir" && npm audit --json 2>/dev/null || echo '{"vulnerabilities":{}}')
-    vuln_count=$(echo "$audit_output" | grep -c '"severity"' 2>/dev/null || echo "0")
-    if [ "$vuln_count" -gt 0 ]; then
-      result "2.6" "WARN" "$vuln_count known vulnerability(ies) in $(basename "$dir") — run npm audit for details"
-    else
-      result "2.6" "PASS" "No known vulnerabilities in $(basename "$dir")"
-    fi
-  else
-    result "2.6" "WARN" "No package-lock.json or npm not available in $(basename "$dir") — skipped audit"
-  fi
-done
 
 # ── 3.4 Public API documentation (JSDoc) ────────────────────────────────────
 

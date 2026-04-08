@@ -20,6 +20,13 @@
 #
 # TARGET is the directory to check (a Maven module root or project root).
 # Output: one line per check in the format  CHECK_ID|STATUS|message
+#
+# Cross-cutting checks (license headers, secrets, CVEs, dependency licenses)
+# are handled by external tools invoked from SKILL.md:
+#   - license-eye header check     (license / SPDX headers)
+#   - gitleaks detect --no-git     (hardcoded secrets)
+#   - trivy fs --scanners vuln     (known vulnerabilities)
+#   - trivy fs --scanners license  (dependency license compatibility)
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
@@ -28,78 +35,7 @@ TARGET="$(cd "$TARGET" && pwd)"
 
 EXCLUDE_DIRS="--exclude-dir=target --exclude-dir=.git --exclude-dir=node_modules"
 
-# Helper: emit a result line
 result() { echo "$1|$2|$3"; }
-
-# ── 1.2 Copyright / license headers ──────────────────────────────────────────
-
-missing_header_files=$(grep -rL "Copyright\|license\|Licensed\|SPDX-License-Identifier" \
-  "$TARGET"/src/main/java --include="*.java" $EXCLUDE_DIRS 2>/dev/null || true)
-
-if [ -z "$missing_header_files" ]; then
-  result "1.2" "PASS" "All Java source files contain a copyright or license header"
-else
-  count=$(echo "$missing_header_files" | wc -l | tr -d ' ')
-  result "1.2" "WARN" "$count Java file(s) missing copyright/license header — first: $(echo "$missing_header_files" | head -1 | sed "s|$TARGET/||")"
-fi
-
-# ── 1.3 Dependency license compatibility ─────────────────────────────────────
-
-if command -v mvn &>/dev/null && [ -f "$TARGET/pom.xml" ]; then
-  dep_output=$(mvn -f "$TARGET/pom.xml" dependency:tree -DoutputType=text 2>/dev/null || echo "MVN_FAILED")
-  if echo "$dep_output" | grep -qi "MVN_FAILED"; then
-    result "1.3" "WARN" "Could not run mvn dependency:tree — verify manually"
-  else
-    gpl_hits=$(echo "$dep_output" | grep -i "gpl\|agpl\|cddl" | grep -vi "lgpl" || true)
-    if [ -n "$gpl_hits" ]; then
-      result "1.3" "FAIL" "Copyleft dependency detected: $(echo "$gpl_hits" | head -1 | xargs)"
-    else
-      result "1.3" "PASS" "No copyleft (GPL/AGPL/CDDL) dependencies detected in dependency tree"
-    fi
-  fi
-else
-  result "1.3" "WARN" "Maven not available or no pom.xml found — skipped dependency license check"
-fi
-
-# ── 1.5 SPDX-License-Identifier in headers ──────────────────────────────────
-
-missing_spdx=$(grep -rL "SPDX-License-Identifier" \
-  "$TARGET"/src/main/java --include="*.java" $EXCLUDE_DIRS 2>/dev/null || true)
-
-if [ -z "$missing_spdx" ]; then
-  result "1.5" "PASS" "All Java source files contain an SPDX-License-Identifier"
-else
-  count=$(echo "$missing_spdx" | wc -l | tr -d ' ')
-  result "1.5" "WARN" "$count Java file(s) missing SPDX-License-Identifier — first: $(echo "$missing_spdx" | head -1 | sed "s|$TARGET/||")"
-fi
-
-# ── 2.2 Secrets in configuration files ───────────────────────────────────────
-
-config_secrets=""
-for f in $(find "$TARGET/src" \( -name "application.properties" -o -name "application*.yml" -o -name "application*.yaml" \) 2>/dev/null); do
-  hits=$(grep -ni "password\|token\|api-key\|secret\|private.key" "$f" \
-    | grep -v '^\s*#' \
-    | grep -vi '\${\|changeit\|placeholder\|TODO\|CHANGE_ME\|your-' || true)
-  if [ -n "$hits" ]; then
-    config_secrets="$config_secrets\n$(echo "$hits" | head -1)"
-  fi
-done
-
-if [ -z "$config_secrets" ]; then
-  result "2.2" "PASS" "No literal secrets found in Java config files"
-else
-  result "2.2" "FAIL" "Possible literal secret in config — $(echo -e "$config_secrets" | head -1 | xargs)"
-fi
-
-# ── 2.6 Known vulnerability scanning ────────────────────────────────────────
-
-if [ -f "$TARGET/pom.xml" ]; then
-  if grep -q "dependency-check-maven\|owasp" "$TARGET/pom.xml" 2>/dev/null; then
-    result "2.6" "PASS" "OWASP dependency-check plugin is configured in pom.xml"
-  else
-    result "2.6" "WARN" "No OWASP dependency-check plugin configured — consider adding org.owasp:dependency-check-maven"
-  fi
-fi
 
 # ── 3.4 Public API documentation (Javadoc) ──────────────────────────────────
 
@@ -192,7 +128,7 @@ fi
 # ── 5.4 Tests present ───────────────────────────────────────────────────────
 
 if [ -d "$TARGET/src/test" ]; then
-  test_count=$(find "$TARGET/src/test" -name "*Test.java" -o -name "*Tests.java" -o -name "*IT.java" 2>/dev/null | wc -l | tr -d ' ')
+  test_count=$(find "$TARGET/src/test" \( -name "*Test.java" -o -name "*Tests.java" -o -name "*IT.java" \) 2>/dev/null | wc -l | tr -d ' ')
   if [ "$test_count" -eq 0 ]; then
     result "5.4" "FAIL" "No test files found in $TARGET/src/test"
   else
@@ -233,7 +169,6 @@ fi
 
 gitignore_file="$TARGET/.gitignore"
 if [ ! -f "$gitignore_file" ]; then
-  # Try project root
   gitignore_file="$(git -C "$TARGET" rev-parse --show-toplevel 2>/dev/null)/.gitignore" || true
 fi
 

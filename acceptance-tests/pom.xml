@@ -169,7 +169,7 @@
                                 <argument>-ntp</argument>
                                 <argument>-DskipTests</argument>
                                 <argument>-pl</argument>
-                                <argument>apps/promptlm-web-app,components/repository-template</argument>
+                                <argument>apps/promptlm-webapp,components/repository-template</argument>
                                 <argument>-am</argument>
                                 <argument>install</argument>
                             </arguments>

@@ -42,7 +42,8 @@ public abstract class TestApplicationManager {
 
     private static final Logger log = LoggerFactory.getLogger(TestApplicationManager.class);
 
-    private static final String DEFAULT_WEB_HOST_JAR_PATH = "../apps/promptlm-web-app/target/promptlm-webapp-0.1.0-SNAPSHOT-exec.jar";
+    private static final String DEFAULT_WEB_HOST_JAR_PATH = "../apps/promptlm-webapp/target/promptlm-webapp-0.1.0-SNAPSHOT-exec.jar";
+    private static final String UI_PLACEHOLDER_MARKER = "PromptLM UI bundle placeholder";
 
     private static final int DEFAULT_SERVER_PORT = 8080;
 
@@ -177,7 +178,7 @@ public abstract class TestApplicationManager {
         }
 
         // Try to find the web host JAR in the target directory
-        File targetDir = new File("../apps/promptlm-web-app/target");
+        File targetDir = new File("../apps/promptlm-webapp/target");
         if (targetDir.exists() && targetDir.isDirectory()) {
             File[] files = targetDir.listFiles((dir, name) ->
                                                        name.startsWith("promptlm-webapp") && name.endsWith("-exec.jar") && !name.contains("sources") && !name.contains("javadoc"));
@@ -249,6 +250,47 @@ public abstract class TestApplicationManager {
 
         // Additional wait to ensure the application is fully initialized
         TimeUnit.SECONDS.sleep(2);
+        assertUiBundleAvailable(port);
+    }
+
+    private static void assertUiBundleAvailable(int port) throws InterruptedException {
+        HttpClient client = HttpClient.newHttpClient();
+        URI uri = URI.create("http://localhost:" + port + "/");
+
+        int maxWaitTimeSeconds = 30;
+        long endTime = System.currentTimeMillis() + (maxWaitTimeSeconds * 1000L);
+        while (System.currentTimeMillis() < endTime) {
+            if (applicationProcess != null && !applicationProcess.isAlive()) {
+                int exitCode = applicationProcess.exitValue();
+                throw new IllegalStateException("Application process exited before UI bundle check, code " + exitCode);
+            }
+            try {
+                HttpRequest request = HttpRequest.newBuilder(uri)
+                        .version(HttpClient.Version.HTTP_1_1)
+                        .header("Accept", "text/html")
+                        .GET()
+                        .build();
+                HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                int status = response.statusCode();
+                String body = response.body();
+                if (status >= 200 && status < 300 && body != null) {
+                    if (body.contains(UI_PLACEHOLDER_MARKER)) {
+                        throw new IllegalStateException(
+                                "UI bundle is missing: received placeholder HTML instead of built frontend assets. "
+                                        + "Ensure promptlm-webapp is built with promptlm.webapp.ui.skip=false and the web UI workspace is available."
+                        );
+                    }
+                    if (!body.isBlank()) {
+                        return;
+                    }
+                }
+            }
+            catch (IOException e) {
+                // retry while server finishes startup
+            }
+            TimeUnit.SECONDS.sleep(1);
+        }
+        throw new IllegalStateException("Timed out waiting for web UI root page to become available on port " + port);
     }
 
     /**

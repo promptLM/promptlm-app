@@ -23,6 +23,7 @@ import org.springframework.boot.autoconfigure.context.ConfigurationPropertiesAut
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class GitHubPropertiesTest {
 
@@ -67,5 +68,15 @@ class GitHubPropertiesTest {
                     GitHubProperties props = context.getBean(GitHubProperties.class);
                     assertThat(props.getBaseUrl()).isEqualTo("https://api.github.com");
                 });
+    }
+
+    @Test
+    void shouldFailFastWhenBaseUrlContainsUnresolvedPlaceholder() {
+        GitHubProperties props = new GitHubProperties();
+        props.setBaseUrl("${REPO_REMOTE_URL}");
+
+        assertThatThrownBy(props::getBaseUrl)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("promptlm.store.remote.base-url contains an unresolved placeholder");
     }
 }

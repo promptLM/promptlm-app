@@ -16,6 +16,7 @@
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <promptlm.webapp.ui.skip>true</promptlm.webapp.ui.skip>
     </properties>
 
     <dependencies>
@@ -82,6 +83,7 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <version>${spring-boot.version}</version>
                 <configuration>
+                    <skip>false</skip>
                     <mainClass>dev.promptlm.webapp.PromptLmWebAppApplication</mainClass>
                     <jmxPort>${openapi.jmx.port}</jmxPort>
                     <wait>2000</wait>
@@ -135,6 +137,7 @@
                 <artifactId>frontend-maven-plugin</artifactId>
                 <version>1.15.0</version>
                 <configuration>
+                    <skip>${promptlm.webapp.ui.skip}</skip>
                     <workingDirectory>${project.basedir}/../..</workingDirectory>
                     <installDirectory>target</installDirectory>
                     <environmentVariables>
@@ -188,7 +191,14 @@
                             <target>
                                 <mkdir dir="${project.build.directory}/generated/openapi"/>
                                 <exec executable="curl" failonerror="true">
-                                    <arg value="-sf"/>
+                                    <arg value="-sSf"/>
+                                    <arg value="--retry"/>
+                                    <arg value="30"/>
+                                    <arg value="--retry-connrefused"/>
+                                    <arg value="--retry-delay"/>
+                                    <arg value="1"/>
+                                    <arg value="--retry-max-time"/>
+                                    <arg value="60"/>
                                     <arg value="http://localhost:${openapi.server.port}/v3/api-docs"/>
                                     <arg value="-o"/>
                                     <arg value="${project.build.directory}/generated/openapi/promptlm-webapp-openapi.json"/>
@@ -202,6 +212,17 @@
     </build>
 
     <profiles>
+        <profile>
+            <id>web-ui-workspace</id>
+            <activation>
+                <file>
+                    <exists>${project.basedir}/../../components/promptlm-web-ui/package.json</exists>
+                </file>
+            </activation>
+            <properties>
+                <promptlm.webapp.ui.skip>false</promptlm.webapp.ui.skip>
+            </properties>
+        </profile>
         <profile>
             <id>native</id>
             <build>

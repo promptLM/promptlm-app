@@ -50,6 +50,12 @@ public class GitHubProperties {
         if (baseUrl == null || baseUrl.isBlank()) {
             return DEFAULT_BASE_URL;
         }
+        if (containsUnresolvedPlaceholder(baseUrl)) {
+            throw new IllegalStateException(
+                    "promptlm.store.remote.base-url contains an unresolved placeholder: " + baseUrl
+                    + ". Set REPO_REMOTE_URL or configure promptlm.store.remote.base-url explicitly."
+            );
+        }
         return baseUrl;
     }
 
@@ -60,6 +66,12 @@ public class GitHubProperties {
     public String getEndpoint() {
         if (endpoint == null || endpoint.isBlank()) {
             return getBaseUrl();
+        }
+        if (containsUnresolvedPlaceholder(endpoint)) {
+            throw new IllegalStateException(
+                    "promptlm.store.remote.endpoint contains an unresolved placeholder: " + endpoint
+                            + ". Configure promptlm.store.remote.endpoint explicitly."
+            );
         }
         return endpoint;
     }
@@ -84,5 +96,9 @@ public class GitHubProperties {
         properties.setProperty("oauth", resolvedToken != null ? resolvedToken : "");
         properties.setProperty("endpoint", getEndpoint());
         return properties;
+    }
+
+    private static boolean containsUnresolvedPlaceholder(String value) {
+        return value.contains("${") && value.contains("}");
     }
 }
