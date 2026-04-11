@@ -1,0 +1,12 @@
+configVersion: 1
+
+shared:
+  security:
+    bootstrapKeysReadTimeoutSecs: 300
+    masterKeyExternal: true
+  script:
+    serviceStartTimeout: 180
+
+router:
+  serviceRegistry:
+    requestTimeout: 60s

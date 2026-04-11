@@ -1,0 +1,22 @@
+name: Package Prompts Zip
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build prompts zip
+        run: |
+          mkdir -p build/zip-root/META-INF
+          cp -r prompts build/zip-root/prompts
+          cp .promptlm/prompts-meta.json build/zip-root/META-INF/prompts-meta.json
+          cd build/zip-root && zip -r ../../prompts.zip .
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: prompts
+          path: prompts.zip

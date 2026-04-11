@@ -1,0 +1,17 @@
+{
+  "name": "prompteval",
+  "private": true,
+  "packageManager": "npm@10.2.4",
+  "workspaces": [
+    "components/ui",
+    "components/promptlm-api-client",
+    "components/promptlm-web-ui"
+  ],
+  "scripts": {
+    "contracts:validate:asyncapi": "npm --workspace @promptlm/api-client run validate:asyncapi",
+    "contracts:generate": "npm --workspace @promptlm/api-client run generate",
+    "contracts:build": "npm --workspace @promptlm/api-client run build",
+    "webapp:test": "npm --workspace @promptlm/web-ui run test",
+    "webapp:build": "npm --workspace @promptlm/web-ui run build"
+  }
+}

@@ -1,0 +1,24 @@
+[
+  {
+    "id": "11111111-1111-1111-1111-111111111111",
+    "name": "Alpha Workspace",
+    "description": "Primary prompt workspace",
+    "promptCount": 2,
+    "createdAt": "2025-01-20T08:00:00Z",
+    "updatedAt": "2025-02-26T12:00:00Z",
+    "localPath": "/repos/alpha",
+    "repositoryUrl": "https://example.com/alpha.git",
+    "healthStatus": "HEALTHY"
+  },
+  {
+    "id": "22222222-2222-2222-2222-222222222222",
+    "name": "Beta Workspace",
+    "description": "Experimental prompts",
+    "promptCount": 1,
+    "createdAt": "2025-01-10T08:00:00Z",
+    "updatedAt": "2025-02-24T12:00:00Z",
+    "localPath": "/repos/beta",
+    "repositoryUrl": "https://example.com/beta.git",
+    "healthStatus": "HEALTHY"
+  }
+]

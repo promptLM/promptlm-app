@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- Project coordinates - customize these for your prompt repository -->
+    <groupId>com.example.prompts</groupId>
+    <artifactId>my-prompts</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>Prompt Repository</name>
+    <description>A repository of prompts for LLM applications</description>
+
+    <properties>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.build.timestamp.format>yyyy-MM-dd'T'HH:mm:ss'Z'</maven.build.timestamp.format>
+    </properties>
+
+    <build>
+        <plugins>
+            <!-- Maven Compiler Plugin -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <source>17</source>
+                    <target>17</target>
+                </configuration>
+            </plugin>
+
+            <!-- Maven Resources Plugin - Copy prompts and metadata to JAR -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.3.1</version>
+                <executions>
+                    <!-- Copy prompts directory to target/classes -->
+                    <execution>
+                        <id>copy-prompts</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.outputDirectory}/prompts</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>prompts</directory>
+                                    <includes>
+                                        <include>**/*</include>
+                                    </includes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                    <!-- Copy metadata file to META-INF -->
+                    <execution>
+                        <id>copy-metadata</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.outputDirectory}/META-INF</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>.promptlm</directory>
+                                    <includes>
+                                        <include>metadata.json</include>
+                                        <include>prompts-meta.json</include>
+                                    </includes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Maven JAR Plugin - Configure JAR creation -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.3.0</version>
+                <configuration>
+                    <!-- Force JAR creation even without Java sources -->
+                    <forceCreation>true</forceCreation>
+                    <archive>
+                        <manifest>
+                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                            <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
+                        </manifest>
+                        <manifestEntries>
+                            <Built-By>${user.name}</Built-By>
+                            <Build-Time>${maven.build.timestamp}</Build-Time>
+                            <Prompt-Repository-Version>${project.version}</Prompt-Repository-Version>
+                            <Prompt-Repository-Name>${project.name}</Prompt-Repository-Name>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
+
+            <!-- Maven Deploy Plugin - For deploying to repositories -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-deploy-plugin</artifactId>
+                <version>3.1.1</version>
+            </plugin>
+
+            <!-- Maven Source Plugin - Attach sources JAR -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.3.0</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Versions Plugin - For version management -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>versions-maven-plugin</artifactId>
+                <version>2.16.0</version>
+            </plugin>
+        </plugins>
+    </build>
+
+    <!-- Distribution Management - Configure where to deploy artifacts -->
+    <distributionManagement>
+        <repository>
+            <id>artifactory</id>
+            <name>Artifactory Release Repository</name>
+            <url>${artifactory.url}/${artifactory.repository}</url>
+        </repository>
+        <snapshotRepository>
+            <id>artifactory</id>
+            <name>Artifactory Snapshot Repository</name>
+            <url>${artifactory.url}/${artifactory.repository}</url>
+        </snapshotRepository>
+    </distributionManagement>
+
+    <!-- Profiles for different deployment scenarios -->
+    <profiles>
+        <!-- Development profile -->
+        <profile>
+            <id>dev</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <artifactory.url>http://localhost:8091/artifactory</artifactory.url>
+                <artifactory.repository>ci-maven-local</artifactory.repository>
+            </properties>
+        </profile>
+
+        <!-- Production profile -->
+        <profile>
+            <id>prod</id>
+            <properties>
+                <artifactory.url>${env.ARTIFACTORY_URL}</artifactory.url>
+                <artifactory.repository>${env.ARTIFACTORY_REPOSITORY}</artifactory.repository>
+            </properties>
+        </profile>
+
+        <!-- GitHub Packages profile -->
+        <profile>
+            <id>github</id>
+            <distributionManagement>
+                <repository>
+                    <id>github</id>
+                    <name>GitHub Packages</name>
+                    <url>https://maven.pkg.github.com/${env.GITHUB_REPOSITORY}</url>
+                </repository>
+            </distributionManagement>
+        </profile>
+    </profiles>
+</project>

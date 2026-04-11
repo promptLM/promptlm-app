@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>dev.promptlm</groupId>
+        <artifactId>promptlm-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>promptlm-webapp</artifactId>
+
+    <properties>
+        <maven.compiler.release>21</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <promptlm.webapp.ui.skip>true</promptlm.webapp.ui.skip>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>dev.promptlm</groupId>
+            <artifactId>promptlm-web-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.promptlm</groupId>
+            <artifactId>promptlm-rest-docs</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jetty</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>3.0.2</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.6.1</version>
+                <executions>
+                    <execution>
+                        <id>reserve-openapi-ports</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>reserve-network-port</goal>
+                        </goals>
+                        <configuration>
+                            <portNames>
+                                <portName>openapi.server.port</portName>
+                                <portName>openapi.jmx.port</portName>
+                            </portNames>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>${spring-boot.version}</version>
+                <configuration>
+                    <skip>false</skip>
+                    <mainClass>dev.promptlm.webapp.PromptLmWebAppApplication</mainClass>
+                    <jmxPort>${openapi.jmx.port}</jmxPort>
+                    <wait>2000</wait>
+                    <maxAttempts>60</maxAttempts>
+                    <jvmArguments>-Dspring.devtools.restart.enabled=false</jvmArguments>
+                    <excludes>
+                        <exclude>
+                            <groupId>dev.promptlm</groupId>
+                            <artifactId>promptlm-rest-docs</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>start-openapi-server</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>start</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>
+                                <argument>--server.port=${openapi.server.port}</argument>
+                                <argument>--promptlm.openapi.examples.enabled=true</argument>
+                            </arguments>
+                            <jmxPort>${openapi.jmx.port}</jmxPort>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>stop-openapi-server</id>
+                        <phase>process-test-classes</phase>
+                        <goals>
+                            <goal>stop</goal>
+                        </goals>
+                        <configuration>
+                            <jmxPort>${openapi.jmx.port}</jmxPort>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>com.github.eirslett</groupId>
+                <artifactId>frontend-maven-plugin</artifactId>
+                <version>1.15.0</version>
+                <configuration>
+                    <skip>${promptlm.webapp.ui.skip}</skip>
+                    <workingDirectory>${project.basedir}/../..</workingDirectory>
+                    <installDirectory>target</installDirectory>
+                    <environmentVariables>
+                        <NPM_CONFIG_LOGLEVEL>error</NPM_CONFIG_LOGLEVEL>
+                    </environmentVariables>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>install-node-npm</id>
+                        <goals>
+                            <goal>install-node-and-npm</goal>
+                        </goals>
+                        <configuration>
+                            <nodeVersion>v20.11.1</nodeVersion>
+                            <npmVersion>10.2.4</npmVersion>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>npm-install</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>ci --include=dev</arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>npm-build</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <phase>prepare-package</phase>
+                        <configuration>
+                            <arguments>--workspace @promptlm/web-ui run build -- --outDir ${project.basedir}/target/classes/static</arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.2.0</version>
+                <executions>
+                    <execution>
+                        <id>fetch-openapi-spec</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <mkdir dir="${project.build.directory}/generated/openapi"/>
+                                <exec executable="curl" failonerror="true">
+                                    <arg value="-sSf"/>
+                                    <arg value="--retry"/>
+                                    <arg value="30"/>
+                                    <arg value="--retry-connrefused"/>
+                                    <arg value="--retry-delay"/>
+                                    <arg value="1"/>
+                                    <arg value="--retry-max-time"/>
+                                    <arg value="60"/>
+                                    <arg value="http://localhost:${openapi.server.port}/v3/api-docs"/>
+                                    <arg value="-o"/>
+                                    <arg value="${project.build.directory}/generated/openapi/promptlm-webapp-openapi.json"/>
+                                </exec>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>web-ui-workspace</id>
+            <activation>
+                <file>
+                    <exists>${project.basedir}/../../components/promptlm-web-ui/package.json</exists>
+                </file>
+            </activation>
+            <properties>
+                <promptlm.webapp.ui.skip>false</promptlm.webapp.ui.skip>
+            </properties>
+        </profile>
+        <profile>
+            <id>native</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.graalvm.buildtools</groupId>
+                        <artifactId>native-maven-plugin</artifactId>
+                        <version>${native.maven.plugin.version}</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <mainClass>dev.promptlm.webapp.PromptLmWebAppApplication</mainClass>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>compile-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

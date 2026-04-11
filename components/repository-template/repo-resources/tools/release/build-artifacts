@@ -1,0 +1,283 @@
+#!/usr/bin/env python3
+import argparse
+import json
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+try:
+    import tomllib  # Python 3.11+
+except ModuleNotFoundError:  # pragma: no cover
+    tomllib = None
+
+
+def eprint(message: str) -> None:
+    print(message, file=sys.stderr)
+
+
+def run(cmd, cwd=None) -> None:
+    subprocess.run(cmd, cwd=cwd, check=True)
+
+
+def read_toml(path: Path) -> dict:
+    if tomllib is None:
+        raise RuntimeError("Python 3.11+ is required (tomllib missing).")
+    with path.open("rb") as handle:
+        return tomllib.load(handle)
+
+
+def resolve_targets(manifest: dict) -> list[str]:
+    project = manifest.get("project", {})
+    targets = project.get("targets")
+    if targets is None:
+        targets = manifest.get("targets")
+    if targets is None:
+        return []
+    if not isinstance(targets, list):
+        raise ValueError("targets must be a list")
+    return [str(t).strip() for t in targets if str(t).strip()]
+
+
+def resolve_version(manifest: dict) -> str:
+    project = manifest.get("project", {})
+    version = project.get("version")
+    if not version:
+        raise RuntimeError("project.version must be set when targets are configured")
+    return str(version)
+
+
+def normalize_python_version(version: str) -> str:
+    if "-" not in version:
+        return version
+    base, suffix = version.split("-", 1)
+    suffix = suffix.replace("-", ".").replace("_", ".").lower()
+    return f"{base}+{suffix}"
+
+
+def ensure_dir(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+
+
+def copy_prompts_and_metadata(root: Path, prompts_dir: Path, metadata_dir: Path) -> None:
+    ensure_dir(root)
+    if prompts_dir.exists():
+        shutil.copytree(prompts_dir, root / "prompts", dirs_exist_ok=True)
+    if metadata_dir.exists():
+        ensure_dir(root / ".promptlm")
+        for entry in metadata_dir.glob("*.json"):
+            shutil.copy2(entry, root / ".promptlm" / entry.name)
+
+
+def build_java(manifest: dict, version: str, dist_dir: Path, build_dir: Path) -> Path:
+    config = manifest.get("artifacts", {}).get("java", {})
+    group_id = config.get("group_id")
+    artifact_id = config.get("artifact_id")
+    packaging = config.get("packaging", "jar")
+    if packaging != "jar":
+        raise RuntimeError("Java packaging must be jar")
+    if not group_id or not artifact_id:
+        raise RuntimeError("Java artifact requires group_id and artifact_id")
+
+    jar_cmd = shutil.which("jar")
+    if not jar_cmd:
+        raise RuntimeError("jar command not found (JDK required)")
+
+    jar_root = build_dir / "java" / artifact_id
+    if jar_root.exists():
+        shutil.rmtree(jar_root)
+    ensure_dir(jar_root)
+
+    prompts_dir = Path("prompts")
+    metadata_dir = Path(".promptlm")
+    if prompts_dir.exists():
+        shutil.copytree(prompts_dir, jar_root / "prompts", dirs_exist_ok=True)
+    ensure_dir(jar_root / "META-INF")
+    if metadata_dir.exists():
+        for entry in metadata_dir.glob("*.json"):
+            shutil.copy2(entry, jar_root / "META-INF" / entry.name)
+    else:
+        (jar_root / "META-INF").mkdir(parents=True, exist_ok=True)
+
+    prompts_meta = jar_root / "META-INF" / "prompts-meta.json"
+    if not prompts_meta.exists():
+        prompts_meta.write_text(json.dumps({"version": version}), encoding="utf-8")
+
+    ensure_dir(dist_dir / "java")
+    jar_path = dist_dir / "java" / f"{artifact_id}-{version}.jar"
+    if jar_path.exists():
+        jar_path.unlink()
+    run([jar_cmd, "cf", str(jar_path), "-C", str(jar_root), "."])
+    return jar_path
+
+
+def build_python(manifest: dict, version: str, dist_dir: Path, build_dir: Path) -> list[Path]:
+    config = manifest.get("artifacts", {}).get("python", {})
+    distribution_name = config.get("distribution_name")
+    import_name = config.get("import_name")
+    build_types = config.get("build_types", ["wheel", "sdist"])
+    if not distribution_name or not import_name:
+        raise RuntimeError("Python artifact requires distribution_name and import_name")
+    if not isinstance(build_types, list) or not build_types:
+        raise RuntimeError("Python build_types must be a non-empty list")
+
+    python_cmd = shutil.which("python3") or shutil.which("python")
+    if not python_cmd:
+        raise RuntimeError("python not found")
+
+    package_root = build_dir / "python" / distribution_name
+    if package_root.exists():
+        shutil.rmtree(package_root)
+    ensure_dir(package_root / "src" / import_name)
+
+    prompts_dir = Path("prompts")
+    metadata_dir = Path(".promptlm")
+    if prompts_dir.exists():
+        shutil.copytree(prompts_dir, package_root / "src" / import_name / "prompts", dirs_exist_ok=True)
+    if metadata_dir.exists():
+        shutil.copytree(metadata_dir, package_root / "src" / import_name / ".promptlm", dirs_exist_ok=True)
+
+    init_path = package_root / "src" / import_name / "__init__.py"
+    init_path.write_text(f"__version__ = \"{normalize_python_version(version)}\"\n", encoding="utf-8")
+
+    description = manifest.get("project", {}).get("description", "Prompt bundle")
+    pyproject = package_root / "pyproject.toml"
+    pyproject.write_text(
+        "\n".join(
+            [
+                "[build-system]",
+                "requires = [\"setuptools>=68\", \"wheel\"]",
+                "build-backend = \"setuptools.build_meta\"",
+                "",
+                "[project]",
+                f"name = \"{distribution_name}\"",
+                f"version = \"{normalize_python_version(version)}\"",
+                f"description = \"{description}\"",
+                "requires-python = \">=3.8\"",
+                "",
+                "[tool.setuptools]",
+                f"packages = [\"{import_name}\"]",
+                "include-package-data = true",
+                "",
+                "[tool.setuptools.package-data]",
+                f"\"{import_name}\" = [\"prompts/**\", \".promptlm/**\"]",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    build_flags = []
+    if "wheel" in build_types:
+        build_flags.append("--wheel")
+    if "sdist" in build_types:
+        build_flags.append("--sdist")
+
+    ensure_dir(dist_dir / "python")
+    run([python_cmd, "-m", "build", *build_flags, "--outdir", str(dist_dir / "python")], cwd=package_root)
+
+    return sorted((dist_dir / "python").glob("*"))
+
+
+def build_js(manifest: dict, version: str, dist_dir: Path, build_dir: Path) -> Path:
+    config = manifest.get("artifacts", {}).get("js", {})
+    package_name = config.get("package_name")
+    module_type = config.get("module_type", "commonjs")
+    if not package_name:
+        raise RuntimeError("JS artifact requires package_name")
+
+    npm_cmd = shutil.which("npm")
+    if not npm_cmd:
+        raise RuntimeError("npm not found")
+
+    safe_dir = package_name.replace("/", "-").replace("@", "")
+    package_root = build_dir / "js" / safe_dir
+    if package_root.exists():
+        shutil.rmtree(package_root)
+    ensure_dir(package_root / "dist")
+
+    prompts_dir = Path("prompts")
+    metadata_dir = Path(".promptlm")
+    if prompts_dir.exists():
+        shutil.copytree(prompts_dir, package_root / "dist" / "prompts", dirs_exist_ok=True)
+    if metadata_dir.exists():
+        shutil.copytree(metadata_dir, package_root / "dist" / ".promptlm", dirs_exist_ok=True)
+
+    description = manifest.get("project", {}).get("description", "Prompt bundle")
+    package_json = {
+        "name": package_name,
+        "version": version,
+        "description": description,
+        "private": False,
+        "files": ["dist/"],
+        "type": module_type,
+    }
+    (package_root / "package.json").write_text(json.dumps(package_json, indent=2) + "\n", encoding="utf-8")
+
+    ensure_dir(dist_dir / "js")
+    result = subprocess.run([npm_cmd, "pack"], cwd=package_root, check=True, capture_output=True, text=True)
+    tarball = result.stdout.strip().splitlines()[-1]
+    tarball_path = package_root / tarball
+    target_path = dist_dir / "js" / tarball
+    if target_path.exists():
+        target_path.unlink()
+    shutil.move(str(tarball_path), target_path)
+    return target_path
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Build prompt artifacts based on .promptlm/artifacts.toml")
+    parser.add_argument("--manifest", default=".promptlm/artifacts.toml", help="Path to artifacts.toml")
+    parser.add_argument("--dist", default="dist", help="Output directory for artifacts")
+    parser.add_argument("--build-dir", default="build", help="Staging directory")
+    parser.add_argument("--target", help="Build only a single target (java|python|js)")
+    args = parser.parse_args()
+
+    manifest_path = Path(args.manifest)
+    if not manifest_path.exists():
+        print(f"Manifest not found at {manifest_path}; skipping build.")
+        return 0
+
+    manifest = read_toml(manifest_path)
+    targets = resolve_targets(manifest)
+    if not targets:
+        print("No targets configured; skipping artifact build.")
+        return 0
+
+    if args.target:
+        target = args.target.strip()
+        if target not in targets:
+            print(f"Target '{target}' not configured; skipping build.")
+            return 0
+        targets = [target]
+
+    version = resolve_version(manifest)
+    dist_dir = Path(args.dist)
+    build_dir = Path(args.build_dir)
+    ensure_dir(dist_dir)
+    ensure_dir(build_dir)
+
+    built = []
+    for target in targets:
+        if target == "java":
+            built.append(str(build_java(manifest, version, dist_dir, build_dir)))
+        elif target == "python":
+            artifacts = build_python(manifest, version, dist_dir, build_dir)
+            built.extend([str(p) for p in artifacts])
+        elif target == "js":
+            built.append(str(build_js(manifest, version, dist_dir, build_dir)))
+        else:
+            raise RuntimeError(f"Unknown target: {target}")
+
+    print("Built artifacts:")
+    for item in built:
+        print(f"- {item}")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except Exception as exc:  # pragma: no cover
+        eprint(f"ERROR: {exc}")
+        sys.exit(1)

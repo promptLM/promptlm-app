@@ -1,0 +1,350 @@
+name: Build & Deploy Prompts to Artifactory
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Override version to deploy'
+        required: false
+        type: string
+      maven_args:
+        description: 'Optional Maven arguments for the build step'
+        required: false
+        type: string
+      maven_projects:
+        description: 'Optional Maven project list for -pl (comma separated)'
+        required: false
+        type: string
+      skip_tests:
+        description: 'Skip Maven tests during build'
+        required: false
+        type: boolean
+        default: false
+      environment:
+        description: 'Target environment label'
+        required: false
+        type: string
+      artifactory_url:
+        description: 'Override Artifactory base URL'
+        required: false
+        type: string
+
+env:
+  ARTIFACTORY_URL: ${{ github.event.inputs.artifactory_url || vars.ARTIFACTORY_URL || 'http://host.docker.internal:8091/artifactory' }}
+  ARTIFACTORY_REPOSITORY: ${{ vars.ARTIFACTORY_REPOSITORY || 'example-repo-local' }}
+  ARTIFACTORY_USERNAME: ${{ secrets.ARTIFACTORY_USERNAME || vars.ARTIFACTORY_USERNAME || 'admin' }}
+  ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD || vars.ARTIFACTORY_PASSWORD || 'password' }}
+  TARGET_ENVIRONMENT: ${{ github.event.inputs.environment || 'development' }}
+  MAVEN_OPTS: '-Xmx1024m'
+  MAVEN_ARGS: ${{ github.event.inputs.maven_args || vars.PROMPTLM_MAVEN_ARGS || '' }}
+  MAVEN_PROJECTS: ${{ github.event.inputs.maven_projects || vars.PROMPTLM_MAVEN_PROJECTS || '' }}
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.determine.outputs.version }}
+    steps:
+      - name: Manual execution info
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "Manual deployment triggered"
+          echo "Version: ${{ github.event.inputs.release_version }}"
+          echo "Environment: ${{ github.event.inputs.environment }}"
+          echo "Artifactory URL: ${{ github.event.inputs.artifactory_url }}"
+          echo "Skip Tests: ${{ github.event.inputs.skip_tests }}"
+          echo "Maven Args: ${{ github.event.inputs.maven_args }}"
+          echo "Maven Projects: ${{ github.event.inputs.maven_projects }}"
+
+      - name: Determine version
+        id: determine
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.release_version }}" ]; then
+            VERSION="${{ github.event.inputs.release_version }}"
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+            VERSION="${VERSION#v}"
+          else
+            BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+            TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+            if [ "$BRANCH_NAME" = "main" ]; then
+              VERSION="1.0.0-${TIMESTAMP}-SNAPSHOT"
+            else
+              CLEAN_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9.-]/-/g')
+              VERSION="1.0.0-${CLEAN_BRANCH}-${TIMESTAMP}-SNAPSHOT"
+            fi
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Deploying version: $VERSION"
+
+  build:
+    needs: prepare
+    runs-on: ubuntu-latest
+    container: maven:3.9.9-eclipse-temurin-21
+    env:
+      REPO_REMOTE_URL: ${{ vars.REPO_REMOTE_URL }}
+      REPO_REMOTE_USERNAME: ${{ vars.REPO_REMOTE_USERNAME }}
+      REPO_REMOTE_TOKEN: ${{ vars.REPO_REMOTE_TOKEN }}
+    steps:
+      - name: Checkout repository
+        shell: bash
+        env:
+          CHECKOUT_REMOTE_URL: ${{ env.REPO_REMOTE_URL }}
+          CHECKOUT_REMOTE_USERNAME: ${{ env.REPO_REMOTE_USERNAME }}
+          CHECKOUT_REMOTE_TOKEN: ${{ env.REPO_REMOTE_TOKEN }}
+          CHECKOUT_FALLBACK_URL: ${{ github.server_url }}/${{ github.repository }}.git
+          CHECKOUT_FALLBACK_TOKEN: ${{ github.token }}
+          CHECKOUT_REF_NAME: ${{ github.ref_name }}
+          CHECKOUT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          REMOTE_URL="${CHECKOUT_REMOTE_URL:-$CHECKOUT_FALLBACK_URL}"
+          IS_FILE_REMOTE=false
+          if [[ "${REMOTE_URL}" == file://* ]]; then
+            IS_FILE_REMOTE=true
+          fi
+
+          git init .
+          git config --global --add safe.directory "$PWD"
+          if [[ "${IS_FILE_REMOTE}" == "true" ]]; then
+            git config --global --add safe.directory "${REMOTE_URL#file://}"
+          else
+            REMOTE_USERNAME="${CHECKOUT_REMOTE_USERNAME:-x-access-token}"
+            REMOTE_TOKEN="${CHECKOUT_REMOTE_TOKEN:-$CHECKOUT_FALLBACK_TOKEN}"
+            if [ -z "${REMOTE_TOKEN}" ]; then
+              echo "No repository token available for checkout" >&2
+              exit 1
+            fi
+            AUTH_HEADER="Authorization: Basic $(printf '%s:%s' "${REMOTE_USERNAME}" "${REMOTE_TOKEN}" | base64 | tr -d '\n')"
+          fi
+
+          if git remote get-url origin >/dev/null 2>&1; then
+            git remote set-url origin "${REMOTE_URL}"
+          else
+            git remote add origin "${REMOTE_URL}"
+          fi
+
+          if [ -n "${CHECKOUT_REF_NAME}" ]; then
+            if [[ "${IS_FILE_REMOTE}" == "true" ]]; then
+              git fetch --force origin "${CHECKOUT_REF_NAME}"
+            else
+              git -c http.extraHeader="${AUTH_HEADER}" fetch --force origin "${CHECKOUT_REF_NAME}"
+            fi
+          else
+            if [[ "${IS_FILE_REMOTE}" == "true" ]]; then
+              git fetch --force origin "${CHECKOUT_SHA}"
+            else
+              git -c http.extraHeader="${AUTH_HEADER}" fetch --force origin "${CHECKOUT_SHA}"
+            fi
+          fi
+
+          if [[ "${IS_FILE_REMOTE}" == "true" ]]; then
+            git fetch --force origin "${CHECKOUT_SHA}"
+          else
+            git -c http.extraHeader="${AUTH_HEADER}" fetch --force origin "${CHECKOUT_SHA}"
+          fi
+          git checkout --force "${CHECKOUT_SHA}"
+
+      - name: Show toolchain
+        shell: bash
+        run: |
+          java -version
+          mvn -version
+
+      - name: Set project version
+        run: mvn -B -ntp versions:set -DnewVersion=${{ needs.prepare.outputs.version }} -DgenerateBackupPoms=false
+
+      - name: Build project
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          MAVEN_COMMAND=(mvn -B -ntp)
+          if [ "${{ github.event.inputs.skip_tests || false }}" = "true" ]; then
+            MAVEN_COMMAND+=(clean package -DskipTests)
+          else
+            MAVEN_COMMAND+=(clean verify)
+          fi
+
+          if [ -n "${MAVEN_PROJECTS}" ]; then
+            MAVEN_COMMAND+=(-pl "${MAVEN_PROJECTS}")
+          fi
+
+          if [ -n "${MAVEN_ARGS}" ]; then
+            # shellcheck disable=SC2206
+            EXTRA_ARGS=(${MAVEN_ARGS})
+            MAVEN_COMMAND+=("${EXTRA_ARGS[@]}")
+          fi
+
+          "${MAVEN_COMMAND[@]}"
+
+      - name: Generate test support artifacts
+        shell: bash
+        run: |
+          if mvn -B -ntp help:describe -Dplugin=dev.promptlm:promptlm-test-support-generator -Ddetail=false >/dev/null 2>&1; then
+            mvn -B -ntp dev.promptlm:promptlm-test-support-generator:generate-test-support
+          else
+            echo "promptlm-test-support-generator plugin is not resolvable in this environment; skipping test-support generation."
+          fi
+
+      - name: Ensure packaging prerequisites
+        run: |
+          if command -v zip >/dev/null 2>&1; then
+            echo "zip already available"
+          else
+            apt-get update
+            apt-get install -y zip
+          fi
+
+      - name: Package prompts jar
+        shell: bash
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          mkdir -p build/jar-root/META-INF
+          cp -r prompts build/jar-root/prompts
+
+          if [ -f .promptlm/prompts-meta.json ]; then
+            cp .promptlm/prompts-meta.json build/jar-root/META-INF/prompts-meta.json
+          else
+            echo "{\"version\": \"${VERSION}\"}" > build/jar-root/META-INF/prompts-meta.json
+          fi
+
+          JAR_NAME="prompts-${VERSION}.jar"
+          jar cf "$JAR_NAME" -C build/jar-root .
+
+  deploy:
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    container: maven:3.9.9-eclipse-temurin-21
+    env:
+      DEPLOY_VERSION: ${{ needs.prepare.outputs.version }}
+      REPO_REMOTE_URL: ${{ vars.REPO_REMOTE_URL }}
+      REPO_REMOTE_USERNAME: ${{ vars.REPO_REMOTE_USERNAME }}
+      REPO_REMOTE_TOKEN: ${{ vars.REPO_REMOTE_TOKEN }}
+    steps:
+      - name: Checkout repository
+        shell: bash
+        env:
+          CHECKOUT_REMOTE_URL: ${{ env.REPO_REMOTE_URL }}
+          CHECKOUT_REMOTE_USERNAME: ${{ env.REPO_REMOTE_USERNAME }}
+          CHECKOUT_REMOTE_TOKEN: ${{ env.REPO_REMOTE_TOKEN }}
+          CHECKOUT_FALLBACK_URL: ${{ github.server_url }}/${{ github.repository }}.git
+          CHECKOUT_FALLBACK_TOKEN: ${{ github.token }}
+          CHECKOUT_REF_NAME: ${{ github.ref_name }}
+          CHECKOUT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          REMOTE_URL="${CHECKOUT_REMOTE_URL:-$CHECKOUT_FALLBACK_URL}"
+          IS_FILE_REMOTE=false
+          if [[ "${REMOTE_URL}" == file://* ]]; then
+            IS_FILE_REMOTE=true
+          fi
+
+          git init .
+          git config --global --add safe.directory "$PWD"
+          if [[ "${IS_FILE_REMOTE}" == "true" ]]; then
+            git config --global --add safe.directory "${REMOTE_URL#file://}"
+          else
+            REMOTE_USERNAME="${CHECKOUT_REMOTE_USERNAME:-x-access-token}"
+            REMOTE_TOKEN="${CHECKOUT_REMOTE_TOKEN:-$CHECKOUT_FALLBACK_TOKEN}"
+            if [ -z "${REMOTE_TOKEN}" ]; then
+              echo "No repository token available for checkout" >&2
+              exit 1
+            fi
+            AUTH_HEADER="Authorization: Basic $(printf '%s:%s' "${REMOTE_USERNAME}" "${REMOTE_TOKEN}" | base64 | tr -d '\n')"
+          fi
+
+          if git remote get-url origin >/dev/null 2>&1; then
+            git remote set-url origin "${REMOTE_URL}"
+          else
+            git remote add origin "${REMOTE_URL}"
+          fi
+
+          if [ -n "${CHECKOUT_REF_NAME}" ]; then
+            if [[ "${IS_FILE_REMOTE}" == "true" ]]; then
+              git fetch --force origin "${CHECKOUT_REF_NAME}"
+            else
+              git -c http.extraHeader="${AUTH_HEADER}" fetch --force origin "${CHECKOUT_REF_NAME}"
+            fi
+          else
+            if [[ "${IS_FILE_REMOTE}" == "true" ]]; then
+              git fetch --force origin "${CHECKOUT_SHA}"
+            else
+              git -c http.extraHeader="${AUTH_HEADER}" fetch --force origin "${CHECKOUT_SHA}"
+            fi
+          fi
+
+          if [[ "${IS_FILE_REMOTE}" == "true" ]]; then
+            git fetch --force origin "${CHECKOUT_SHA}"
+          else
+            git -c http.extraHeader="${AUTH_HEADER}" fetch --force origin "${CHECKOUT_SHA}"
+          fi
+          git checkout --force "${CHECKOUT_SHA}"
+
+      - name: Show toolchain
+        shell: bash
+        run: |
+          java -version
+          mvn -version
+
+      - name: Create Maven settings.xml
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                    xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0
+                                        http://maven.apache.org/xsd/settings-1.0.0.xsd">
+            <servers>
+              <server>
+                <id>artifactory</id>
+                <username>${env.ARTIFACTORY_USERNAME}</username>
+                <password>${env.ARTIFACTORY_PASSWORD}</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
+
+      - name: Verify Artifactory availability
+        run: |
+          PING_URL="${ARTIFACTORY_URL%/}/api/system/ping"
+          echo "Pinging Artifactory: $PING_URL"
+          curl --fail --silent --show-error --max-time 20 "$PING_URL" > /dev/null
+
+      - name: Deploy to Artifactory
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          MAVEN_COMMAND=(mvn -B -ntp deploy -DskipTests)
+          MAVEN_COMMAND+=(-Dartifactory.url="${ARTIFACTORY_URL}")
+          MAVEN_COMMAND+=(-Dartifactory.repository="${ARTIFACTORY_REPOSITORY}")
+          MAVEN_COMMAND+=(-Dartifactory.username="${ARTIFACTORY_USERNAME}")
+          MAVEN_COMMAND+=(-Dartifactory.password="${ARTIFACTORY_PASSWORD}")
+
+          if [ -n "${MAVEN_PROJECTS}" ]; then
+            MAVEN_COMMAND+=(-pl "${MAVEN_PROJECTS}")
+          fi
+
+          if [ -n "${MAVEN_ARGS}" ]; then
+            # shellcheck disable=SC2206
+            EXTRA_ARGS=(${MAVEN_ARGS})
+            MAVEN_COMMAND+=("${EXTRA_ARGS[@]}")
+          fi
+
+          echo "Deploying version ${DEPLOY_VERSION} to ${ARTIFACTORY_URL}/${ARTIFACTORY_REPOSITORY}"
+          "${MAVEN_COMMAND[@]}"
+
+      - name: Summarize deployment
+        run: |
+          echo "## Deployment Complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Version: ${DEPLOY_VERSION}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Repository: ${ARTIFACTORY_REPOSITORY}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Target URL: ${ARTIFACTORY_URL}/${ARTIFACTORY_REPOSITORY}" >> "$GITHUB_STEP_SUMMARY"

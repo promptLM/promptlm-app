@@ -1,0 +1,30 @@
+log:
+  level: info
+
+runner:
+  name: promptlm-actions-runner
+  file: /data/.runner
+  capacity: 1
+  insecure: true
+  fetch_timeout: 5s
+  fetch_interval: 2s
+  timeout: 3h
+  labels:
+    - "self-hosted"
+    - "ubuntu-latest:docker://ghcr.io/catthehacker/ubuntu:act-22.04"
+    - "ubuntu-22.04:docker://ghcr.io/catthehacker/ubuntu:act-22.04"
+
+cache:
+  enabled: false
+
+container:
+  network: promptlm-dev-net
+  valid_volumes:
+    - "**"
+  docker_host: unix:///var/run/docker.sock
+  options: "--user 0:0 --add-host host.docker.internal:host-gateway --add-host localhost.localtest.me:host-gateway"
+  force_pull: true
+  require_docker: true
+
+host:
+  workdir_parent: /data/_work

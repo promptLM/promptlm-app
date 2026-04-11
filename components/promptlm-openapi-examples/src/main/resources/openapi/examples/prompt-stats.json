@@ -1,0 +1,11 @@
+{
+  "totalPrompts": 2,
+  "activePrompts": 1,
+  "retiredPrompts": 0,
+  "countByGroup": {
+    "support": 1,
+    "release": 1
+  },
+  "activeProjects": 2,
+  "lastUpdated": "2025-02-27T10:30:00Z"
+}

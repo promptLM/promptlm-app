@@ -1,0 +1,57 @@
+// Copyright 2025 promptLM
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import type { Meta, StoryObj } from '@storybook/react';
+import React from 'react';
+
+const meta: Meta = {
+  title: 'UI/Badge (Placeholder)',
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          padding: '2rem',
+          background: 'radial-gradient(circle at top, rgba(30, 64, 175, 0.12), rgba(15, 23, 42, 0.05))',
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
+};
+
+export default meta;
+
+type Story = StoryObj;
+
+export const Placeholder: Story = {
+  render: () => (
+    <span
+      style={{
+        padding: '0.35rem 0.75rem',
+        borderRadius: '999px',
+        background: 'rgba(59, 130, 246, 0.12)',
+        border: '1px solid rgba(59, 130, 246, 0.4)',
+        color: '#1d4ed8',
+        fontSize: '0.75rem',
+        fontWeight: 600,
+        letterSpacing: '0.03em',
+      }}
+    >
+      Placeholder Badge
+    </span>
+  ),
+};

@@ -1,0 +1,9 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "../src",
+    "types": ["vite/client", "@storybook/types"],
+    "jsx": "react-jsx"
+  },
+  "include": ["../src/**/*", "./preview.tsx"]
+}

@@ -1,0 +1,35 @@
+= User Interfaces
+
+promptLM comes with two UIs:
+
+1. The server Prompt Studio / Dashboard
+2. The static report
+
+== Theming
+
+The shared `createPromptLMTheme` helper exposes PromptLM design tokens and multiple variants. To switch between
+variants inside a consuming app, pass the desired `variant` key when you create the theme and wrap your React tree in
+MUI's `ThemeProvider`:
+
+```tsx
+import { ThemeProvider } from '@mui/material';
+import { createPromptLMTheme } from '@promptlm/ui';
+
+const theme = createPromptLMTheme({ variant: 'darkAurora' });
+
+export function App() {
+  return (
+    <ThemeProvider theme={theme}>
+      {/* your routes/components */}
+    </ThemeProvider>
+  );
+}
+```
+
+Available variants:
+
+* `lightTech` – the default light mode experience used by the webapp today.
+* `darkAurora` – a darker palette optimised for low-light environments.
+
+Consumers can still pass additional MUI `ThemeOptions` overrides alongside the `variant` property.
+

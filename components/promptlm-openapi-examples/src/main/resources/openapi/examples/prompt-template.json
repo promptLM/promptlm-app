@@ -1,0 +1,43 @@
+{
+  "name": "support-prompt",
+  "group": "support",
+  "description": "Assist support agents",
+  "version": "1.0.0-SNAPSHOT",
+  "revision": 1,
+  "placeholders": {
+    "startPattern": "{{",
+    "endPattern": "}}",
+    "list": [
+      {
+        "name": "customer_name",
+        "value": "Taylor"
+      }
+    ],
+    "defaults": {
+      "customer_name": "Taylor"
+    }
+  },
+  "request": {
+    "type": "chat/completion",
+    "vendor": "openai",
+    "model": "gpt-4o",
+    "parameters": {
+      "temperature": 0.7,
+      "maxTokens": 1024,
+      "topP": 1.0,
+      "frequencyPenalty": 0.0,
+      "presencePenalty": 0.0,
+      "stream": false
+    },
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are a helpful assistant."
+      },
+      {
+        "role": "user",
+        "content": "Help the customer."
+      }
+    ]
+  }
+}

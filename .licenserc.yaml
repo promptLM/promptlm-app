@@ -1,0 +1,20 @@
+header:
+  license:
+    spdx-id: Apache-2.0
+    copyright-owner: promptLM
+
+  paths:
+    - "**/*.java"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.py"
+    - "**/*.sh"
+
+  paths-ignore:
+    - "**/target/**"
+    - "**/node_modules/**"
+    - "**/dist/**"
+    - ".git/**"
+    - ".idea/**"
+    - "site/**"
+    - "media/**"

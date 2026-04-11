@@ -1,0 +1,18 @@
+{
+  "vendors": [
+    {
+      "vendor": "anthropic",
+      "displayName": "Anthropic",
+      "active": true,
+      "models": [
+        {
+          "id": "claude-3-5",
+          "displayName": "claude-3-5",
+          "source": "config",
+          "supportsChat": true,
+          "requiresConfig": false
+        }
+      ]
+    }
+  ]
+}

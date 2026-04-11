@@ -1,0 +1,81 @@
+name: Prompt Repository CI
+
+on:
+#  workflow_dispatch:
+  push:
+    branches: [ main ]
+#  pull_request:
+#    branches: main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: write
+
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      REPO_REMOTE_URL: ${{ secrets.REPO_REMOTE_URL }}
+      REPO_REMOTE_USERNAME: ${{ secrets.REPO_REMOTE_USERNAME }}
+      REPO_REMOTE_TOKEN: ${{ secrets.REPO_REMOTE_TOKEN }}
+
+    steps:
+      - name: Show environment variables
+        run: |
+          echo "OPENAI_API_KEY=${OPENAI_API_KEY:+set}"
+          echo "REPO_REMOTE_URL=${REPO_REMOTE_URL:+set}"
+          echo "REPO_REMOTE_USERNAME=${REPO_REMOTE_USERNAME:+set}"
+          echo "REPO_REMOTE_TOKEN=${REPO_REMOTE_TOKEN:+set}"
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            !~/.m2/repository/dev/promptlm
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Build with Maven
+        run: mvn -B -DskipTests package --file pom.xml
+
+      - name: Run tests
+        run: mvn -B test
+
+      - name: Generate test support artifacts
+        run: mvn dev.promptlm:promptlm-test-support-generator:generate-test-support
+
+      - name: Package prompts
+        run: |
+          mkdir -p build/jar-root/META-INF
+          cp -r prompts build/jar-root/prompts
+          if [ -f .promptlm/prompts-meta.json ]; then
+            cp .promptlm/prompts-meta.json build/jar-root/META-INF/prompts-meta.json
+          fi
+          jar cf prompts.jar -C build/jar-root .
+
+      - name: Upload prompts artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: prompts-${{ github.sha }}
+          path: prompts.jar
+
+      - name: Upload test support artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-support-${{ github.sha }}
+          path: target/generated-test-support/

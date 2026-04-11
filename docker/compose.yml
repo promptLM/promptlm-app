@@ -1,0 +1,75 @@
+services:
+  gitea:
+    image: gitea/gitea:1.23.3
+    container_name: promptlm-gitea
+    restart: unless-stopped
+    environment:
+      USER_UID: 1000
+      USER_GID: 1000
+      GITEA__security__SECRET_KEY: Z5J7FJnWBtGfFFHDpc8TQccUmwmZXvGoYOQpgQoN0urosqBOkeLaCPox1y1zbeoU
+      GITEA__security__INTERNAL_TOKEN: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYmYiOjE3NTk5OTkwNzB9.db-S0PXNysfuD-zqYvwg_01y007UeGOWlHujp0fnLZw
+    ports:
+      - "3003:3000"
+      - "2223:22"
+    volumes:
+      - ./data/gitea:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - dev
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/api/v1/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  gitea-runner:
+    image: gitea/act_runner:latest
+    container_name: promptlm-gitea-runner
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/runner-entrypoint.sh"]
+    environment:
+      CONFIG_FILE: /data/config.yaml
+      GITEA_INSTANCE_URL: http://gitea:3000
+      GITEA_RUNNER_REGISTRATION_TOKEN: ${GITEA_RUNNER_TOKEN:-}
+      GITEA_RUNNER_NAME: promptlm-actions-runner
+    volumes:
+      - ./data/runner:/data
+      - ./runner-config.yaml:/data/config.yaml:ro
+      - ./runner-entrypoint.sh:/runner-entrypoint.sh:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - dev
+    depends_on:
+      - gitea
+
+  artifactory:
+    image: releases-docker.jfrog.io/jfrog/artifactory-oss:7.77.5
+    container_name: promptlm-artifactory
+    restart: unless-stopped
+    environment:
+      JF_SHARED_JAVAOPS: "-Xms512m -Xmx1g"
+      SKIP_VALIDATION_DISK_SPACE: "true"
+    ports:
+      - "8092:8081"
+    volumes:
+      - artifactory-data:/var/opt/jfrog/artifactory
+      - ./data/artifactory/bootstrap/security/master.key:/var/opt/jfrog/artifactory/etc/security/master.key:ro
+      - ./data/artifactory/bootstrap/system.yaml:/var/opt/jfrog/artifactory/etc/system.yaml
+    networks:
+      - dev
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/artifactory/api/system/ping"]
+      interval: 60s
+      timeout: 30s
+      retries: 10
+      start_period: 360s
+
+volumes:
+  artifactory-data:
+
+networks:
+  dev:
+    name: promptlm-dev-net
+    driver: bridge

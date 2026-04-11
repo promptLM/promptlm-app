@@ -1,0 +1,73 @@
+asyncapi: 3.0.0
+info:
+  title: PromptLM Store Status Events
+  version: 1.0.0
+  description: |
+    Async contract for the PromptLM store status SSE stream.
+servers:
+  promptlmWebapp:
+    host: localhost:8085
+    protocol: sse
+    description: Local PromptLM webapp SSE endpoint.
+channels:
+  storeStatus:
+    address: /api/store/events/{operationId}
+    description: |
+      Server-sent event stream for store operation status updates.
+    parameters:
+      operationId:
+        description: Identifier used to scope the SSE stream for a single store operation.
+    messages:
+      status:
+        $ref: '#/components/messages/StoreStatusEvent'
+operations:
+  receiveStoreStatus:
+    action: receive
+    channel:
+      $ref: '#/channels/storeStatus'
+    summary: Receive store status events from the SSE stream.
+    messages:
+      - $ref: '#/channels/storeStatus/messages/status'
+components:
+  messages:
+    StoreStatusEvent:
+      name: status
+      title: Store status event
+      summary: Status update emitted on the store SSE stream.
+      contentType: application/json
+      payload:
+        type: object
+        additionalProperties: false
+        required:
+          - operation
+          - status
+          - message
+          - timestamp
+        properties:
+          operation:
+            type: string
+            description: Logical operation category producing the event.
+            examples:
+              - store
+          status:
+            type: string
+            description: Current lifecycle state for the stream or operation.
+            enum:
+              - connected
+              - started
+              - progress
+              - completed
+              - failed
+          message:
+            type: string
+            description: Human-readable status message.
+            examples:
+              - SSE stream connected
+          timestamp:
+            type: string
+            format: date-time
+            description: ISO-8601 timestamp for when the event was emitted.
+          details:
+            type: object
+            description: Optional structured metadata for the event.
+            additionalProperties: true

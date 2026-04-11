@@ -1,0 +1,31 @@
+{
+  "name": "@promptlm/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "src"
+  ],
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "types": "./src/index.ts",
+  "scripts": {
+    "validate:asyncapi": "node ./scripts/validate-asyncapi.mjs",
+    "generate": "npm run validate:asyncapi && npm run generate:asyncapi && npm run generate:openapi && npm run generate:client",
+    "generate:asyncapi": "node ./scripts/generate-asyncapi.mjs",
+    "generate:openapi": "openapi-typescript ../../apps/promptlm-web-app/target/generated/openapi/promptlm-webapp-openapi.json --output ./src/generated/openapi.ts",
+    "generate:client": "openapi -i ../../apps/promptlm-web-app/target/generated/openapi/promptlm-webapp-openapi.json -o ./src/generated/client --client fetch",
+    "build": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "ajv": "^8.18.0",
+    "ajv-formats": "^3.0.1",
+    "@asyncapi/specs": "^6.11.1",
+    "json-schema-to-typescript": "^15.0.4",
+    "openapi-typescript": "^7.4.1",
+    "openapi-typescript-codegen": "^0.30.0",
+    "typescript": "^5.8.3",
+    "yaml": "^2.8.1"
+  }
+}

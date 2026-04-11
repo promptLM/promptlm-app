@@ -1,0 +1,108 @@
+name: Build & Deploy Prompts to Artifactory
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Override version to deploy'
+        required: false
+        type: string
+      skip_tests:
+        description: 'Skip Maven tests during build'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  # Simple Artifactory configuration for testing/development
+  ARTIFACTORY_URL: ${{ github.event.inputs.artifactory_url || vars.ARTIFACTORY_URL || 'http://host.docker.internal:8091/artifactory' }}
+  ARTIFACTORY_REPOSITORY: ${{ vars.ARTIFACTORY_REPOSITORY || 'example-repo-local' }}
+  ARTIFACTORY_USERNAME: ${{ secrets.ARTIFACTORY_USERNAME || 'admin' }}
+  ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD || 'password' }}
+  TARGET_ENVIRONMENT: ${{ github.event.inputs.environment || 'development' }}
+  MAVEN_OPTS: '-Xmx1024m'
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.determine.outputs.version }}
+    steps:
+      - name: Determine deployment version
+        id: determine
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.release_version }}" ]; then
+            VERSION="${{ github.event.inputs.release_version }}"
+          elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+            VERSION="${VERSION#v}"
+          else
+            BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+            TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+            CLEAN_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9.-]/-/g')
+            VERSION="1.0.0-${CLEAN_BRANCH}-${TIMESTAMP}-SNAPSHOT"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Deploying version: $VERSION"
+
+  build:
+    needs: prepare
+    uses: ./.github/workflows/build-prompts-reusable.yml
+    with:
+      fetch-depth: 0
+      set-version: true
+      version: ${{ needs.prepare.outputs.version }}
+      skip-tests: ${{ github.event.inputs.skip_tests || false }}
+
+  deploy:
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    container: maven:3.9.6-eclipse-temurin-17
+    env:
+      DEPLOY_VERSION: ${{ needs.prepare.outputs.version }}
+      ARTIFACTORY_USERNAME: ${{ secrets.ARTIFACTORY_USERNAME || 'admin' }}
+      ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD || 'password' }}
+    steps:
+      - name: Prepare environment
+        run: |
+          apt-get update
+          apt-get install -y curl unzip
+
+      - name: Download prompts artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.jar-artifact }}
+          path: dist
+
+      - name: Download test support ZIP
+        if: ${{ needs.build.outputs.test-support-zip != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.test-support-artifact }}-zip
+          path: dist
+
+      - name: Verify Artifactory availability
+        run: |
+          PING_URL="${ARTIFACTORY_URL%/}/api/system/ping"
+          echo "Pinging Artifactory: $PING_URL"
+          curl --fail --silent --show-error --max-time 20 "$PING_URL" > /dev/null
+
+      - name: Deploy to Artifactory
+        run: |
+          echo "Deploying version ${DEPLOY_VERSION} to $ARTIFACTORY_URL/$ARTIFACTORY_REPOSITORY"
+          mvn -B -ntp deploy \
+            -DskipTests \
+            -Dartifactory.url=$ARTIFACTORY_URL \
+            -Dartifactory.repository=$ARTIFACTORY_REPOSITORY \
+            -Dartifactory.username=$ARTIFACTORY_USERNAME \
+            -Dartifactory.password=$ARTIFACTORY_PASSWORD
+
+      - name: Summarize deployment
+        run: |
+          echo "## ✅ Deployment Complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Version: ${DEPLOY_VERSION}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Repository: ${ARTIFACTORY_REPOSITORY}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Target URL: ${ARTIFACTORY_URL}/${ARTIFACTORY_REPOSITORY}" >> "$GITHUB_STEP_SUMMARY"

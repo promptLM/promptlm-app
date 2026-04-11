@@ -1,0 +1,42 @@
+[project]
+name = "my-prompts"
+version = "1.0.0"
+# Optional: empty or missing => no artifact builds
+# targets = ["java", "python", "js"]
+
+[artifacts.java]
+group_id = "com.example.prompts"
+artifact_id = "my-prompts"
+packaging = "jar"
+
+[artifacts.python]
+distribution_name = "my-prompts"
+import_name = "my_prompts"
+build_types = ["wheel", "sdist"]
+
+[artifacts.js]
+package_name = "@my-org/my-prompts"
+module_type = "commonjs"
+
+[deploy]
+# Default: disabled; set to true to enable publishing
+enabled = false
+# profile = "artifactory"
+
+[deploy.profiles.artifactory]
+type = "artifactory"
+maven_repo_url = "https://.../libs-release-local"
+pypi_repo_url = "https://.../api/pypi/pypi-local"
+npm_repo_url = "https://.../api/npm/npm-local"
+
+[deploy.profiles.github]
+type = "github_packages"
+maven_repo_url = "https://maven.pkg.github.com/org/repo"
+pypi_repo_url = "https://.../pypi"
+npm_repo_url = "https://npm.pkg.github.com"
+
+[deploy.profiles.custom]
+type = "custom"
+maven_repo_url = "..."
+pypi_repo_url = "..."
+npm_repo_url = "..."
