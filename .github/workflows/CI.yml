@@ -54,13 +54,10 @@ jobs:
           server-password: GITHUB_TOKEN
 
       - name: Build promptLM Framework
-        run: mvn -B -DskipTests package --file pom.xml
+        run: mvn -B -DskipTests package
 
       - name: Run Framework Tests
         run: mvn -B test
-
-      - name: Install UI Test Dependencies
-        run: mvn -B -DskipTests -pl apps/promptlm-webapp,components/repository-template -am install
 
       - name: Run Acceptance Tests
         run: mvn -B -f acceptance-tests/pom.xml -Dpromptlm.bootstrap.skip=true test
