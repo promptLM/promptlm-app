@@ -24,6 +24,16 @@ brew install pre-commit
 pre-commit install
 ```
 
+Run from terminal:
+
+```bash
+# Update/apply license headers
+pre-commit run insert-license --all-files
+
+# Check license headers (fails if any file would be changed)
+pre-commit run insert-license --all-files && git diff --exit-code
+```
+
 ## Pull Requests
 
 - Keep pull requests focused — one concern per PR.
