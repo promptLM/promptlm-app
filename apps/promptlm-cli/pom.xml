@@ -75,7 +75,7 @@
         </dependency>
         <dependency>
             <groupId>dev.promptlm</groupId>
-            <artifactId>promptlm-template</artifactId>
+            <artifactId>repository-template</artifactId>
             <version>${project.version}</version>
             <exclusions>
                 <exclusion>
