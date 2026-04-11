@@ -127,6 +127,12 @@ limitations under the License.
                             <arguments>
                                 <argument>--server.port=${openapi.server.port}</argument>
                                 <argument>--promptlm.openapi.examples.enabled=true</argument>
+                                <argument>--watch.open-ai-api-key=test-mock-api-key-for-openapi-build</argument>
+                                <argument>--spring.ai.openai.api-key=test-mock-api-key-for-openapi-build</argument>
+                                <argument>--spring.ai.anthropic.api-key=test-mock-anthropic-api-key-for-openapi-build</argument>
+                                <argument>--promptlm.store.remote.base-url=http://localhost:3003/api/v1</argument>
+                                <argument>--promptlm.store.remote.username=testuser</argument>
+                                <argument>--promptlm.store.remote.token=</argument>
                             </arguments>
                             <jmxPort>${openapi.jmx.port}</jmxPort>
                         </configuration>
