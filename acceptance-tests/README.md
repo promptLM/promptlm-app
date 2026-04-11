@@ -67,6 +67,30 @@ cd acceptance-tests
 mvn test -Dpromptlm.test.excludedGroups=integration
 ```
 
+### Run Native Binary Smoke Tests
+
+Native smoke tests are tagged with `@NativeSmokeTest` (`@Tag("native-smoke")`). They verify the native deliverables (`promptlm-cli`, `promptlm-webapp`) can boot and execute core commands.
+
+Build native binaries first:
+
+```bash
+# from repository root
+mvn -B -Pnative -pl apps/promptlm-cli,apps/promptlm-webapp -am -DskipTests package
+```
+
+Then run the smoke group with explicit binary paths:
+
+```bash
+cd acceptance-tests
+mvn test \
+  -Dpromptlm.test.groups=native-smoke \
+  -Dpromptlm.test.excludedGroups= \
+  -Dpromptlm.test.cli.native.path=../apps/promptlm-cli/target/promptlm-cli \
+  -Dpromptlm.test.webapp.native.path=../apps/promptlm-webapp/target/promptlm-webapp
+```
+
+The smoke suite fails fast if either native binary path is missing or not executable.
+
 ### Runtime Parameters
 
 You can control Playwright and selected acceptance-test behavior via JVM system properties (or environment variables where supported).

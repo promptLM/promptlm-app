@@ -21,4 +21,4 @@ echo "acceptance test normal build"
 PROMPTLM_TEST_GROUPS=integration PROMPTLM_TEST_EXCLUDED_GROUPS= ./test.sh
 
 echo "Native build"
-set -a; source .env; set +a; mvn -DskipTests -Pnative -pl apps/promptlm-cli -am -DskipTests package
+set -a; source .env; set +a; mvn -DskipTests -Pnative -am -DskipTests package

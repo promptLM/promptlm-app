@@ -231,6 +231,7 @@
                         <extensions>true</extensions>
                         <configuration>
                             <mainClass>dev.promptlm.webapp.PromptLmWebAppApplication</mainClass>
+                            <classesDirectory>${project.build.outputDirectory}</classesDirectory>
                         </configuration>
                         <executions>
                             <execution>
