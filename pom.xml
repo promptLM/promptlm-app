@@ -42,10 +42,10 @@
         <module>components/promptlm-openapi-examples</module>
         <module>components/promptlm-rest-docs</module>
         <module>apps/promptlm-webapp</module>
+        <module>components/promptlm-template</module>
         <!--        <module>components/promptlm-execution-batch</module>-->
         <!--        <module>components/promptlm-execution-batch-openai</module>-->
         <!--        <module>components/promptlm-report</module>-->
-        <!--        <module>components/promptlm-template</module>-->
     </modules>
 
     <scm>
