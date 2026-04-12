@@ -27,9 +27,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 /**
  * Centralized release artifact contract assertions for acceptance tests.
@@ -57,36 +59,16 @@ public final class ReleaseArtifactContractDelegate {
 
     private static JsonNode waitForPublishedArchiveMetadata(HttpClient httpClient,
                                                             ArtifactoryContainer artifactoryContainer) {
-        long deadline = System.nanoTime() + ARTIFACT_READY_TIMEOUT.toNanos();
-        RuntimeException lastError = null;
-
-        while (System.nanoTime() < deadline) {
-            try {
-                JsonNode metadata = ArtifactoryStorageHelper.findFirstArtifactArchiveMetadata(httpClient, artifactoryContainer);
-                if (metadata != null) {
-                    return metadata;
-                }
-                lastError = null;
-            } catch (RuntimeException e) {
-                lastError = e;
-            }
-
-            sleep(ARTIFACT_READY_POLL_INTERVAL);
-        }
-
-        if (lastError != null) {
-            throw new IllegalStateException("Timed out waiting for archive artifact metadata in Artifactory", lastError);
-        }
-        throw new IllegalStateException("Timed out waiting for archive artifact metadata in Artifactory");
-    }
-
-    private static void sleep(Duration duration) {
-        try {
-            Thread.sleep(duration.toMillis());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("Interrupted while waiting for archive artifact metadata", e);
-        }
+        AtomicReference<JsonNode> result = new AtomicReference<>();
+        await("archive artifact metadata in Artifactory")
+                .atMost(ARTIFACT_READY_TIMEOUT)
+                .pollInterval(ARTIFACT_READY_POLL_INTERVAL)
+                .untilAsserted(() -> {
+                    JsonNode metadata = ArtifactoryStorageHelper.findFirstArtifactArchiveMetadata(httpClient, artifactoryContainer);
+                    assertThat(metadata).as("archive artifact metadata").isNotNull();
+                    result.set(metadata);
+                });
+        return result.get();
     }
 
     /**
