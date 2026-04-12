@@ -54,7 +54,7 @@ jobs:
           server-password: GITHUB_TOKEN
 
       - name: Build promptLM Framework
-        run: mvn -B -DskipTests package
+        run: mvn -B -DskipTests install
 
       - name: Run Framework Tests
         run: mvn -B test
