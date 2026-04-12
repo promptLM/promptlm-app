@@ -17,16 +17,20 @@
 package dev.promptlm.test;
 
 import com.microsoft.playwright.Page;
+import dev.promptlm.test.support.ReleaseArtifactContractDelegate;
 import dev.promptlm.testutils.artifactory.Artifactory;
 import dev.promptlm.testutils.artifactory.ArtifactoryContainer;
 import dev.promptlm.testutils.artifactory.WithArtifactory;
 import dev.promptlm.testutils.gitea.Gitea;
+import dev.promptlm.testutils.gitea.GiteaActions;
 import dev.promptlm.testutils.gitea.GiteaContainer;
+import dev.promptlm.testutils.gitea.GiteaWorkflowException;
 import dev.promptlm.testutils.gitea.WithGitea;
 import dev.promptlm.test.util.ZipTestUtils;
 import org.assertj.core.api.WithAssertions;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.transport.RefSpec;
 import org.eclipse.jgit.transport.URIish;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
@@ -39,12 +43,14 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URISyntaxException;
+import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.Comparator;
+import java.util.Locale;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
@@ -63,6 +69,9 @@ class CiWorkflowHarnessTest implements WithAssertions {
     static final String REPO_NAME = "template-repo";
     private static final String WORKFLOW_FILE = "deploy-artifactory.yml";
     private static final Logger log = LoggerFactory.getLogger(CiWorkflowHarnessTest.class);
+    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(30))
+            .build();
     private static final String EMPTY_CONTEXT_JSON = """
             {
                 \"projects\":[],
@@ -129,12 +138,17 @@ class CiWorkflowHarnessTest implements WithAssertions {
         configureRepositoryVariables(gitea, artifactory);
         log.info("Repository variables configured for {}/{}", gitea.getAdminUsername(), REPO_NAME);
 
-        repositorySeeder.seedTemplateRepository();
-        log.info("Template repository seeded (workflow should start) for {}/{}", gitea.getAdminUsername(), REPO_NAME);
+        String seededCommitSha = repositorySeeder.seedTemplateRepository();
+        log.info("Template repository seeded (workflow should start) for {}/{} at commit {}",
+                gitea.getAdminUsername(), REPO_NAME, seededCommitSha);
 
-        Duration timeout = Duration.ofMinutes(8);
-        Duration pollInterval = Duration.ofSeconds(2);
-        gitea.waitForRepositoryActionsRun(gitea.getAdminUsername(), REPO_NAME, timeout, pollInterval);
+        Duration timeout = Duration.ofMinutes(12);
+        Duration pollInterval = Duration.ofSeconds(5);
+        GiteaActions.ActionExecutionReport workflowReport =
+                waitForWorkflowExecution(gitea, gitea.getAdminUsername(), REPO_NAME, seededCommitSha, timeout, pollInterval);
+        assertSuccessfulWorkflowExecution(workflowReport, seededCommitSha);
+
+        ReleaseArtifactContractDelegate.assertPublishedReleaseArtifactContract(HTTP_CLIENT, artifactory);
 
         // Keep UI navigation as a debugging aid when the API says the workflow ran.
         GiteaActionsUiHelper.ensureSignedIn(page, gitea);
@@ -157,6 +171,43 @@ class CiWorkflowHarnessTest implements WithAssertions {
         gitea.ensureRepositoryActionsVariable(owner, REPO_NAME, "PROMPTLM_UPLOAD_ARTIFACTS", "true");
     }
 
+    private GiteaActions.ActionExecutionReport waitForWorkflowExecution(GiteaContainer gitea,
+                                                                        String owner,
+                                                                        String repository,
+                                                                        String commitSha,
+                                                                        Duration timeout,
+                                                                        Duration pollInterval) {
+        try {
+            return gitea.actions().waitForWorkflowRunBySha(owner, repository, commitSha, timeout, pollInterval);
+        } catch (GiteaWorkflowException e) {
+            gitea.logRepositoryActionsDiagnostics(owner, repository);
+            throw e;
+        }
+    }
+
+    private void assertSuccessfulWorkflowExecution(GiteaActions.ActionExecutionReport workflowReport,
+                                                   String seededCommitSha) {
+        assertThat(workflowReport.run().headSha())
+                .as("workflow run should match seeded commit")
+                .startsWith(seededCommitSha);
+        assertThat(workflowReport.run().status())
+                .as("workflow run status should be completed")
+                .isEqualToIgnoringCase("completed");
+        assertThat(workflowReport.run().conclusion())
+                .as("workflow run conclusion should be success")
+                .isEqualToIgnoringCase("success");
+        assertThat(workflowReport.allJobsTerminal())
+                .as("workflow jobs should be terminal")
+                .isTrue();
+        assertThat(workflowReport.jobs())
+                .as("workflow should have at least one job")
+                .isNotEmpty();
+        workflowReport.jobs().forEach(job ->
+                assertThat(job.conclusion() == null ? "" : job.conclusion().toLowerCase(Locale.ROOT))
+                        .as("workflow job %s should be successful or skipped", job.name())
+                        .isIn("success", "skipped"));
+    }
+
     private static final class RepositorySeeder {
 
         private final GiteaContainer gitea;
@@ -169,14 +220,15 @@ class CiWorkflowHarnessTest implements WithAssertions {
             this.repoDir = workspace.resolve(REPO_NAME + "-local");
         }
 
-        void seedTemplateRepository() {
+        String seedTemplateRepository() {
             try {
                 gitea.waitForRepository(REPO_NAME);
                 Files.createDirectories(repoDir);
                 initialiseRepository(repoDir);
                 extractTemplate(repoDir);
-                commitAndPush(repoDir, false);
+                String commitSha = commitAndPush(repoDir, false);
                 gitea.waitForRepository(REPO_NAME);
+                return commitSha;
             } catch (IOException | GitAPIException | URISyntaxException e) {
                 throw new IllegalStateException("Failed to seed repository", e);
             }
@@ -241,10 +293,10 @@ class CiWorkflowHarnessTest implements WithAssertions {
             }
         }
 
-        private void commitAndPush(Path repoDir, boolean force) throws IOException, GitAPIException {
+        private String commitAndPush(Path repoDir, boolean force) throws IOException, GitAPIException {
             try (Git git = Git.open(repoDir.toFile())) {
                 git.add().addFilepattern(".").call();
-                git.commit()
+                RevCommit commit = git.commit()
                         .setMessage("Seed repository template")
                         .setAuthor(gitea.getAdminUsername(), gitea.getAdminUsername() + "@example.com")
                         .setCommitter(gitea.getAdminUsername(), gitea.getAdminUsername() + "@example.com")
@@ -255,6 +307,7 @@ class CiWorkflowHarnessTest implements WithAssertions {
                         .setRefSpecs(new RefSpec("refs/heads/main:refs/heads/main"))
                         .setForce(force)
                         .call();
+                return commit.getId().getName();
             }
         }
 
