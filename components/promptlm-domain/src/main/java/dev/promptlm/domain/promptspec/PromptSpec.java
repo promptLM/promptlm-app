@@ -389,6 +389,10 @@ public class PromptSpec {
         return this.repositoryUrl == repositoryUrl ? this : new PromptSpec(this.specVersion, this.uuid, this.id, this.name, this.group, this.version, this.revision, this.description, this.authors, this.purpose, repositoryUrl, this.status, this.createdAt, updatedAt, this.retiredAt, this.retiredReason, this.request, this.placeholders, this.response, this.extensions, this.path, this.executions, this.semanticHash);
     }
 
+    public PromptSpec withStatus(PromptStatus status) {
+        return this.status == status ? this : new PromptSpec(this.specVersion, this.uuid, this.id, this.name, this.group, this.version, this.revision, this.description, this.authors, this.purpose, this.repositoryUrl, status, this.createdAt, this.updatedAt, this.retiredAt, this.retiredReason, this.request, this.placeholders, this.response, this.extensions, this.path, this.executions, this.semanticHash);
+    }
+
     public PromptSpec withCreatedAt(LocalDateTime createdAt) {
         return this.createdAt == createdAt ? this : new PromptSpec(this.specVersion, this.uuid, this.id, this.name, this.group, this.version, this.revision, this.description, this.authors, this.purpose, this.repositoryUrl, this.status, createdAt, this.updatedAt, this.retiredAt, this.retiredReason, this.request, this.placeholders, this.response, this.extensions, this.path, this.executions, this.semanticHash);
     }

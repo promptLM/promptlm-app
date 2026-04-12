@@ -29,6 +29,7 @@ import dev.promptlm.test.support.ArtifactoryStorageHelper;
 import dev.promptlm.test.support.GiteaRepositoryHelper;
 import dev.promptlm.test.support.PlaywrightNavigationHelper;
 import dev.promptlm.test.support.ProjectSetupHelper;
+import dev.promptlm.test.support.ReleaseArtifactContractDelegate;
 import dev.promptlm.testutils.artifactory.Artifactory;
 import dev.promptlm.testutils.artifactory.ArtifactoryContainer;
 import dev.promptlm.testutils.artifactory.WithArtifactory;
@@ -60,7 +61,6 @@ import java.util.regex.Pattern;
 
 import static org.awaitility.Awaitility.await;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * End-to-end tests for the prompt creation functionality using Playwright
@@ -246,15 +246,7 @@ public class HappyPathUserJourneyTest {
                 .as("At least one artifact should be present in Artifactory")
                 .isGreaterThan(0);
 
-        Path extractedDir = ArtifactoryStorageHelper.downloadFirstArtifactArchive(HTTP_CLIENT, artifactoryContainer);
-        try (var files = Files.walk(extractedDir)) {
-            long fileCount = files.filter(Files::isRegularFile).count();
-            assertThat(fileCount)
-                    .as("Downloaded artifact should contain at least one file after extraction")
-                    .isGreaterThan(0);
-        } catch (IOException e) {
-            fail("Failed to inspect extracted artifact: " + e.getMessage());
-        }
+        ReleaseArtifactContractDelegate.assertPublishedReleaseArtifactContract(HTTP_CLIENT, artifactoryContainer);
     }
 
     private JsonNode waitForArtifactoryDeployments() {
@@ -387,8 +379,8 @@ public class HappyPathUserJourneyTest {
         placeholderRow.hover();
 
         Locator editButton = page.getByTestId("placeholder-edit-" + placeholderName);
-        editButton.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.ATTACHED));
-        editButton.click(new Locator.ClickOptions().setForce(true));
+        editButton.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
+        editButton.click();
 
         Locator valueEditor = page.getByTestId("placeholder-value-textarea-" + placeholderName + "-0");
         valueEditor.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));

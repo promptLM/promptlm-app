@@ -321,6 +321,7 @@ public class PromptSpecController {
         // Mark the prompt as retired
         PromptSpec prompt = promptOpt.get();
         PromptSpec retiredPrompt = prompt
+                .withStatus(PromptSpec.PromptStatus.RETIRED)
                 .withRetiredAt(LocalDateTime.now())
                 .withRetiredReason(reason);
         
