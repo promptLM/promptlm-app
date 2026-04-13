@@ -13,16 +13,105 @@ With the client SDKs, you can fetch released prompt specifications and use them 
 ====
 Windows::
 +
-`mvn clean verify`
+[source,powershell]
+----
+$script = irm https://raw.githubusercontent.com/promptLM/promptlm-app/main/scripts/install.ps1
+& ([scriptblock]::Create($script))
+----
+
+Install a specific version:
+
+[source,powershell]
+----
+$script = irm https://raw.githubusercontent.com/promptLM/promptlm-app/main/scripts/install.ps1
+& ([scriptblock]::Create($script)) -Version v0.1.0
+----
+
+Install to a custom directory:
+
+[source,powershell]
+----
+$script = irm https://raw.githubusercontent.com/promptLM/promptlm-app/main/scripts/install.ps1
+& ([scriptblock]::Create($script)) -InstallDir "$HOME\bin"
+----
 
 Mac::
 +
-{empty}
+[source,bash]
+----
+curl -fsSL https://raw.githubusercontent.com/promptLM/promptlm-app/main/scripts/install.sh | bash
+----
+
+Install a specific version:
+
+[source,bash]
+----
+curl -fsSL https://raw.githubusercontent.com/promptLM/promptlm-app/main/scripts/install.sh | bash -s -- --version v0.1.0
+----
+
+Install to a custom directory:
+
+[source,bash]
+----
+curl -fsSL https://raw.githubusercontent.com/promptLM/promptlm-app/main/scripts/install.sh | bash -s -- --install-dir "$HOME/bin"
+----
 
 Linux::
 +
-{empty}
+[source,bash]
+----
+curl -fsSL https://raw.githubusercontent.com/promptLM/promptlm-app/main/scripts/install.sh | bash
+----
+
+Install a specific version:
+
+[source,bash]
+----
+curl -fsSL https://raw.githubusercontent.com/promptLM/promptlm-app/main/scripts/install.sh | bash -s -- --version v0.1.0
+----
+
+Install to a custom directory:
+
+[source,bash]
+----
+curl -fsSL https://raw.githubusercontent.com/promptLM/promptlm-app/main/scripts/install.sh | bash -s -- --install-dir "$HOME/bin"
+----
 ====
+
+Both installers fail fast on unsupported OS/architecture, missing assets, or checksum mismatch.
+
+=== Verify Installation
+
+[source,bash]
+----
+promptlm-cli --version
+----
+
+=== Update
+
+Re-run the installer with no version argument to install the latest release.
+
+=== Uninstall
+
+Unix:
+
+[source,bash]
+----
+rm -f ~/.local/bin/promptlm-cli
+----
+
+Windows:
+
+[source,powershell]
+----
+Remove-Item "$HOME\.local\bin\promptlm-cli.exe" -ErrorAction SilentlyContinue
+----
+
+=== Troubleshooting
+
+* If `promptlm-cli` is not found, add your install directory to `PATH`.
+* If installer download fails, verify the requested release tag exists and includes your platform archive.
+* If checksum validation fails, stop and retry; do not bypass checksum verification.
 
 == Get Started
 
