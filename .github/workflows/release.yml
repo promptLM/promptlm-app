@@ -126,9 +126,19 @@ jobs:
           retention-days: 1
           overwrite: true
 
-  build-native:
+  build-native-matrix:
     needs: release
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: macos-latest
+            platform: macos
+          - os: windows-latest
+            platform: windows
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
       - name: Set up GraalVM
@@ -138,17 +148,54 @@ jobs:
           distribution: 'graalvm-community'
           components: 'native-image'
       - name: Build native executables
-        run: mvn -Pnative -pl apps/promptlm-cli,apps/promptlm-webapp -am -DskipTests package
-      - name: Collect native binaries
+        run: mvn -B -Pnative -pl apps/promptlm-cli,apps/promptlm-webapp -am -DskipTests package
+      - name: Package native archives for Unix-like runners
+        if: matrix.platform != 'windows'
+        shell: bash
         run: |
+          set -euo pipefail
+          arch="$(echo "${RUNNER_ARCH}" | tr '[:upper:]' '[:lower:]')"
+          work_dir="target/native/${{ matrix.platform }}-${arch}"
+          cli_binary="apps/promptlm-cli/target/promptlm-cli"
+          webapp_binary="apps/promptlm-webapp/target/promptlm-webapp"
+
+          [[ -x "$cli_binary" ]] || { echo "Missing or non-executable native binary: $cli_binary" >&2; exit 1; }
+          [[ -x "$webapp_binary" ]] || { echo "Missing or non-executable native binary: $webapp_binary" >&2; exit 1; }
+
+          mkdir -p "$work_dir/promptlm-cli" "$work_dir/promptlm-webapp"
+          cp "$cli_binary" "$work_dir/promptlm-cli/promptlm-cli"
+          cp "$webapp_binary" "$work_dir/promptlm-webapp/promptlm-webapp"
+
           mkdir -p target/native
-          cp apps/promptlm-cli/target/promptlm-cli target/native/promptlm-cli-macos
-          cp apps/promptlm-webapp/target/promptlm-webapp target/native/promptlm-webapp-macos
-      - name: Upload Native Artifact
+          tar -C "$work_dir" -czf "target/native/promptlm-cli-${{ matrix.platform }}-${arch}.tar.gz" promptlm-cli
+          tar -C "$work_dir" -czf "target/native/promptlm-webapp-${{ matrix.platform }}-${arch}.tar.gz" promptlm-webapp
+      - name: Package native archives for Windows
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $arch = $env:RUNNER_ARCH.ToLowerInvariant()
+          $workDir = "target/native/windows-$arch"
+          $cliBinary = "apps/promptlm-cli/target/promptlm-cli.exe"
+          $webappBinary = "apps/promptlm-webapp/target/promptlm-webapp.exe"
+
+          if (-not (Test-Path $cliBinary)) { throw "Missing native binary: $cliBinary" }
+          if (-not (Test-Path $webappBinary)) { throw "Missing native binary: $webappBinary" }
+
+          New-Item -ItemType Directory -Path "$workDir/promptlm-cli" -Force | Out-Null
+          New-Item -ItemType Directory -Path "$workDir/promptlm-webapp" -Force | Out-Null
+
+          Copy-Item $cliBinary "$workDir/promptlm-cli/promptlm-cli.exe"
+          Copy-Item $webappBinary "$workDir/promptlm-webapp/promptlm-webapp.exe"
+
+          Compress-Archive -Path "$workDir/promptlm-cli/*" -DestinationPath "target/native/promptlm-cli-windows-$arch.zip" -Force
+          Compress-Archive -Path "$workDir/promptlm-webapp/*" -DestinationPath "target/native/promptlm-webapp-windows-$arch.zip" -Force
+      - name: Upload Native Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: native-binaries
-          path: target/native/*
+          name: native-${{ matrix.platform }}
+          path: |
+            target/native/promptlm-cli-${{ matrix.platform }}-*
+            target/native/promptlm-webapp-${{ matrix.platform }}-*
           if-no-files-found: error
           retention-days: 1
           overwrite: true
@@ -194,7 +241,7 @@ jobs:
       contents: write
       packages: write
       pull-requests: write
-    needs: [calculate_version, release, build-native, native-smoke]
+    needs: [calculate_version, release, build-native-matrix, native-smoke]
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -211,16 +258,47 @@ jobs:
           merge-multiple: true
           path: target/jars
 
-      - name: Download Native Artifact
+      - name: Download Native Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: native-binaries
+          pattern: native-*
+          merge-multiple: true
           path: target/native
 
       - name: "Debug: List Release Artifacts"
         run: |
           ls -R target/jars
           ls -R target/native
+
+      - name: Verify required native assets and generate checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          check_single_asset() {
+            local pattern="$1"
+            local label="$2"
+            local matches=($pattern)
+            if [[ ${#matches[@]} -ne 1 ]]; then
+              echo "Expected exactly one ${label} asset matching '${pattern}', found ${#matches[@]}." >&2
+              echo "Matches: ${matches[*]:-<none>}" >&2
+              exit 1
+            fi
+          }
+
+          check_single_asset "target/native/promptlm-cli-linux-*.tar.gz" "Linux CLI"
+          check_single_asset "target/native/promptlm-webapp-linux-*.tar.gz" "Linux webapp"
+          check_single_asset "target/native/promptlm-cli-macos-*.tar.gz" "macOS CLI"
+          check_single_asset "target/native/promptlm-webapp-macos-*.tar.gz" "macOS webapp"
+          check_single_asset "target/native/promptlm-cli-windows-*.zip" "Windows CLI"
+          check_single_asset "target/native/promptlm-webapp-windows-*.zip" "Windows webapp"
+
+          (
+            cd target/native
+            sha256sum promptlm-* > SHA256SUMS
+          )
+          cat target/native/SHA256SUMS
 
       - name: Generate Changelog
         id: changelog
