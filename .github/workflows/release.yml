@@ -34,89 +34,83 @@ jobs:
       version: ${{ steps.set-version.outputs.version }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Determine Current Version
-        id: current-version
-        run: |
-          # Fetch the current version from your codebase (e.g., from pom.xml or VERSION file)
-          current_version=$(mvn -q -Dexec.executable=echo -Dexec.args='${project.version}' --non-recursive exec:exec)
-          echo "current_version=$current_version" >> $GITHUB_ENV
+        uses: actions/checkout@v5
 
       - name: Set Next Version
         id: set-version
         run: |
-          current_version="${{ env.current_version }}"
-          IFS='.' read -r -a version_parts <<< "$current_version"
-          
+          set -euo pipefail
+          current_version="$(mvn -q help:evaluate -Dexpression=project.version -DforceStdout)"
+          base_version="${current_version%-SNAPSHOT}"
+
+          IFS='.' read -r major minor patch <<< "$base_version"
+          if [[ -z "${major:-}" || -z "${minor:-}" || -z "${patch:-}" ]]; then
+            echo "Unsupported project.version format: $current_version" >&2
+            exit 1
+          fi
+          if ! [[ "$major" =~ ^[0-9]+$ && "$minor" =~ ^[0-9]+$ && "$patch" =~ ^[0-9]+$ ]]; then
+            echo "Expected semantic version with optional -SNAPSHOT suffix, got: $current_version" >&2
+            exit 1
+          fi
+
           case "${{ github.event.inputs.release_type }}" in
             "major")
-              ((version_parts[0]++))
-              version_parts[1]=0
-              version_parts[2]=0
+              ((major++))
+              minor=0
+              patch=0
               ;;
             "minor")
-              ((version_parts[1]++))
-              version_parts[2]=0
+              ((minor++))
+              patch=0
               ;;
             "patch")
-              ((version_parts[2]++))
+              ((patch++))
+              ;;
+            *)
+              echo "Unsupported release type: ${{ github.event.inputs.release_type }}" >&2
+              exit 1
               ;;
           esac
-          
-          next_version="${version_parts[0]}.${version_parts[1]}.${version_parts[2]}"
-          echo "next_version=$next_version" >> $GITHUB_ENV
-          echo "::set-output name=version::$next_version"
+
+          next_version="${major}.${minor}.${patch}"
+          echo "version=$next_version" >> "$GITHUB_OUTPUT"
 
   release:
     needs: calculate_version
     runs-on: ubuntu-latest
+    env:
+      GITHUB_ACTOR: ${{ github.actor }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     permissions:
       contents: write
       packages: write
       pull-requests: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '21'
           distribution: 'temurin'
           cache: 'maven'
           server-id: github
-          server-username: MAVEN_USERNAME
-          server-password: MAVEN_PASSWORD
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
 
       - name: Configure Git
         run: |
           git config user.email "actions@github.com"
           git config user.name "GitHub Actions"
 
-      - name: Setup Maven Settings
-        run: |
-          echo ${{ github.actor }}
-          echo "<settings>
-            <servers>
-              <server>
-                <id>github</id>
-                <username>${{ github.actor }}</username>
-                <password>${{ secrets.PAT_TOKEN }}</password>
-              </server>
-            </servers>
-          </settings>" > ~/.m2/settings.xml
-
       - name: Prepare Maven Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           mvn -B release:clean release:prepare \
             -DscmCredentialsId=github \
             -DpushChanges=false \
-            -DcheckModificationExcludes=.m2/settings.xml \
             -DreleaseVersion=${{ needs.calculate_version.outputs.version }}  \
             -DdevelopmentVersion=${{ needs.calculate_version.outputs.version }}-SNAPSHOT
 
@@ -136,7 +130,7 @@ jobs:
     needs: release
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up GraalVM
         uses: graalvm/setup-graalvm@v1
         with:
@@ -163,7 +157,7 @@ jobs:
     needs: release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up GraalVM
         uses: graalvm/setup-graalvm@v1
         with:
@@ -200,10 +194,10 @@ jobs:
       contents: write
       packages: write
       pull-requests: write
-    needs: [release, build-native, native-smoke]
+    needs: [calculate_version, release, build-native, native-smoke]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Prep dir
         run: |
@@ -252,13 +246,15 @@ jobs:
               ]
             }
         env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Release
         uses: mikepenz/action-gh-release@v1
         with:
-          tag_name: v${{ inputs.releaseVersion }}
+          tag_name: v${{ needs.calculate_version.outputs.version }}
           files: |
             target/jars/**/*.jar
             target/native/*
           body: ${{steps.changelog.outputs.changelog}}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
