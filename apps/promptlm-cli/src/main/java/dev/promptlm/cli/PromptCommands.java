@@ -24,7 +24,6 @@ import dev.promptlm.domain.promptspec.ReleaseMetadata;
 import dev.promptlm.infrastructure.config.SerializingAppContext;
 import dev.promptlm.store.api.PromptStore;
 import org.jspecify.annotations.NonNull;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.shell.core.command.annotation.Command;
 import org.springframework.shell.core.command.annotation.Option;
@@ -207,25 +206,18 @@ public class PromptCommands {
     @Component("promptAvailabilityProvider")
     static class PromptAvailabilityProvider implements AvailabilityProvider {
 
-        private final ObjectProvider<SerializingAppContext> contextProvider;
+        private final SerializingAppContext context;
 
-        PromptAvailabilityProvider(ObjectProvider<SerializingAppContext> contextProvider) {
-            this.contextProvider = contextProvider;
+        PromptAvailabilityProvider(SerializingAppContext context) {
+            this.context = context;
         }
 
         @Override
         public Availability get() {
-            return resolveContextAvailability(contextProvider);
+            return resolveContextAvailability(context);
         }
 
-        static Availability resolveContextAvailability(ObjectProvider<SerializingAppContext> contextProvider) {
-            SerializingAppContext context;
-            try {
-                context = contextProvider.getIfAvailable();
-            }
-            catch (RuntimeException ex) {
-                return Availability.unavailable("the CLI context could not be loaded");
-            }
+        static Availability resolveContextAvailability(SerializingAppContext context) {
             return context != null
                     && context.getActiveProject() != null
                     && context.getActiveProject().getRepoDir() != null
@@ -239,20 +231,20 @@ public class PromptCommands {
 
         private static final String PR_TWO_PHASE_MODE = "pr_two_phase";
 
-        private final ObjectProvider<SerializingAppContext> contextProvider;
+        private final SerializingAppContext context;
         private final String releasePromotionMode;
 
         CompleteReleaseAvailabilityProvider(
-                ObjectProvider<SerializingAppContext> contextProvider,
+                SerializingAppContext context,
                 @Value("${promptlm.release.promotion.mode:direct}") String releasePromotionMode
         ) {
-            this.contextProvider = contextProvider;
+            this.context = context;
             this.releasePromotionMode = releasePromotionMode;
         }
 
         @Override
         public Availability get() {
-            Availability contextAvailability = PromptAvailabilityProvider.resolveContextAvailability(contextProvider);
+            Availability contextAvailability = PromptAvailabilityProvider.resolveContextAvailability(context);
             if (!contextAvailability.isAvailable()) {
                 return contextAvailability;
             }

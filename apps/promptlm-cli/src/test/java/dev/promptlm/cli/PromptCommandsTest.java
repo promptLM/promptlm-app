@@ -26,7 +26,6 @@ import dev.promptlm.infrastructure.config.SerializingAppContext;
 import dev.promptlm.store.api.PromptStore;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.shell.core.command.availability.Availability;
 
 import java.nio.file.Path;
@@ -55,10 +54,7 @@ class PromptCommandsTest {
 
     @Test
     void createUsesBackendTemplateAsDraftSource() {
-        @SuppressWarnings("unchecked")
-        ObjectProvider<PromptLifecycleFacade> lifecycleProvider = mock(ObjectProvider.class);
         PromptLifecycleFacade lifecycleFacade = mock(PromptLifecycleFacade.class);
-        when(lifecycleProvider.getIfAvailable()).thenReturn(lifecycleFacade);
 
         PromptSpec.Placeholders placeholders = new PromptSpec.Placeholders();
         placeholders.setStartPattern("{{");
@@ -123,10 +119,7 @@ class PromptCommandsTest {
 
     @Test
     void createFailsWhenBackendTemplateRequestIsNotChatCompletion() {
-        @SuppressWarnings("unchecked")
-        ObjectProvider<PromptLifecycleFacade> lifecycleProvider = mock(ObjectProvider.class);
         PromptLifecycleFacade lifecycleFacade = mock(PromptLifecycleFacade.class);
-        when(lifecycleProvider.getIfAvailable()).thenReturn(lifecycleFacade);
 
         Request nonChatRequest = mock(Request.class);
         PromptSpec template = PromptSpec.builder()
@@ -155,29 +148,25 @@ class PromptCommandsTest {
     }
 
     @Test
-    void availabilityIsUnavailableWhenContextCannotBeLoaded() {
-        @SuppressWarnings("unchecked")
-        ObjectProvider<SerializingAppContext> contextProvider = mock(ObjectProvider.class);
-        when(contextProvider.getIfAvailable()).thenThrow(new IllegalStateException("boom"));
+    void availabilityIsUnavailableWhenNoActiveProjectIsSelected() {
+        SerializingAppContext context = mock(SerializingAppContext.class);
+        when(context.getActiveProject()).thenReturn(null);
 
-        Availability availability = new PromptCommands.PromptAvailabilityProvider(contextProvider).get();
+        Availability availability = new PromptCommands.PromptAvailabilityProvider(context).get();
 
         assertFalse(availability.isAvailable());
-        assertTrue(availability.reason().contains("could not be loaded"));
+        assertTrue(availability.reason().contains("not connected to any store"));
     }
 
     @Test
     void completeReleaseAvailabilityIsUnavailableOutsidePrTwoPhaseMode() {
-        @SuppressWarnings("unchecked")
-        ObjectProvider<SerializingAppContext> contextProvider = mock(ObjectProvider.class);
         SerializingAppContext context = mock(SerializingAppContext.class);
         ProjectSpec activeProject = new ProjectSpec();
         activeProject.setRepoDir(Path.of("/tmp/repo"));
         when(context.getActiveProject()).thenReturn(activeProject);
-        when(contextProvider.getIfAvailable()).thenReturn(context);
 
         Availability availability = new PromptCommands.CompleteReleaseAvailabilityProvider(
-                contextProvider,
+                context,
                 ReleaseMetadata.MODE_DIRECT
         ).get();
 
@@ -187,16 +176,13 @@ class PromptCommandsTest {
 
     @Test
     void completeReleaseAvailabilityIsAvailableInPrTwoPhaseMode() {
-        @SuppressWarnings("unchecked")
-        ObjectProvider<SerializingAppContext> contextProvider = mock(ObjectProvider.class);
         SerializingAppContext context = mock(SerializingAppContext.class);
         ProjectSpec activeProject = new ProjectSpec();
         activeProject.setRepoDir(Path.of("/tmp/repo"));
         when(context.getActiveProject()).thenReturn(activeProject);
-        when(contextProvider.getIfAvailable()).thenReturn(context);
 
         Availability availability = new PromptCommands.CompleteReleaseAvailabilityProvider(
-                contextProvider,
+                context,
                 ReleaseMetadata.MODE_PR_TWO_PHASE
         ).get();
 
