@@ -4,8 +4,8 @@
   "group": "support",
   "description": "Handle customer support messages",
   "status": "ACTIVE",
-  "version": "1.0.1-SNAPSHOT",
-  "revision": 5,
+  "version": "1.0.1",
+  "revision": 0,
   "createdAt": "2025-02-01T10:00:00Z",
   "updatedAt": "2025-02-27T10:20:00Z",
   "request": {
@@ -31,11 +31,11 @@
   "extensions": {
     "x-promptlm": {
       "release": {
-        "state": "requested",
+        "state": "released",
         "mode": "pr_two_phase",
         "version": "1.0.1",
         "tag": "support/customer_support-v1.0.1",
-        "branch": "release/support-customer_support-1.0.1",
+        "branch": "main",
         "prNumber": 17,
         "prUrl": "https://github.com/promptLM/promptlm-app/pull/17",
         "existing": false

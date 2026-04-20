@@ -97,7 +97,19 @@ public interface PromptStore {
     /**
      * Create a new release with incremented version number.
      */
-    PromptSpec release(PromptSpec completed);
+    PromptSpec requestRelease(PromptSpec completed);
+
+    /**
+     * Finalize a previously requested release after promotion to main has been confirmed.
+     */
+    PromptSpec completeRelease(String promptSpecId, String pullRequestReference);
+
+    /**
+     * Backwards-compatible alias for requesting a release.
+     */
+    default PromptSpec release(PromptSpec completed) {
+        return requestRelease(completed);
+    }
 
     Optional<PromptSpec> findPromptSpec(String group, String name);
 

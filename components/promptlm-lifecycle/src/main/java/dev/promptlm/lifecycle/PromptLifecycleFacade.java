@@ -62,4 +62,8 @@ public class PromptLifecycleFacade {
     public PromptSpec release(String id) {
         return lifecycleService.releasePrompt(id);
     }
+
+    public PromptSpec completeRelease(String id, String pullRequestReference) {
+        return lifecycleService.completeReleasePrompt(id, pullRequestReference);
+    }
 }

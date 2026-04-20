@@ -22,11 +22,13 @@ import dev.promptlm.lifecycle.PromptLifecycleFacade;
 import dev.promptlm.execution.PromptExecutor;
 import dev.promptlm.domain.promptspec.ChatCompletionRequest;
 import dev.promptlm.domain.promptspec.PromptSpec;
+import dev.promptlm.domain.promptspec.ReleaseMetadata;
 import dev.promptlm.domain.promptspec.Request;
 import dev.promptlm.lifecycle.application.PromptSpecAlreadyExistsException;
 import dev.promptlm.store.api.PromptStore;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -62,6 +64,7 @@ import java.util.stream.Collectors;
 public class PromptSpecController {
 
     private static final String PROMPTS_DIRECTORY = "prompts";
+    private static final String RELEASE_STATE_HEADER = "X-PromptLM-Release-State";
 
     private final PromptStore promptStore;
     private final PromptExecutor promptExecutor;
@@ -408,15 +411,15 @@ public class PromptSpecController {
      * This will create a new version of the prompt with an incremented version number.
      *
      * @param promptSpecId The ID of the prompt to release.
-     * @return The newly released prompt specification.
+     * @return The release operation response payload.
      */
     @Operation(
             summary = "Release a new version of a prompt",
-            description = "Creates a new, immutable release of a prompt specification with an incremented version number. The new version is based on the latest existing version of the prompt.",
+            description = "Requests release for a prompt specification. In direct mode the response state is released. In pr_two_phase mode the response state is requested until /release/complete is called.",
             responses = {
                     @ApiResponse(
                             responseCode = "200",
-                            description = "The newly released prompt specification.",
+                            description = "Release operation response as prompt specification. Header X-PromptLM-Release-State mirrors extensions.x-promptlm.release.state (requested|released).",
                             content = @Content(mediaType = "application/json", schema = @Schema(implementation = PromptSpec.class))
                     ),
                     @ApiResponse(
@@ -434,8 +437,55 @@ public class PromptSpecController {
             return ResponseEntity.notFound().build();
         }
 
-        PromptSpec releasedPrompt = promptStore.release(latestVersion.get());
-        return ResponseEntity.ok(releasedPrompt);
+        PromptSpec releaseResponse = promptLifecycleFacade.release(promptSpecId);
+        return releaseResponse(releaseResponse);
+    }
+
+    @Hidden
+    @PostMapping("/{group}/{name}/release")
+    public ResponseEntity<PromptSpec> releasePromptByGroupAndName(
+            @PathVariable("group") String group,
+            @PathVariable("name") String name) {
+        return releasePrompt(group + "/" + name);
+    }
+
+    @Operation(
+            summary = "Complete a pending prompt release",
+            description = "Finalizes a previously requested PR-mode release after validating the referenced pull request has been merged into main. Header X-PromptLM-Release-State is released on success.",
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "Completed release response.",
+                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = PromptSpec.class))
+                    ),
+                    @ApiResponse(
+                            responseCode = "404",
+                            description = "Prompt specification with the given ID not found."
+                    )
+            }
+    )
+    @PostMapping("/{promptSpecId}/release/complete")
+    public ResponseEntity<PromptSpec> completeReleasePrompt(
+            @Parameter(description = "The unique identifier of the prompt specification to complete.")
+            @PathVariable("promptSpecId") String promptSpecId,
+            @Parameter(description = "Pull request number or URL for the pending release request.")
+            @RequestParam("pr") String pullRequestReference) {
+        Optional<PromptSpec> latestVersion = promptStore.getLatestVersion(promptSpecId);
+        if (latestVersion.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        PromptSpec releaseResponse = promptLifecycleFacade.completeRelease(promptSpecId, pullRequestReference);
+        return releaseResponse(releaseResponse);
+    }
+
+    @Hidden
+    @PostMapping("/{group}/{name}/release/complete")
+    public ResponseEntity<PromptSpec> completeReleasePromptByGroupAndName(
+            @PathVariable("group") String group,
+            @PathVariable("name") String name,
+            @RequestParam("pr") String pullRequestReference) {
+        return completeReleasePrompt(group + "/" + name, pullRequestReference);
     }
 
     /**
@@ -537,6 +587,16 @@ public class PromptSpecController {
         } catch (IOException | GitAPIException e) {
             throw new IllegalStateException("Failed to resolve active-project git metadata: " + normalizedRepoDir, e);
         }
+    }
+
+    private ResponseEntity<PromptSpec> releaseResponse(PromptSpec releaseResponse) {
+        ReleaseMetadata releaseMetadata = releaseResponse.getReleaseMetadata();
+        if (releaseMetadata == null || !StringUtils.hasText(releaseMetadata.state())) {
+            throw new IllegalStateException("Release response is missing required release metadata state");
+        }
+        return ResponseEntity.ok()
+                .header(RELEASE_STATE_HEADER, releaseMetadata.state())
+                .body(releaseResponse);
     }
 
     private Instant instantFromCommit(RevCommit commit) {

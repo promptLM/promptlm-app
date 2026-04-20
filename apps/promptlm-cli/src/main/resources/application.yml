@@ -7,6 +7,9 @@ watch:
 debug: false
 
 promptlm:
+  release:
+    promotion:
+      mode: ${PROMPTLM_RELEASE_PROMOTION_MODE:direct}
   store:
     local:
       workspace-root: ${user.home}

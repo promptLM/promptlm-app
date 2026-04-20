@@ -160,6 +160,26 @@ export type ReleasePromptResult = {
   toast: ActionToast | null;
 };
 
+const readReleaseState = (prompt: PromptSpec): 'requested' | 'released' => {
+  const extensions = (prompt.extensions ?? {}) as Record<string, unknown>;
+  const promptlm = extensions['x-promptlm'];
+  if (!promptlm || typeof promptlm !== 'object') {
+    throw new Error('Release response is missing x-promptlm metadata.');
+  }
+
+  const release = (promptlm as Record<string, unknown>).release;
+  if (!release || typeof release !== 'object') {
+    throw new Error('Release response is missing x-promptlm.release metadata.');
+  }
+
+  const state = (release as Record<string, unknown>).state;
+  if (state === 'requested' || state === 'released') {
+    return state;
+  }
+
+  throw new Error(`Unsupported release state '${String(state)}'.`);
+};
+
 export const releasePromptAction = async ({
   mode,
   createdPromptId,
@@ -178,13 +198,21 @@ export const releasePromptAction = async ({
 
   try {
     const released = await releasePrompt(releasablePromptId);
+    const releaseState = readReleaseState(released);
+    const toastMessage =
+      releaseState === 'requested'
+        ? 'Release requested.'
+        : mode === 'edit'
+          ? 'Prompt released.'
+          : 'Prompt published.';
+
     return {
       releasedPrompt: released,
       nextCreatedPromptId: mode === 'create' ? (released.id ?? releasablePromptId) : createdPromptId,
       shouldRefreshPrompt: mode === 'edit',
       toast: {
         severity: 'success',
-        message: mode === 'edit' ? 'Prompt released.' : 'Prompt published.',
+        message: toastMessage,
       },
     };
   } catch (error) {

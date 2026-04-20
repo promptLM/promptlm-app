@@ -20,7 +20,7 @@ import dev.promptlm.execution.SpringAiVendorClient;
 import dev.promptlm.execution.litellm.LiteLlmGatewayProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
@@ -53,10 +53,10 @@ public class ModelCatalogService {
     private volatile LiteLlmCacheEntry liteLlmCache;
 
     public ModelCatalogService(List<SpringAiVendorClient> springAiVendors,
-                               ObjectProvider<LiteLlmGatewayProperties> liteLlmProperties,
+                               @Nullable LiteLlmGatewayProperties liteLlmProperties,
                                ModelCatalogProperties catalogProperties) {
         this.springAiVendors = springAiVendors == null ? List.of() : List.copyOf(springAiVendors);
-        this.liteLlmProperties = liteLlmProperties.getIfAvailable();
+        this.liteLlmProperties = liteLlmProperties;
         this.catalogProperties = catalogProperties;
     }
 

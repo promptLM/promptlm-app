@@ -8,6 +8,7 @@
     {"method": "POST", "path": "/api/prompts/execute", "status": "200", "example": "openapi/examples/prompt-execute.json"},
     {"method": "GET", "path": "/api/prompts/template", "status": "200", "example": "openapi/examples/prompt-template.json"},
     {"method": "POST", "path": "/api/prompts/{promptSpecId}/release", "status": "200", "example": "openapi/examples/prompt-release.json"},
+    {"method": "POST", "path": "/api/prompts/{promptSpecId}/release/complete", "status": "200", "example": "openapi/examples/prompt-release-complete.json"},
     {"method": "GET", "path": "/api/prompts/stats", "status": "200", "example": "openapi/examples/prompt-stats.json"},
     {"method": "GET", "path": "/api/llm/catalog", "status": "200", "example": "openapi/examples/model-catalog.json"},
     {"method": "GET", "path": "/api/store", "status": "200", "example": "openapi/examples/project-active.json"},

@@ -21,7 +21,6 @@ import dev.promptlm.execution.gateway.GatewayResponse;
 import dev.promptlm.execution.litellm.LiteLlmGatewayProperties;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.ObjectProvider;
 
 import java.util.List;
 import java.util.Map;
@@ -36,7 +35,7 @@ class ModelCatalogServiceTest {
         SpringAiVendorClient vendorClient = new StubVendorClient("openai", Set.of("gpt-4o", "gpt-4o-mini"));
         ModelCatalogService service = new ModelCatalogService(
                 List.of(vendorClient),
-                new StaticObjectProvider<>(null),
+                null,
                 new ModelCatalogProperties()
         );
 
@@ -58,7 +57,7 @@ class ModelCatalogServiceTest {
 
         ModelCatalogService service = new ModelCatalogService(
                 List.of(vendorClient),
-                new StaticObjectProvider<>(null),
+                null,
                 properties
         );
 
@@ -80,7 +79,7 @@ class ModelCatalogServiceTest {
 
         ModelCatalogService service = new ModelCatalogService(
                 List.of(),
-                new StaticObjectProvider<>(liteLlmProperties),
+                liteLlmProperties,
                 new ModelCatalogProperties()
         );
 
@@ -126,31 +125,4 @@ class ModelCatalogServiceTest {
         }
     }
 
-    private static final class StaticObjectProvider<T> implements ObjectProvider<T> {
-        private final T value;
-
-        private StaticObjectProvider(T value) {
-            this.value = value;
-        }
-
-        @Override
-        public T getObject(Object... args) {
-            return value;
-        }
-
-        @Override
-        public T getObject() {
-            return value;
-        }
-
-        @Override
-        public T getIfAvailable() {
-            return value;
-        }
-
-        @Override
-        public T getIfUnique() {
-            return value;
-        }
-    }
 }

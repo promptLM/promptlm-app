@@ -17,10 +17,13 @@
 package dev.promptlm.lifecycle.application;
 
 import dev.promptlm.domain.events.PromptCreatedEvent;
+import dev.promptlm.domain.events.PromptReleaseRequestedEvent;
+import dev.promptlm.domain.events.PromptReleasedEvent;
 import dev.promptlm.domain.promptspec.ChatCompletionRequest;
 import dev.promptlm.domain.promptspec.EvaluationStatus;
 import dev.promptlm.domain.promptspec.EvaluationResults;
 import dev.promptlm.domain.promptspec.PromptSpec;
+import dev.promptlm.domain.promptspec.ReleaseMetadata;
 import dev.promptlm.domain.promptspec.Request;
 import dev.promptlm.release.PromptReleaseException;
 import dev.promptlm.release.PromptReleasePolicy;
@@ -219,7 +222,35 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
         }
 
         releasePolicy.validateRelease(promptSpec);
-        return repository.release(promptSpec);
+        PromptSpec released = repository.requestRelease(promptSpec);
+        ReleaseMetadata releaseMetadata = requireReleaseMetadata(released);
+        if (releaseMetadata.isRequested()) {
+            eventPublisher.publishEvent(new PromptReleaseRequestedEvent(released));
+        } else if (releaseMetadata.isReleased()) {
+            eventPublisher.publishEvent(new PromptReleasedEvent(released));
+        } else {
+            throw new PromptReleaseException("Unsupported release state '%s' for prompt %s"
+                    .formatted(releaseMetadata.state(), promptSpecId));
+        }
+
+        return released;
+    }
+
+    @Override
+    public PromptSpec completeReleasePrompt(String promptSpecId, String pullRequestReference) {
+        repository.getLatestVersion(promptSpecId)
+                .orElseThrow(() -> new PromptReleaseException(
+                        "Could not find prompt %s".formatted(promptSpecId)));
+
+        PromptSpec released = repository.completeRelease(promptSpecId, pullRequestReference);
+        ReleaseMetadata releaseMetadata = requireReleaseMetadata(released);
+        if (!releaseMetadata.isReleased()) {
+            throw new PromptReleaseException("Release completion for prompt %s did not return state 'released'"
+                    .formatted(promptSpecId));
+        }
+
+        eventPublisher.publishEvent(new PromptReleasedEvent(released));
+        return released;
     }
 
     @Override
@@ -262,5 +293,14 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
         Map<String, JsonNode> merged = new LinkedHashMap<>(base);
         merged.putAll(updates);
         return merged;
+    }
+
+    private static ReleaseMetadata requireReleaseMetadata(PromptSpec promptSpec) {
+        ReleaseMetadata metadata = promptSpec.getReleaseMetadata();
+        if (metadata == null) {
+            throw new PromptReleaseException(
+                    "Release operation did not provide required release metadata for prompt %s".formatted(promptSpec.getId()));
+        }
+        return metadata;
     }
 }

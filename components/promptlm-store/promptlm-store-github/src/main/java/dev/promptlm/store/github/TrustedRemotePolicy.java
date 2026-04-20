@@ -49,6 +49,10 @@ class TrustedRemotePolicy {
         return parsed != null && isTrustedHttpRemote(parsed);
     }
 
+    boolean isHttpOrHttpsRemote(String remoteUrl) {
+        return tryParseHttpRemote(remoteUrl) != null;
+    }
+
     private boolean isTrustedHttpRemote(URI remoteUrl) {
         TrustedEndpoint trustedEndpoint = resolveTrustedEndpoint();
         if (!trustedEndpoint.scheme().equalsIgnoreCase(remoteUrl.getScheme())) {

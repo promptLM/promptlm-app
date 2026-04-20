@@ -6,6 +6,9 @@ watch:
 debug: false
 
 promptlm:
+  release:
+    promotion:
+      mode: ${PROMPTLM_RELEASE_PROMOTION_MODE:direct}
   openapi:
     examples:
       enabled: false

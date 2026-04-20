@@ -24,6 +24,7 @@ import dev.promptlm.domain.promptspec.EvaluationResult;
 import dev.promptlm.domain.promptspec.EvaluationResults;
 import dev.promptlm.domain.promptspec.EvaluationStatus;
 import dev.promptlm.domain.promptspec.PromptSpec;
+import dev.promptlm.domain.promptspec.ReleaseMetadata;
 import dev.promptlm.release.PromptReleaseException;
 import dev.promptlm.release.PromptReleasePolicy;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,6 +35,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import dev.promptlm.domain.events.PromptCreatedEvent;
+import dev.promptlm.domain.events.PromptReleaseRequestedEvent;
+import dev.promptlm.domain.events.PromptReleasedEvent;
 
 import java.util.List;
 import java.util.Map;
@@ -367,14 +370,31 @@ class DefaultPromptLifecycleServiceTest {
                 .withId(PROMPT_ID)
                 .withRevision(4)
                 .withEvaluationResults(EvaluationResults.notConfigured());
+        PromptSpec released = evaluated
+                .withVersion("1.0.0")
+                .withReleaseMetadata(new ReleaseMetadata(
+                        ReleaseMetadata.STATE_RELEASED,
+                        ReleaseMetadata.MODE_DIRECT,
+                        "1.0.0",
+                        "group/name-v1.0.0",
+                        "main",
+                        null,
+                        null,
+                        false
+                ));
 
         when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
+        when(repository.requestRelease(evaluated)).thenReturn(released);
 
         PromptSpec promptSpec = service.releasePrompt(PROMPT_ID);
+        assertThat(promptSpec).isEqualTo(released);
 
         verify(releasePolicy).validateRelease(evaluated);
         verify(repository).getLatestVersion(PROMPT_ID);
-        verify(repository).release(evaluated);
+        verify(repository).requestRelease(evaluated);
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue()).isInstanceOf(PromptReleasedEvent.class);
     }
 
     @Test
@@ -411,31 +431,54 @@ class DefaultPromptLifecycleServiceTest {
     }
 
     @Test
-    void releasePromptIgnoresEvaluationWhenNotConfigured() {
+    void releasePromptPublishesRequestedEventWhenStoreReturnsRequestedState() {
         EvaluationResults notConfigured = new EvaluationResults(List.of(), EvaluationStatus.NOT_CONFIGURED);
         PromptSpec evaluated = basePromptSpec.withEvaluationResults(notConfigured);
-        PromptSpec released = evaluated.withVersion("1.0.0");
+        PromptSpec requested = evaluated.withReleaseMetadata(new ReleaseMetadata(
+                ReleaseMetadata.STATE_REQUESTED,
+                ReleaseMetadata.MODE_PR_TWO_PHASE,
+                "1.0.0",
+                "group/name-v1.0.0",
+                "release/group-name-1.0.0",
+                11,
+                "https://github.com/promptLM/promptlm-app/pull/11",
+                false
+        ));
 
         when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
-        when(repository.release(evaluated)).thenReturn(released);
+        when(repository.requestRelease(evaluated)).thenReturn(requested);
 
         PromptSpec result = service.releasePrompt(PROMPT_ID);
 
-        assertThat(result).isEqualTo(released);
+        assertThat(result).isEqualTo(requested);
 
         verify(releasePolicy).validateRelease(evaluated);
         verify(repository).getLatestVersion(PROMPT_ID);
-        verify(repository).release(evaluated);
+        verify(repository).requestRelease(evaluated);
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue()).isInstanceOf(PromptReleaseRequestedEvent.class);
     }
 
     @Test
     void releasePromptReturnsReleasedSpecWhenEvaluationSuccessful() {
         EvaluationResults successResults = new EvaluationResults(List.of(new EvaluationResult("eval", "type", 1.0, null, null)));
         PromptSpec evaluated = basePromptSpec.withEvaluationResults(successResults);
-        PromptSpec released = evaluated.withVersion("1.0.0");
+        PromptSpec released = evaluated
+                .withVersion("1.0.0")
+                .withReleaseMetadata(new ReleaseMetadata(
+                        ReleaseMetadata.STATE_RELEASED,
+                        ReleaseMetadata.MODE_DIRECT,
+                        "1.0.0",
+                        "group/name-v1.0.0",
+                        "main",
+                        null,
+                        null,
+                        false
+                ));
 
         when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
-        when(repository.release(evaluated)).thenReturn(released);
+        when(repository.requestRelease(evaluated)).thenReturn(released);
 
         PromptSpec result = service.releasePrompt(PROMPT_ID);
 
@@ -443,6 +486,71 @@ class DefaultPromptLifecycleServiceTest {
 
         verify(releasePolicy).validateRelease(evaluated);
         verify(repository).getLatestVersion(PROMPT_ID);
-        verify(repository).release(evaluated);
+        verify(repository).requestRelease(evaluated);
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue()).isInstanceOf(PromptReleasedEvent.class);
+    }
+
+    @Test
+    void releasePromptThrowsWhenStoreResponseOmitsReleaseMetadata() {
+        EvaluationResults successResults = new EvaluationResults(List.of(new EvaluationResult("eval", "type", 1.0, null, null)));
+        PromptSpec evaluated = basePromptSpec.withEvaluationResults(successResults);
+
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
+        when(repository.requestRelease(evaluated)).thenReturn(evaluated.withVersion("1.0.0"));
+
+        assertThatThrownBy(() -> service.releasePrompt(PROMPT_ID))
+                .isInstanceOf(PromptReleaseException.class)
+                .hasMessageContaining("required release metadata");
+
+        verify(releasePolicy).validateRelease(evaluated);
+        verify(repository).requestRelease(evaluated);
+    }
+
+    @Test
+    void completeReleasePromptPublishesReleasedEvent() {
+        PromptSpec existing = basePromptSpec.withId(PROMPT_ID);
+        PromptSpec released = existing.withReleaseMetadata(new ReleaseMetadata(
+                ReleaseMetadata.STATE_RELEASED,
+                ReleaseMetadata.MODE_PR_TWO_PHASE,
+                "1.0.0",
+                "group/name-v1.0.0",
+                "main",
+                11,
+                "https://github.com/promptLM/promptlm-app/pull/11",
+                false
+        ));
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(existing));
+        when(repository.completeRelease(PROMPT_ID, "11")).thenReturn(released);
+
+        PromptSpec result = service.completeReleasePrompt(PROMPT_ID, "11");
+
+        assertThat(result).isEqualTo(released);
+        verify(repository).completeRelease(PROMPT_ID, "11");
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue()).isInstanceOf(PromptReleasedEvent.class);
+    }
+
+    @Test
+    void completeReleasePromptFailsWhenStoreDoesNotReturnReleasedState() {
+        PromptSpec existing = basePromptSpec.withId(PROMPT_ID);
+        PromptSpec requested = existing.withReleaseMetadata(new ReleaseMetadata(
+                ReleaseMetadata.STATE_REQUESTED,
+                ReleaseMetadata.MODE_PR_TWO_PHASE,
+                "1.0.0",
+                "group/name-v1.0.0",
+                "release/group-name-1.0.0",
+                11,
+                "https://github.com/promptLM/promptlm-app/pull/11",
+                false
+        ));
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(existing));
+        when(repository.completeRelease(PROMPT_ID, "11")).thenReturn(requested);
+
+        assertThatThrownBy(() -> service.completeReleasePrompt(PROMPT_ID, "11"))
+                .isInstanceOf(PromptReleaseException.class)
+                .hasMessageContaining("did not return state 'released'");
     }
 }

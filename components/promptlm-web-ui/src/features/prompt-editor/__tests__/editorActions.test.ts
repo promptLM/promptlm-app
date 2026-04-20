@@ -47,7 +47,7 @@ const buildDraft = (): PromptDraftInput => ({
   evaluations: [],
 });
 
-const buildPrompt = (id: string): PromptSpec =>
+const buildPrompt = (id: string, state: 'requested' | 'released' = 'released'): PromptSpec =>
   ({
     id,
     name: 'support-prompt',
@@ -67,6 +67,20 @@ const buildPrompt = (id: string): PromptSpec =>
       endPattern: '}}',
       list: [{ name: 'customer_name', defaultValue: 'Taylor' }],
       defaults: { customer_name: 'Taylor' },
+    },
+    extensions: {
+      'x-promptlm': {
+        release: {
+          state,
+          mode: state === 'requested' ? 'pr_two_phase' : 'direct',
+          version: '1.0.0',
+          tag: 'support-prompt-v1.0.0',
+          branch: state === 'requested' ? 'release/support-prompt-1.0.0' : 'main',
+          prNumber: state === 'requested' ? 11 : undefined,
+          prUrl: state === 'requested' ? 'https://github.com/promptLM/promptlm-app/pull/11' : undefined,
+          existing: false,
+        },
+      },
     },
   }) as PromptSpec;
 
@@ -273,6 +287,22 @@ describe('releasePromptAction', () => {
     });
   });
 
+  it('shows requested messaging when the release state is requested', async () => {
+    const releasePrompt = vi.fn().mockResolvedValue(buildPrompt('prompt-30', 'requested'));
+
+    const result = await releasePromptAction({
+      mode: 'edit',
+      createdPromptId: null,
+      promptId: 'prompt-30',
+      releasePrompt,
+    });
+
+    expect(result.toast).toEqual({
+      severity: 'success',
+      message: 'Release requested.',
+    });
+  });
+
   it('returns display errors when release fails', async () => {
     const releasePrompt = vi.fn().mockRejectedValue(new Error('release failed'));
 
@@ -286,6 +316,26 @@ describe('releasePromptAction', () => {
     expect(result.toast).toEqual({
       severity: 'error',
       message: 'release failed',
+    });
+  });
+
+  it('returns display errors when release metadata is missing', async () => {
+    const promptWithoutMetadata = {
+      ...buildPrompt('prompt-40'),
+      extensions: undefined,
+    } as PromptSpec;
+    const releasePrompt = vi.fn().mockResolvedValue(promptWithoutMetadata);
+
+    const result = await releasePromptAction({
+      mode: 'edit',
+      createdPromptId: null,
+      promptId: 'prompt-40',
+      releasePrompt,
+    });
+
+    expect(result.toast).toEqual({
+      severity: 'error',
+      message: 'Release response is missing x-promptlm metadata.',
     });
   });
 });

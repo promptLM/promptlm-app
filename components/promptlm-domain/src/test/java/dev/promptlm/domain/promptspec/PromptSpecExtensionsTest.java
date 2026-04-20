@@ -120,6 +120,59 @@ class PromptSpecExtensionsTest {
     }
 
     @Test
+    void releaseMetadataIsStoredUnderPromptlmExtension() throws Exception {
+        PromptSpec spec = PromptSpec.builder()
+                .withGroup("group")
+                .withName("name")
+                .withVersion("1.0.0")
+                .withRevision(1)
+                .withDescription("desc")
+                .withRequest(ChatCompletionRequest.builder()
+                        .withType(ChatCompletionRequest.TYPE)
+                        .build())
+                .build()
+                .withReleaseMetadata(new ReleaseMetadata(
+                        ReleaseMetadata.STATE_REQUESTED,
+                        ReleaseMetadata.MODE_PR_TWO_PHASE,
+                        "1.0.0",
+                        "prompt-v1.0.0",
+                        "release/prompt-1.0.0",
+                        42,
+                        "https://github.com/org/repo/pull/42",
+                        false
+                ));
+
+        assertThat(spec.getReleaseMetadata()).isNotNull();
+        assertThat(spec.getReleaseMetadata().state()).isEqualTo(ReleaseMetadata.STATE_REQUESTED);
+        assertThat(spec.getReleaseMetadata().mode()).isEqualTo(ReleaseMetadata.MODE_PR_TWO_PHASE);
+        assertThat(spec.getExtensions()).containsKey("x-promptlm");
+        assertThat(spec.getExtension("x-promptlm").get("release").get("prNumber").asInt()).isEqualTo(42);
+    }
+
+    @Test
+    void deserializesReleaseMetadataFromPromptlmExtension() throws Exception {
+        String yaml = """
+                name: Sample
+                group: sample
+                version: 1.0
+                extensions:
+                  x-promptlm:
+                    release:
+                      state: released
+                      mode: direct
+                      version: 1.0
+                      tag: sample-v1.0
+                      existing: true
+                """;
+
+        PromptSpec spec = mapper.readValue(yaml, PromptSpec.class);
+
+        assertThat(spec.getReleaseMetadata()).isNotNull();
+        assertThat(spec.getReleaseMetadata().isReleased()).isTrue();
+        assertThat(spec.getReleaseMetadata().existing()).isTrue();
+    }
+
+    @Test
     void rejectsNonExtensionKey() {
         ObjectNode node = mapper.createObjectNode().put("foo", "bar");
         Map<String, JsonNode> extensions = Map.of("custom", node);
