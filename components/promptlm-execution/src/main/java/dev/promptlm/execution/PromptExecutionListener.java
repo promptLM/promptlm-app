@@ -17,6 +17,9 @@
 package dev.promptlm.execution;
 
 import dev.promptlm.domain.events.PromptCreatedEvent;
+import dev.promptlm.domain.events.PromptExecutedEvent;
+import dev.promptlm.domain.promptspec.PromptSpec;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
 
@@ -24,13 +27,16 @@ import org.springframework.stereotype.Component;
 class PromptExecutionListener {
 
     private final PromptExecutor promptExecutor;
+    private final ApplicationEventPublisher eventPublisher;
 
-    PromptExecutionListener(PromptExecutor promptExecutor) {
+    PromptExecutionListener(PromptExecutor promptExecutor, ApplicationEventPublisher eventPublisher) {
         this.promptExecutor = promptExecutor;
+        this.eventPublisher = eventPublisher;
     }
 
     @ApplicationModuleListener
     void onPromptCreated(PromptCreatedEvent event) {
-        promptExecutor.runPromptAndAttachResponse(event.promptSpec());
+        PromptSpec executed = promptExecutor.runPromptAndAttachResponse(event.promptSpec());
+        eventPublisher.publishEvent(new PromptExecutedEvent(executed));
     }
 }
