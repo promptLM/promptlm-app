@@ -294,7 +294,7 @@ class Git {
         try (org.eclipse.jgit.api.Git git = org.eclipse.jgit.api.Git.open(repo)) {
             String branch = git.getRepository().getBranch();
             String remoteUrl = git.getRepository().getConfig().getString("remote", "origin", "url");
-            log.debug("DEBUG: Attempting to pushAll to: " + remoteUrl);
+            log.debug("Pushing to remote: {}", remoteUrl);
             RefSpec refSpec = new RefSpec(branch + ":refs/heads/" + branch);
             PushCommand pushCommand = git.push()
                     .setRemote("origin")
@@ -313,7 +313,7 @@ class Git {
         }
     }
 
-    private void assertPushSucceeded(Iterable<PushResult> pushResults, String remoteUrl) {
+    private static void assertPushSucceeded(Iterable<PushResult> pushResults, String remoteUrl) {
         for (PushResult pushResult : pushResults) {
             for (RemoteRefUpdate update : pushResult.getRemoteUpdates()) {
                 RemoteRefUpdate.Status status = update.getStatus();
@@ -336,33 +336,6 @@ class Git {
         }
     }
 
-    private PushCommand createDefaultPushCommand(org.eclipse.jgit.api.Git git) {
-        PushCommand pushCommand = git.push()
-                .setRemote("origin")
-                .setPushTags();
-        
-        // Force JGit to use HTTP transport without smart HTTP detection
-        try {
-            // Get the remote URL and log it for debugging
-            String remoteUrl = git.getRepository().getConfig().getString("remote", "origin", "url");
-            log.debug("DEBUG: Pushing to remote URL: " + remoteUrl);
-            
-            // Try to force non-smart HTTP by setting transport config
-            pushCommand.setTransportConfigCallback(transport -> {
-                if (transport instanceof org.eclipse.jgit.transport.TransportHttp) {
-                    org.eclipse.jgit.transport.TransportHttp httpTransport = (org.eclipse.jgit.transport.TransportHttp) transport;
-                    // Disable smart HTTP and use traditional HTTP
-                    log.debug("DEBUG: Configuring HTTP transport for traditional Git HTTP");
-                }
-            });
-            
-        } catch (Exception e) {
-            log.warn("Could not configure transport, using default: " + e.getMessage());
-        }
-        
-        return pushCommand;
-    }
-
     private void fetch(org.eclipse.jgit.api.Git git) throws GitAPIException {
         String remoteUrl = git.getRepository().getConfig().getString("remote", "origin", "url");
         var fetchCommand = git.fetch().setRemote("origin");
@@ -378,7 +351,13 @@ class Git {
             return null;
         }
         if (!trustedRemotePolicy.isTrustedForCredentialForwarding(remoteUrl)) {
-            log.warn("Skipping credential forwarding for untrusted remote: {}", remoteUrl);
+            if (trustedRemotePolicy.isHttpOrHttpsRemote(remoteUrl)) {
+                throw new GitException(
+                        "Cannot push to " + remoteUrl + ": the remote host does not match the configured " +
+                        "backend (promptlm.store.remote.base-url). " +
+                        "Ensure REPO_REMOTE_URL points to the Git server hosting your repositories."
+                );
+            }
             return null;
         }
         return credentialsProvider.getCredentials();
@@ -394,7 +373,7 @@ class Git {
 
     public void checkoutOrCreateBranch(String newBranchName, File repo) {
         try (org.eclipse.jgit.api.Git git = org.eclipse.jgit.api.Git.open(repo)) {
-            boolean branchExists = git.branchList().call().stream().anyMatch(b -> b.getName().equals(newBranchName));
+            boolean branchExists = git.branchList().call().stream().anyMatch(b -> b.getName().equals("refs/heads/" + newBranchName));
             if (branchExists) {
                 checkout(git, newBranchName);
                 fetch(git);
@@ -501,6 +480,22 @@ class Git {
             git.tag().setName(tag).call();
         } catch (IOException | GitAPIException e) {
             throw new GitException("Failed to tag " + tag, e);
+        }
+    }
+
+    public boolean tagExists(String tag, File repo) {
+        String expectedRef = "refs/tags/" + tag;
+        try (org.eclipse.jgit.api.Git git = org.eclipse.jgit.api.Git.open(repo)) {
+            return git.tagList().call().stream()
+                    .anyMatch(ref -> expectedRef.equals(ref.getName()));
+        } catch (IOException | GitAPIException e) {
+            throw new GitException("Failed to inspect tags in " + repo, e);
+        }
+    }
+
+    public void tagIfMissing(String tag, File repo) {
+        if (!tagExists(tag, repo)) {
+            tag(tag, repo);
         }
     }
 }

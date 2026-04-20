@@ -436,6 +436,11 @@ public class PromptSpec {
         return Objects.equals(this.extensions, updated) ? this : withExtensions(updated);
     }
 
+    public PromptSpec withReleaseMetadata(ReleaseMetadata releaseMetadata) {
+        Map<String, JsonNode> updated = ReleaseExtensions.withRelease(this.extensions, releaseMetadata);
+        return Objects.equals(this.extensions, updated) ? this : withExtensions(updated);
+    }
+
     public PromptSpec withExtensions(Map<String, JsonNode> extensions) {
         return Objects.equals(this.extensions, extensions)
                 ? this
@@ -552,6 +557,14 @@ public class PromptSpec {
             return EvaluationResults.notConfigured();
         }
         return EvaluationExtensions.readResults(extensions);
+    }
+
+    @JsonIgnore
+    public ReleaseMetadata getReleaseMetadata() {
+        if (extensions.isEmpty()) {
+            return null;
+        }
+        return ReleaseExtensions.readRelease(extensions);
     }
 
     public Map<String, JsonNode> getExtensions() {

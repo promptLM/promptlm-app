@@ -23,15 +23,23 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 import dev.promptlm.domain.AppContext;
 import dev.promptlm.domain.promptspec.ChatCompletionRequest;
 import dev.promptlm.domain.promptspec.PromptSpec;
+import dev.promptlm.domain.promptspec.ReleaseMetadata;
 import dev.promptlm.store.api.PromptStore;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
@@ -40,12 +48,19 @@ public class GitHubPromptStore implements PromptStore {
 
     public static final String MAIN_BRANCH = "main";
     public static final String DEV_BRANCH = "development";
+    private static final String RELEASE_BRANCH_PREFIX = "release/";
+    private static final Pattern PR_REFERENCE_NUMBER = Pattern.compile("^(\\d+)$");
+    private static final Pattern PR_REFERENCE_URL = Pattern.compile(".*/pull/(\\d+).*");
+
     private final ObjectMapper modelYamlMapper;
     private final GitFileNameStrategy fileNameStrategy;
     private final Git git;
     private final AppContext appContext;
     private final VersioningStrategy versioningStrategy;
     private final GitRepositoryMetadata repositoryMetadata;
+    private final ReleasePromotionProperties releasePromotionProperties;
+    private final ReleasePullRequestGateway releasePullRequestGateway;
+    private final Map<String, ReentrantLock> releaseLocks = new ConcurrentHashMap<>();
 
     public GitHubPromptStore(@Qualifier("modelYamlMapper") ObjectMapper modelYamlMapper,
                              GitFileNameStrategy fileNameStrategy,
@@ -53,12 +68,41 @@ public class GitHubPromptStore implements PromptStore {
                              AppContext appContext,
                              IntVersioningStrategy versioningStrategy,
                              GitRepositoryMetadata repositoryMetadata) {
+        this(
+                modelYamlMapper,
+                fileNameStrategy,
+                git,
+                appContext,
+                versioningStrategy,
+                repositoryMetadata,
+                defaultReleaseProperties(),
+                null
+        );
+    }
+
+    @Autowired
+    public GitHubPromptStore(@Qualifier("modelYamlMapper") ObjectMapper modelYamlMapper,
+                             GitFileNameStrategy fileNameStrategy,
+                             Git git,
+                             AppContext appContext,
+                             IntVersioningStrategy versioningStrategy,
+                             GitRepositoryMetadata repositoryMetadata,
+                             ReleasePromotionProperties releasePromotionProperties,
+                             ReleasePullRequestGateway releasePullRequestGateway) {
         this.modelYamlMapper = modelYamlMapper;
         this.versioningStrategy = versioningStrategy;
         this.fileNameStrategy = fileNameStrategy;
         this.git = git;
         this.appContext = appContext;
         this.repositoryMetadata = repositoryMetadata;
+        this.releasePromotionProperties = releasePromotionProperties;
+        this.releasePullRequestGateway = releasePullRequestGateway;
+    }
+
+    private static ReleasePromotionProperties defaultReleaseProperties() {
+        ReleasePromotionProperties properties = new ReleasePromotionProperties();
+        properties.setMode(ReleasePromotionMode.DIRECT.value());
+        return properties;
     }
 
     /**
@@ -240,37 +284,77 @@ public class GitHubPromptStore implements PromptStore {
     }
 
     @Override
-    public PromptSpec release(PromptSpec promptSpec) {
+    public PromptSpec requestRelease(PromptSpec promptSpec) {
+        if (promptSpec == null) {
+            throw new IllegalArgumentException("Prompt spec must not be null");
+        }
 
-        // checkout main branch
-        File repo = checkoutMainBranch();
+        return withPromptReleaseLock(promptSpec.getId(), () -> requestReleaseUnlocked(promptSpec));
+    }
 
-        PromptSpec releasedPrompt = promptSpec;
+    @Override
+    public PromptSpec completeRelease(String promptSpecId, String pullRequestReference) {
+        if (promptSpecId == null || promptSpecId.isBlank()) {
+            throw new IllegalArgumentException("promptSpecId must not be blank");
+        }
+        if (pullRequestReference == null || pullRequestReference.isBlank()) {
+            throw new IllegalArgumentException("pullRequestReference must not be blank");
+        }
+
+        return withPromptReleaseLock(promptSpecId, () -> completeReleaseUnlocked(promptSpecId, pullRequestReference));
+    }
+
+    private PromptSpec requestReleaseUnlocked(PromptSpec promptSpec) {
+        ReleasePromotionMode mode = releasePromotionProperties.resolveMode();
+        return switch (mode) {
+            case DIRECT -> requestDirectRelease(promptSpec);
+            case PR_TWO_PHASE -> requestPrTwoPhaseRelease(promptSpec);
+        };
+    }
+
+    private PromptSpec requestDirectRelease(PromptSpec promptSpec) {
+        Path repoPath = requireActiveRepoPath();
+        File repo = repoPath.toFile();
+        PromptSpec releaseCandidate = releaseCandidate(promptSpec);
+        String releaseVersion = releaseCandidate.getVersion();
+        String releaseTag = versioningStrategy.calculateReleaseTag(releaseCandidate);
+
+        if (git.tagExists(releaseTag, repo)) {
+            return releaseCandidate.withReleaseMetadata(releasedMetadata(
+                    ReleaseMetadata.MODE_DIRECT,
+                    releaseVersion,
+                    releaseTag,
+                    MAIN_BRANCH,
+                    null,
+                    null,
+                    true
+            ));
+        }
+
         try {
-            // cherry-pick prompt from development onto main branch
+            checkoutMainBranch(repo);
             cherryPickFromDevelopmentBranch(promptSpec, repo);
-
-            // set release version
-            String releaseVersion = versioningStrategy.calculateReleaseVersion(promptSpec);
-            releasedPrompt = promptSpec.withVersion(releaseVersion).withRevision(0);
-            storePrompt(releasedPrompt, "Released", false);
-            String tag = versioningStrategy.calculateReleaseTag(releasedPrompt);
-            String message = "Release " + tag;
-            Path repoPath = appContext.getActiveProject().getRepoDir();
-            writeMetadata(repoPath, releasedPrompt, tag, releaseVersion);
-            git.addAllAndCommit(repo, message);
-            git.tag(tag, repo);
+            PromptSpec releasedPrompt = storePrompt(releaseCandidate, "Released", false);
+            writeMetadata(repoPath, releasedPrompt, releaseTag, releaseVersion);
+            git.addAllAndCommit(repo, "Release " + releaseTag);
+            git.tagIfMissing(releaseTag, repo);
             git.pushAll(repo);
 
-            // checkout development for next snapshot
             git.checkoutBranch(DEV_BRANCH, repo);
-
-            // set next snapshot version
             String newVersion = versioningStrategy.getNextDevelopmentVersion(releasedPrompt);
             PromptSpec developmentPrompt = releasedPrompt.withVersion(newVersion);
             storePrompt(developmentPrompt, "New development version.", true);
             git.pushAll(repo);
-            return developmentPrompt;
+
+            return releasedPrompt.withReleaseMetadata(releasedMetadata(
+                    ReleaseMetadata.MODE_DIRECT,
+                    releaseVersion,
+                    releaseTag,
+                    MAIN_BRANCH,
+                    null,
+                    null,
+                    false
+            ));
         } catch (Exception e) {
             throw new GitException("Failed to release prompt %s".formatted(promptSpec.getId()), e);
         } finally {
@@ -278,14 +362,307 @@ public class GitHubPromptStore implements PromptStore {
         }
     }
 
+    private PromptSpec requestPrTwoPhaseRelease(PromptSpec promptSpec) {
+        Path repoPath = requireActiveRepoPath();
+        File repo = repoPath.toFile();
+        String repositoryFullName = git.getFullName(repoPath);
+        ReleasePullRequestGateway pullRequestGateway = requireReleasePullRequestGateway();
+        pullRequestGateway.validatePrModeCapabilities(repositoryFullName);
+
+        PromptSpec releaseCandidate = releaseCandidate(promptSpec);
+        String releaseVersion = releaseCandidate.getVersion();
+        String releaseTag = versioningStrategy.calculateReleaseTag(releaseCandidate);
+        String releaseBranch = buildReleaseBranchName(promptSpec.getId(), releaseVersion);
+
+        if (git.tagExists(releaseTag, repo)) {
+            return releaseCandidate.withReleaseMetadata(releasedMetadata(
+                    ReleaseMetadata.MODE_PR_TWO_PHASE,
+                    releaseVersion,
+                    releaseTag,
+                    MAIN_BRANCH,
+                    null,
+                    null,
+                    true
+            ));
+        }
+
+        List<ReleasePullRequest> openReleasePullRequests = pullRequestGateway.listOpenPullRequests(repositoryFullName, MAIN_BRANCH).stream()
+                .filter(pr -> isReleaseBranchForPrompt(pr.headRef(), promptSpec.getId()))
+                .toList();
+        Optional<ReleasePullRequest> sameVersionRequest = openReleasePullRequests.stream()
+                .filter(pr -> releaseBranch.equals(pr.headRef()))
+                .findFirst();
+        if (sameVersionRequest.isPresent()) {
+            ReleasePullRequest existing = sameVersionRequest.get();
+            return releaseCandidate.withReleaseMetadata(requestedMetadata(
+                    releaseVersion,
+                    releaseTag,
+                    releaseBranch,
+                    existing.number(),
+                    existing.url(),
+                    true
+            ));
+        }
+        Optional<ReleasePullRequest> conflictingRequest = openReleasePullRequests.stream().findFirst();
+        if (conflictingRequest.isPresent()) {
+            throw new GitException(
+                    "Conflicting pending release request for prompt %s already exists on branch %s (PR #%d)."
+                            .formatted(promptSpec.getId(), conflictingRequest.get().headRef(), conflictingRequest.get().number())
+            );
+        }
+
+        try {
+            git.checkoutBranch(DEV_BRANCH, repo);
+            git.checkoutOrCreateBranch(releaseBranch, repo);
+            storePrompt(releaseCandidate, "Release requested", false);
+            git.pushAll(repo);
+
+            ReleasePullRequest created = pullRequestGateway.createReleasePullRequest(
+                    repositoryFullName,
+                    releaseBranch,
+                    MAIN_BRANCH,
+                    "Release %s %s".formatted(promptSpec.getId(), releaseVersion),
+                    "Release request for prompt %s version %s".formatted(promptSpec.getId(), releaseVersion)
+            );
+            return releaseCandidate.withReleaseMetadata(requestedMetadata(
+                    releaseVersion,
+                    releaseTag,
+                    releaseBranch,
+                    created.number(),
+                    created.url(),
+                    false
+            ));
+        } catch (Exception e) {
+            throw new GitException("Failed to request release for prompt %s".formatted(promptSpec.getId()), e);
+        } finally {
+            git.checkoutBranch(DEV_BRANCH, repo);
+        }
+    }
+
+    private PromptSpec completeReleaseUnlocked(String promptSpecId, String pullRequestReference) {
+        if (releasePromotionProperties.resolveMode() != ReleasePromotionMode.PR_TWO_PHASE) {
+            throw new IllegalStateException(
+                    "Release completion is only available when promptlm.release.promotion.mode=pr_two_phase"
+            );
+        }
+
+        Path repoPath = requireActiveRepoPath();
+        File repo = repoPath.toFile();
+        String repositoryFullName = git.getFullName(repoPath);
+        ReleasePullRequestGateway pullRequestGateway = requireReleasePullRequestGateway();
+        pullRequestGateway.validatePrModeCapabilities(repositoryFullName);
+
+        int pullRequestNumber = parsePullRequestReference(pullRequestReference);
+        ReleasePullRequest pullRequest = pullRequestGateway.getPullRequest(repositoryFullName, pullRequestNumber);
+        if (!MAIN_BRANCH.equals(pullRequest.baseRef())) {
+            throw new GitException(
+                    "Pull request #%d must target %s but targets %s"
+                            .formatted(pullRequestNumber, MAIN_BRANCH, pullRequest.baseRef())
+            );
+        }
+
+        String releaseVersion = extractReleaseVersionFromBranch(promptSpecId, pullRequest.headRef())
+                .orElseThrow(() -> new GitException(
+                        "Pull request #%d does not match release branch pattern for prompt %s"
+                                .formatted(pullRequestNumber, promptSpecId)
+                ));
+        PromptSpec releaseCandidate = releaseCandidate(requirePromptById(promptSpecId).withVersion(releaseVersion));
+        String releaseTag = versioningStrategy.calculateReleaseTag(releaseCandidate);
+
+        if (git.tagExists(releaseTag, repo)) {
+            return releaseCandidate.withReleaseMetadata(releasedMetadata(
+                    ReleaseMetadata.MODE_PR_TWO_PHASE,
+                    releaseVersion,
+                    releaseTag,
+                    MAIN_BRANCH,
+                    pullRequest.number(),
+                    pullRequest.url(),
+                    true
+            ));
+        }
+
+        if (!pullRequest.merged()) {
+            throw new GitException(
+                    "Pull request #%d has not been merged into %s"
+                            .formatted(pullRequestNumber, MAIN_BRANCH)
+            );
+        }
+
+        try {
+            git.checkoutBranch(MAIN_BRANCH, repo);
+            writeMetadata(repoPath, releaseCandidate, releaseTag, releaseVersion);
+            commitMetadataIfChanged(repo, releaseTag);
+            git.tagIfMissing(releaseTag, repo);
+            git.pushAll(repo);
+
+            PromptSpec releasedOnMain = searchInPromptSpecIncludingRetired(
+                    repo,
+                    spec -> promptSpecId.equals(spec.getId()),
+                    path -> true
+            ).orElse(releaseCandidate);
+
+            git.checkoutBranch(DEV_BRANCH, repo);
+            String nextDevelopmentVersion = versioningStrategy.getNextDevelopmentVersion(releaseCandidate);
+            PromptSpec developmentPrompt = releasedOnMain.withVersion(nextDevelopmentVersion);
+            storePrompt(developmentPrompt, "New development version.", true);
+            git.pushAll(repo);
+
+            return releasedOnMain.withVersion(releaseVersion).withReleaseMetadata(releasedMetadata(
+                    ReleaseMetadata.MODE_PR_TWO_PHASE,
+                    releaseVersion,
+                    releaseTag,
+                    MAIN_BRANCH,
+                    pullRequest.number(),
+                    pullRequest.url(),
+                    false
+            ));
+        } catch (Exception e) {
+            throw new GitException(
+                    "Failed to complete release for prompt %s from PR reference %s"
+                            .formatted(promptSpecId, pullRequestReference),
+                    e
+            );
+        } finally {
+            git.checkoutBranch(DEV_BRANCH, repo);
+        }
+    }
+
+    private Optional<String> extractReleaseVersionFromBranch(String promptSpecId, String branchName) {
+        String expectedPrefix = buildReleaseBranchNamePrefix(promptSpecId);
+        if (branchName == null || !branchName.startsWith(expectedPrefix)) {
+            return Optional.empty();
+        }
+        String releaseVersion = branchName.substring(expectedPrefix.length());
+        return releaseVersion.isBlank() ? Optional.empty() : Optional.of(releaseVersion);
+    }
+
+    private boolean isReleaseBranchForPrompt(String branchName, String promptSpecId) {
+        return branchName != null && branchName.startsWith(buildReleaseBranchNamePrefix(promptSpecId));
+    }
+
+    private String buildReleaseBranchName(String promptSpecId, String releaseVersion) {
+        return buildReleaseBranchNamePrefix(promptSpecId) + releaseVersion;
+    }
+
+    private String buildReleaseBranchNamePrefix(String promptSpecId) {
+        return RELEASE_BRANCH_PREFIX + sanitizePromptIdForBranch(promptSpecId) + "-";
+    }
+
+    private static String sanitizePromptIdForBranch(String promptSpecId) {
+        return promptSpecId.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9._-]", "-");
+    }
+
+    private int parsePullRequestReference(String pullRequestReference) {
+        String value = pullRequestReference.trim();
+        Matcher numberMatcher = PR_REFERENCE_NUMBER.matcher(value);
+        if (numberMatcher.matches()) {
+            return Integer.parseInt(numberMatcher.group(1));
+        }
+
+        Matcher urlMatcher = PR_REFERENCE_URL.matcher(value);
+        if (urlMatcher.matches()) {
+            return Integer.parseInt(urlMatcher.group(1));
+        }
+
+        throw new IllegalArgumentException(
+                "Invalid pull request reference '%s'. Provide a numeric PR id or pull request URL."
+                        .formatted(pullRequestReference)
+        );
+    }
+
+    private PromptSpec releaseCandidate(PromptSpec promptSpec) {
+        String releaseVersion = versioningStrategy.calculateReleaseVersion(promptSpec);
+        return promptSpec.withVersion(releaseVersion).withRevision(0);
+    }
+
+    private PromptSpec requirePromptById(String promptSpecId) {
+        return getLatestVersion(promptSpecId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Could not find PromptSpec with id %s".formatted(promptSpecId))
+                );
+    }
+
+    private PromptSpec withPromptReleaseLock(String promptId, Supplier<PromptSpec> operation) {
+        String lockKey = promptId == null || promptId.isBlank() ? "__unknown__" : promptId;
+        ReentrantLock lock = releaseLocks.computeIfAbsent(lockKey, ignored -> new ReentrantLock());
+        lock.lock();
+        try {
+            return operation.get();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private ReleasePullRequestGateway requireReleasePullRequestGateway() {
+        if (releasePullRequestGateway == null) {
+            throw new IllegalStateException(
+                    "PR-mode release requires a pull request gateway implementation"
+            );
+        }
+        return releasePullRequestGateway;
+    }
+
+    private Path requireActiveRepoPath() {
+        if (appContext.getActiveProject() == null || appContext.getActiveProject().getRepoDir() == null) {
+            throw new IllegalStateException("No active project repository is configured for release operations");
+        }
+        return appContext.getActiveProject().getRepoDir();
+    }
+
+    private void commitMetadataIfChanged(File repo, String releaseTag) {
+        try {
+            git.addAllAndCommit(repo, "Release " + releaseTag);
+        } catch (GitException e) {
+            String message = e.getMessage() == null ? "" : e.getMessage().toLowerCase(Locale.ROOT);
+            if (!message.contains("nothing to commit")) {
+                throw e;
+            }
+        }
+    }
+
+    private ReleaseMetadata requestedMetadata(String releaseVersion,
+                                              String releaseTag,
+                                              String releaseBranch,
+                                              Integer pullRequestNumber,
+                                              String pullRequestUrl,
+                                              boolean existing) {
+        return new ReleaseMetadata(
+                ReleaseMetadata.STATE_REQUESTED,
+                ReleaseMetadata.MODE_PR_TWO_PHASE,
+                releaseVersion,
+                releaseTag,
+                releaseBranch,
+                pullRequestNumber,
+                pullRequestUrl,
+                existing
+        );
+    }
+
+    private ReleaseMetadata releasedMetadata(String mode,
+                                             String releaseVersion,
+                                             String releaseTag,
+                                             String branch,
+                                             Integer pullRequestNumber,
+                                             String pullRequestUrl,
+                                             boolean existing) {
+        return new ReleaseMetadata(
+                ReleaseMetadata.STATE_RELEASED,
+                mode,
+                releaseVersion,
+                releaseTag,
+                branch,
+                pullRequestNumber,
+                pullRequestUrl,
+                existing
+        );
+    }
+
     private void cherryPickFromDevelopmentBranch(PromptSpec promptSpec, File repo) {
         git.cherryPick(DEV_BRANCH, promptSpec, repo);
     }
 
-    private File checkoutMainBranch() {
-        File repo = appContext.getActiveProject().getRepoDir().toFile();
+    private void checkoutMainBranch(File repo) {
         git.checkoutBranch(MAIN_BRANCH, repo);
-        return repo;
     }
 
     private void writeMetadata(Path repoPath, PromptSpec picked, String tag, String releaseVersion) {
@@ -293,7 +670,7 @@ public class GitHubPromptStore implements PromptStore {
         List<GitRepositoryMetadataFile.Version> versions = metadataFile.getVersions();
 
         GitRepositoryMetadataFile.Version v = versions.stream()
-                .filter(m -> m.getId().equals(picked.getId()))
+                .filter(m -> m.getId().equals(picked.getId()) && releaseVersion.equals(m.getVersion()))
                 .findFirst()
                 .orElse(newVersion(versions));
         v.setName(picked.getName());

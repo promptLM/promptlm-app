@@ -14,8 +14,8 @@
     "validate:asyncapi": "node ./scripts/validate-asyncapi.mjs",
     "generate": "npm run validate:asyncapi && npm run generate:asyncapi && npm run generate:openapi && npm run generate:client",
     "generate:asyncapi": "node ./scripts/generate-asyncapi.mjs",
-    "generate:openapi": "openapi-typescript ../../apps/promptlm-web-app/target/generated/openapi/promptlm-webapp-openapi.json --output ./src/generated/openapi.ts",
-    "generate:client": "openapi -i ../../apps/promptlm-web-app/target/generated/openapi/promptlm-webapp-openapi.json -o ./src/generated/client --client fetch",
+    "generate:openapi": "openapi-typescript ../../apps/promptlm-webapp/target/generated/openapi/promptlm-webapp-openapi.json --output ./src/generated/openapi.ts",
+    "generate:client": "openapi -i ../../apps/promptlm-webapp/target/generated/openapi/promptlm-webapp-openapi.json -o ./src/generated/client --client fetch",
     "build": "tsc -p tsconfig.json"
   },
   "devDependencies": {

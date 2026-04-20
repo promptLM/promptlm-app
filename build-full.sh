@@ -16,9 +16,30 @@
 set -e
 ./build-jdk.sh
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_FILE="$ROOT_DIR/.env"
+if [ ! -f "$ENV_FILE" ]; then
+  ENV_FILE="$ROOT_DIR/.env.example"
+fi
+
+if [ -f "$ENV_FILE" ]; then
+  set -a
+  source "$ENV_FILE"
+  set +a
+fi
 
 echo "acceptance test normal build"
 PROMPTLM_TEST_GROUPS=integration PROMPTLM_TEST_EXCLUDED_GROUPS= ./test.sh
 
 echo "Native build"
-set -a; source .env; set +a; mvn -DskipTests -Pnative -am -DskipTests package
+mvn -B -Pnative -pl apps/promptlm-cli,apps/promptlm-webapp -am -DskipTests package
+
+echo "acceptance test native smoke"
+mvn -B -f "$ROOT_DIR/acceptance-tests/pom.xml" \
+  -DfailIfNoTests=true \
+  -DfailIfNoSpecifiedTests=true \
+  -Dpromptlm.test.groups=native-smoke \
+  -Dpromptlm.test.excludedGroups= \
+  -Dpromptlm.test.cli.native.path="$ROOT_DIR/apps/promptlm-cli/target/promptlm-cli" \
+  -Dpromptlm.test.webapp.native.path="$ROOT_DIR/apps/promptlm-webapp/target/promptlm-webapp" \
+  test

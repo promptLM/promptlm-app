@@ -53,7 +53,12 @@ class PromptStoreAdapter implements PromptStorePort {
     }
 
     @Override
-    public PromptSpec release(PromptSpec promptSpec) {
-        return promptStore.release(promptSpec);
+    public PromptSpec requestRelease(PromptSpec promptSpec) {
+        return promptStore.requestRelease(promptSpec);
+    }
+
+    @Override
+    public PromptSpec completeRelease(String promptSpecId, String pullRequestReference) {
+        return promptStore.completeRelease(promptSpecId, pullRequestReference);
     }
 }

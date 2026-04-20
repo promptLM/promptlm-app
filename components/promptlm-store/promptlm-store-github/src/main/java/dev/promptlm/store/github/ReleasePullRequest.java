@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-package dev.promptlm;
+package dev.promptlm.store.github;
 
-import dev.promptlm.store.github.GitHubProperties;
-import dev.promptlm.store.github.ReleasePromotionProperties;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.context.annotation.Configuration;
-
-@Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties({GitHubProperties.class, ReleasePromotionProperties.class})
-public class GitHubPromptStoreConfig {
+record ReleasePullRequest(
+        int number,
+        String url,
+        String state,
+        boolean merged,
+        String headRef,
+        String baseRef,
+        String mergeCommitSha) {
 }

@@ -32,5 +32,11 @@ public interface PromptStorePort {
 
     Optional<PromptSpec> getLatestVersion(String promptSpecId);
 
-    PromptSpec release(PromptSpec promptSpec);
+    PromptSpec requestRelease(PromptSpec promptSpec);
+
+    PromptSpec completeRelease(String promptSpecId, String pullRequestReference);
+
+    default PromptSpec release(PromptSpec promptSpec) {
+        return requestRelease(promptSpec);
+    }
 }

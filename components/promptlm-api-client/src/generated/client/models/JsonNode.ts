@@ -19,11 +19,10 @@
 export type JsonNode = {
     number?: boolean;
     container?: boolean;
-    floatingPointNumber?: boolean;
-    missingNode?: boolean;
     nodeType?: JsonNode.nodeType;
     string?: boolean;
     integralNumber?: boolean;
+    missingNode?: boolean;
     valueNode?: boolean;
     pojo?: boolean;
     short?: boolean;
@@ -38,6 +37,7 @@ export type JsonNode = {
     textual?: boolean;
     boolean?: boolean;
     binary?: boolean;
+    floatingPointNumber?: boolean;
     empty?: boolean;
     array?: boolean;
     null?: boolean;

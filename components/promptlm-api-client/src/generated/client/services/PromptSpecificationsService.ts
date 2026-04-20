@@ -130,9 +130,9 @@ export class PromptSpecificationsService {
     }
     /**
      * Release a new version of a prompt
-     * Creates a new, immutable release of a prompt specification with an incremented version number. The new version is based on the latest existing version of the prompt.
+     * Requests release for a prompt specification. In direct mode the response state is released. In pr_two_phase mode the response state is requested until /release/complete is called.
      * @param promptSpecId The unique identifier of the prompt specification to release.
-     * @returns PromptSpec The newly released prompt specification.
+     * @returns PromptSpec Release operation response as prompt specification. Header X-PromptLM-Release-State mirrors extensions.x-promptlm.release.state (requested|released).
      * @throws ApiError
      */
     public static releasePrompt(
@@ -143,6 +143,32 @@ export class PromptSpecificationsService {
             url: '/api/prompts/{promptSpecId}/release',
             path: {
                 'promptSpecId': promptSpecId,
+            },
+            errors: {
+                404: `Prompt specification with the given ID not found.`,
+            },
+        });
+    }
+    /**
+     * Complete a pending prompt release
+     * Finalizes a previously requested PR-mode release after validating the referenced pull request has been merged into main. Header X-PromptLM-Release-State is released on success.
+     * @param promptSpecId The unique identifier of the prompt specification to complete.
+     * @param pr Pull request number or URL for the pending release request.
+     * @returns PromptSpec Completed release response.
+     * @throws ApiError
+     */
+    public static completeReleasePrompt(
+        promptSpecId: string,
+        pr: string,
+    ): CancelablePromise<PromptSpec> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/prompts/{promptSpecId}/release/complete',
+            path: {
+                'promptSpecId': promptSpecId,
+            },
+            query: {
+                'pr': pr,
             },
             errors: {
                 404: `Prompt specification with the given ID not found.`,

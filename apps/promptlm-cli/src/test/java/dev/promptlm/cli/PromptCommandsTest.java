@@ -18,7 +18,9 @@ package dev.promptlm.cli;
 
 import dev.promptlm.domain.promptspec.ChatCompletionRequest;
 import dev.promptlm.domain.promptspec.PromptSpec;
+import dev.promptlm.domain.promptspec.ReleaseMetadata;
 import dev.promptlm.domain.promptspec.Request;
+import dev.promptlm.domain.projectspec.ProjectSpec;
 import dev.promptlm.lifecycle.PromptLifecycleFacade;
 import dev.promptlm.infrastructure.config.SerializingAppContext;
 import dev.promptlm.store.api.PromptStore;
@@ -27,6 +29,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.shell.core.command.availability.Availability;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
@@ -161,5 +164,101 @@ class PromptCommandsTest {
 
         assertFalse(availability.isAvailable());
         assertTrue(availability.reason().contains("could not be loaded"));
+    }
+
+    @Test
+    void completeReleaseAvailabilityIsUnavailableOutsidePrTwoPhaseMode() {
+        @SuppressWarnings("unchecked")
+        ObjectProvider<SerializingAppContext> contextProvider = mock(ObjectProvider.class);
+        SerializingAppContext context = mock(SerializingAppContext.class);
+        ProjectSpec activeProject = new ProjectSpec();
+        activeProject.setRepoDir(Path.of("/tmp/repo"));
+        when(context.getActiveProject()).thenReturn(activeProject);
+        when(contextProvider.getIfAvailable()).thenReturn(context);
+
+        Availability availability = new PromptCommands.CompleteReleaseAvailabilityProvider(
+                contextProvider,
+                ReleaseMetadata.MODE_DIRECT
+        ).get();
+
+        assertFalse(availability.isAvailable());
+        assertTrue(availability.reason().contains("promptlm.release.promotion.mode=pr_two_phase"));
+    }
+
+    @Test
+    void completeReleaseAvailabilityIsAvailableInPrTwoPhaseMode() {
+        @SuppressWarnings("unchecked")
+        ObjectProvider<SerializingAppContext> contextProvider = mock(ObjectProvider.class);
+        SerializingAppContext context = mock(SerializingAppContext.class);
+        ProjectSpec activeProject = new ProjectSpec();
+        activeProject.setRepoDir(Path.of("/tmp/repo"));
+        when(context.getActiveProject()).thenReturn(activeProject);
+        when(contextProvider.getIfAvailable()).thenReturn(context);
+
+        Availability availability = new PromptCommands.CompleteReleaseAvailabilityProvider(
+                contextProvider,
+                ReleaseMetadata.MODE_PR_TWO_PHASE
+        ).get();
+
+        assertTrue(availability.isAvailable());
+    }
+
+    @Test
+    void releaseRendersRequestedStateWhenPrTwoPhaseIsPending() {
+        PromptLifecycleFacade lifecycleFacade = mock(PromptLifecycleFacade.class);
+        PromptSpec requested = PromptSpec.builder()
+                .withGroup("support")
+                .withName("welcome")
+                .withVersion("1.0.0")
+                .withRevision(0)
+                .withDescription("desc")
+                .withRequest(ChatCompletionRequest.builder().withType(ChatCompletionRequest.TYPE).build())
+                .build()
+                .withReleaseMetadata(new ReleaseMetadata(
+                        ReleaseMetadata.STATE_REQUESTED,
+                        ReleaseMetadata.MODE_PR_TWO_PHASE,
+                        "1.0.0",
+                        "support/welcome-v1.0.0",
+                        "release/support-welcome-1.0.0",
+                        11,
+                        "https://github.com/promptLM/promptlm-app/pull/11",
+                        false
+                ));
+        when(lifecycleFacade.release("prompt-id")).thenReturn(requested);
+
+        PromptCommands commands = new PromptCommands(mock(PromptRenderer.class), mock(PromptStore.class), lifecycleFacade);
+        String result = commands.release("prompt-id");
+
+        assertEquals("requested 1.0.0 pr#11", result);
+    }
+
+    @Test
+    void completeReleaseDelegatesToLifecycleFacade() {
+        PromptLifecycleFacade lifecycleFacade = mock(PromptLifecycleFacade.class);
+        PromptSpec released = PromptSpec.builder()
+                .withGroup("support")
+                .withName("welcome")
+                .withVersion("1.0.0")
+                .withRevision(0)
+                .withDescription("desc")
+                .withRequest(ChatCompletionRequest.builder().withType(ChatCompletionRequest.TYPE).build())
+                .build()
+                .withReleaseMetadata(new ReleaseMetadata(
+                        ReleaseMetadata.STATE_RELEASED,
+                        ReleaseMetadata.MODE_PR_TWO_PHASE,
+                        "1.0.0",
+                        "support/welcome-v1.0.0",
+                        "main",
+                        11,
+                        "https://github.com/promptLM/promptlm-app/pull/11",
+                        false
+                ));
+        when(lifecycleFacade.completeRelease("prompt-id", "11")).thenReturn(released);
+
+        PromptCommands commands = new PromptCommands(mock(PromptRenderer.class), mock(PromptStore.class), lifecycleFacade);
+        String result = commands.completeRelease("prompt-id", "11");
+
+        assertEquals("1.0.0", result);
+        verify(lifecycleFacade).completeRelease("prompt-id", "11");
     }
 }

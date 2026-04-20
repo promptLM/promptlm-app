@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
-package dev.promptlm;
+package dev.promptlm.domain.events;
 
-import dev.promptlm.store.github.GitHubProperties;
-import dev.promptlm.store.github.ReleasePromotionProperties;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.context.annotation.Configuration;
+import dev.promptlm.domain.promptspec.PromptSpec;
 
-@Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties({GitHubProperties.class, ReleasePromotionProperties.class})
-public class GitHubPromptStoreConfig {
+/**
+ * Domain event fired when a release request is created but not yet promoted to main.
+ */
+public record PromptReleaseRequestedEvent(PromptSpec promptSpec) {
 }

@@ -20,10 +20,12 @@ package dev.promptlm.cli;
 import dev.promptlm.lifecycle.PromptLifecycleFacade;
 import dev.promptlm.domain.promptspec.ChatCompletionRequest;
 import dev.promptlm.domain.promptspec.PromptSpec;
+import dev.promptlm.domain.promptspec.ReleaseMetadata;
 import dev.promptlm.infrastructure.config.SerializingAppContext;
 import dev.promptlm.store.api.PromptStore;
 import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.shell.core.command.annotation.Command;
 import org.springframework.shell.core.command.annotation.Option;
 import org.springframework.shell.core.command.availability.Availability;
@@ -138,7 +140,16 @@ public class PromptCommands {
             @Option(longName = "id", required = true) String id
     ) {
         PromptSpec promptSpec = promptLifecycleFacade.release(id);
-        return promptSpec.getVersion();
+        return renderReleaseResult(promptSpec);
+    }
+
+    @Command(name = "prompt release complete", availabilityProvider = "promptReleaseCompleteAvailabilityProvider")
+    public String completeRelease(
+            @Option(longName = "id", required = true) String id,
+            @Option(longName = "pr", required = true) String pullRequestReference
+    ) {
+        PromptSpec promptSpec = promptLifecycleFacade.completeRelease(id, pullRequestReference);
+        return renderReleaseResult(promptSpec);
     }
 
     private static String readSystemMessage(ChatCompletionRequest request) {
@@ -173,6 +184,26 @@ public class PromptCommands {
         return placeholders;
     }
 
+    private static String renderReleaseResult(PromptSpec promptSpec) {
+        ReleaseMetadata releaseMetadata = promptSpec.getReleaseMetadata();
+        if (releaseMetadata == null) {
+            throw new IllegalStateException("Release response is missing required release metadata");
+        }
+
+        if (releaseMetadata.isRequested()) {
+            StringBuilder builder = new StringBuilder("requested");
+            if (releaseMetadata.version() != null) {
+                builder.append(" ").append(releaseMetadata.version());
+            }
+            if (releaseMetadata.prNumber() != null) {
+                builder.append(" pr#").append(releaseMetadata.prNumber());
+            }
+            return builder.toString();
+        }
+
+        return releaseMetadata.version() != null ? releaseMetadata.version() : promptSpec.getVersion();
+    }
+
     @Component("promptAvailabilityProvider")
     static class PromptAvailabilityProvider implements AvailabilityProvider {
 
@@ -184,6 +215,10 @@ public class PromptCommands {
 
         @Override
         public Availability get() {
+            return resolveContextAvailability(contextProvider);
+        }
+
+        static Availability resolveContextAvailability(ObjectProvider<SerializingAppContext> contextProvider) {
             SerializingAppContext context;
             try {
                 context = contextProvider.getIfAvailable();
@@ -196,6 +231,40 @@ public class PromptCommands {
                     && context.getActiveProject().getRepoDir() != null
                     ? Availability.available()
                     : Availability.unavailable("the CLI is not connected to any store. Create a new or select an existing store");
+        }
+    }
+
+    @Component("promptReleaseCompleteAvailabilityProvider")
+    static class CompleteReleaseAvailabilityProvider implements AvailabilityProvider {
+
+        private static final String PR_TWO_PHASE_MODE = "pr_two_phase";
+
+        private final ObjectProvider<SerializingAppContext> contextProvider;
+        private final String releasePromotionMode;
+
+        CompleteReleaseAvailabilityProvider(
+                ObjectProvider<SerializingAppContext> contextProvider,
+                @Value("${promptlm.release.promotion.mode:direct}") String releasePromotionMode
+        ) {
+            this.contextProvider = contextProvider;
+            this.releasePromotionMode = releasePromotionMode;
+        }
+
+        @Override
+        public Availability get() {
+            Availability contextAvailability = PromptAvailabilityProvider.resolveContextAvailability(contextProvider);
+            if (!contextAvailability.isAvailable()) {
+                return contextAvailability;
+            }
+
+            return isPrTwoPhaseModeEnabled()
+                    ? Availability.available()
+                    : Availability.unavailable(
+                    "prompt release complete is only available when promptlm.release.promotion.mode=pr_two_phase");
+        }
+
+        private boolean isPrTwoPhaseModeEnabled() {
+            return PR_TWO_PHASE_MODE.equalsIgnoreCase(releasePromotionMode == null ? "" : releasePromotionMode.trim());
         }
     }
 

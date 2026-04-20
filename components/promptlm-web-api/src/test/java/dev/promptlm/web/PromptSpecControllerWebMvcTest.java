@@ -25,6 +25,7 @@ import dev.promptlm.domain.promptspec.ChatCompletionRequest;
 import dev.promptlm.domain.promptspec.ChatCompletionResponse;
 import dev.promptlm.domain.promptspec.PromptEvaluationDefinition;
 import dev.promptlm.domain.promptspec.PromptSpec;
+import dev.promptlm.domain.promptspec.ReleaseMetadata;
 import dev.promptlm.lifecycle.PromptLifecycleFacade;
 import dev.promptlm.execution.PromptExecutor;
 import dev.promptlm.store.api.PromptStore;
@@ -62,6 +63,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -149,6 +151,83 @@ class PromptSpecControllerWebMvcTest {
         mockMvc.perform(get("/api/prompts").queryParam("sortBy", "group"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith("application/json"));
+    }
+
+    @Test
+    void releaseEndpointDelegatesToLifecycleAndSetsReleaseStateHeader() throws Exception {
+        String promptId = "support/welcome";
+        PromptSpec stored = PromptSpec.builder()
+                .withGroup("support")
+                .withName("welcome")
+                .withVersion("1.0.0-SNAPSHOT")
+                .withRevision(3)
+                .withDescription("desc")
+                .withRequest(ChatCompletionRequest.builder()
+                        .withVendor("openai")
+                        .withModel("gpt-4o")
+                        .withMessages(List.of())
+                        .build())
+                .build()
+                .withId(promptId);
+        PromptSpec requested = stored.withReleaseMetadata(new ReleaseMetadata(
+                ReleaseMetadata.STATE_REQUESTED,
+                ReleaseMetadata.MODE_PR_TWO_PHASE,
+                "1.0.0",
+                "support/welcome-v1.0.0",
+                "release/support-welcome-1.0.0",
+                11,
+                "https://github.com/promptLM/promptlm-app/pull/11",
+                false
+        ));
+
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(stored));
+        when(promptLifecycleFacade.release(promptId)).thenReturn(requested);
+
+        mockMvc.perform(post("/api/prompts/{promptSpecId}/release", promptId))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-PromptLM-Release-State", "requested"))
+                .andExpect(jsonPath("$.extensions['x-promptlm'].release.state").value("requested"));
+
+        verify(promptLifecycleFacade).release(promptId);
+        verify(promptStore, times(0)).release(any(PromptSpec.class));
+    }
+
+    @Test
+    void completeReleaseEndpointDelegatesToLifecycleAndSetsReleaseStateHeader() throws Exception {
+        String promptId = "support/welcome";
+        PromptSpec stored = PromptSpec.builder()
+                .withGroup("support")
+                .withName("welcome")
+                .withVersion("1.0.0-SNAPSHOT")
+                .withRevision(3)
+                .withDescription("desc")
+                .withRequest(ChatCompletionRequest.builder()
+                        .withVendor("openai")
+                        .withModel("gpt-4o")
+                        .withMessages(List.of())
+                        .build())
+                .build()
+                .withId(promptId);
+        PromptSpec released = stored.withVersion("1.0.0").withReleaseMetadata(new ReleaseMetadata(
+                ReleaseMetadata.STATE_RELEASED,
+                ReleaseMetadata.MODE_PR_TWO_PHASE,
+                "1.0.0",
+                "support/welcome-v1.0.0",
+                "main",
+                11,
+                "https://github.com/promptLM/promptlm-app/pull/11",
+                false
+        ));
+
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(stored));
+        when(promptLifecycleFacade.completeRelease(promptId, "11")).thenReturn(released);
+
+        mockMvc.perform(post("/api/prompts/{promptSpecId}/release/complete", promptId).queryParam("pr", "11"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-PromptLM-Release-State", "released"))
+                .andExpect(jsonPath("$.extensions['x-promptlm'].release.state").value("released"));
+
+        verify(promptLifecycleFacade).completeRelease(promptId, "11");
     }
 
     @Test

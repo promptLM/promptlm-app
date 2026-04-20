@@ -165,9 +165,29 @@ export interface paths {
         put?: never;
         /**
          * Release a new version of a prompt
-         * @description Creates a new, immutable release of a prompt specification with an incremented version number. The new version is based on the latest existing version of the prompt.
+         * @description Requests release for a prompt specification. In direct mode the response state is released. In pr_two_phase mode the response state is requested until /release/complete is called.
          */
         post: operations["releasePrompt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/prompts/{promptSpecId}/release/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete a pending prompt release
+         * @description Finalizes a previously requested PR-mode release after validating the referenced pull request has been merged into main. Header X-PromptLM-Release-State is released on success.
+         */
+        post: operations["completeReleasePrompt"];
         delete?: never;
         options?: never;
         head?: never;
@@ -367,12 +387,11 @@ export interface components {
         JsonNode: {
             number?: boolean;
             container?: boolean;
-            floatingPointNumber?: boolean;
-            missingNode?: boolean;
             /** @enum {string} */
             nodeType?: "ARRAY" | "BINARY" | "BOOLEAN" | "MISSING" | "NULL" | "NUMBER" | "OBJECT" | "POJO" | "STRING";
             string?: boolean;
             integralNumber?: boolean;
+            missingNode?: boolean;
             valueNode?: boolean;
             pojo?: boolean;
             short?: boolean;
@@ -385,6 +404,7 @@ export interface components {
             textual?: boolean;
             boolean?: boolean;
             binary?: boolean;
+            floatingPointNumber?: boolean;
             empty?: boolean;
             array?: boolean;
             null?: boolean;
@@ -970,15 +990,15 @@ export interface components {
              */
             promptCount?: number;
             /**
-             * @description Remote repository URL
-             * @example https://github.com/my-org/my-repo
-             */
-            repositoryUrl?: string;
-            /**
              * @description Local filesystem path where the repository is checked out
              * @example /Users/me/repos/my-repo
              */
             localPath?: string;
+            /**
+             * @description Remote repository URL
+             * @example https://github.com/my-org/my-repo
+             */
+            repositoryUrl?: string;
         };
         /** @description Repository path */
         ConnectRepositoryRequest: {
@@ -1088,19 +1108,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    /**
-                     * @example {
-                     *       "id": "11111111-1111-1111-1111-111111111111",
-                     *       "name": "Alpha Workspace",
-                     *       "description": "Primary prompt workspace",
-                     *       "promptCount": 2,
-                     *       "createdAt": "2025-01-20T08:00:00Z",
-                     *       "updatedAt": "2025-02-26T12:00:00Z",
-                     *       "localPath": "/repos/alpha",
-                     *       "repositoryUrl": "https://example.com/alpha.git",
-                     *       "healthStatus": "HEALTHY"
-                     *     }
-                     */
                     "application/json": components["schemas"]["ProjectSpec"];
                 };
             };
@@ -1134,7 +1141,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    /** @example 33333333-3333-3333-3333-333333333333 */
                     "application/json": string;
                 };
             };
@@ -1159,19 +1165,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    /**
-                     * @example {
-                     *       "id": "33333333-3333-3333-3333-333333333333",
-                     *       "name": "Gamma Workspace",
-                     *       "description": "Created project",
-                     *       "promptCount": 0,
-                     *       "createdAt": "2025-02-27T10:35:00Z",
-                     *       "updatedAt": "2025-02-27T10:35:00Z",
-                     *       "localPath": "/repos/gamma",
-                     *       "repositoryUrl": "https://example.com/gamma.git",
-                     *       "healthStatus": "HEALTHY"
-                     *     }
-                     */
                     "application/json": components["schemas"]["ProjectSpec"];
                 };
             };
@@ -1195,49 +1188,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    /**
-                     * @example {
-                     *       "id": "prompt-101",
-                     *       "name": "customer_support",
-                     *       "group": "support",
-                     *       "description": "Handle customer support messages.",
-                     *       "status": "ACTIVE",
-                     *       "version": "1.0.0",
-                     *       "revision": 4,
-                     *       "createdAt": "2025-02-01T10:00:00Z",
-                     *       "updatedAt": "2025-02-20T10:00:00Z",
-                     *       "request": {
-                     *         "type": "chat/completion",
-                     *         "vendor": "openai",
-                     *         "model": "gpt-4o",
-                     *         "parameters": {
-                     *           "temperature": 0.6,
-                     *           "maxTokens": 256,
-                     *           "topP": 1
-                     *         },
-                     *         "messages": [
-                     *           {
-                     *             "role": "system",
-                     *             "content": "You are a prompt assistant."
-                     *           },
-                     *           {
-                     *             "role": "user",
-                     *             "content": "Summarize the request."
-                     *           }
-                     *         ]
-                     *       },
-                     *       "placeholders": {
-                     *         "startPattern": "{{",
-                     *         "endPattern": "}}",
-                     *         "list": [
-                     *           {
-                     *             "name": "user_name",
-                     *             "defaultValue": "Ada"
-                     *           }
-                     *         ]
-                     *       }
-                     *     }
-                     */
                     "application/json": components["schemas"]["PromptSpec"];
                 };
             };
@@ -1274,38 +1224,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    /**
-                     * @example {
-                     *       "id": "prompt-201",
-                     *       "name": "quarterly_report",
-                     *       "group": "reporting",
-                     *       "description": "Draft a quarterly status update.",
-                     *       "version": "0.1.0",
-                     *       "revision": 2,
-                     *       "createdAt": "2025-02-27T09:00:00Z",
-                     *       "updatedAt": "2025-02-27T09:05:00Z",
-                     *       "request": {
-                     *         "type": "chat/completion",
-                     *         "vendor": "openai",
-                     *         "model": "gpt-4o",
-                     *         "parameters": {
-                     *           "temperature": 0.7,
-                     *           "maxTokens": 512,
-                     *           "topP": 1
-                     *         },
-                     *         "messages": [
-                     *           {
-                     *             "role": "system",
-                     *             "content": "You are a helpful assistant."
-                     *           },
-                     *           {
-                     *             "role": "user",
-                     *             "content": "Write the quarterly update."
-                     *           }
-                     *         ]
-                     *       }
-                     *     }
-                     */
                     "application/json": components["schemas"]["PromptSpec"];
                 };
             };
@@ -1402,19 +1320,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    /**
-                     * @example {
-                     *       "id": "33333333-3333-3333-3333-333333333333",
-                     *       "name": "Gamma Workspace",
-                     *       "description": "Created project",
-                     *       "promptCount": 0,
-                     *       "createdAt": "2025-02-27T10:35:00Z",
-                     *       "updatedAt": "2025-02-27T10:35:00Z",
-                     *       "localPath": "/repos/gamma",
-                     *       "repositoryUrl": "https://example.com/gamma.git",
-                     *       "healthStatus": "HEALTHY"
-                     *     }
-                     */
                     "application/json": components["schemas"]["ProjectSpec"];
                 };
             };
@@ -1435,72 +1340,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    /**
-                     * @example [
-                     *       {
-                     *         "id": "prompt-101",
-                     *         "name": "customer_support",
-                     *         "group": "support",
-                     *         "description": "Handle customer support messages.",
-                     *         "status": "ACTIVE",
-                     *         "version": "1.0.0",
-                     *         "revision": 4,
-                     *         "createdAt": "2025-02-01T10:00:00Z",
-                     *         "updatedAt": "2025-02-20T10:00:00Z",
-                     *         "request": {
-                     *           "type": "chat/completion",
-                     *           "vendor": "openai",
-                     *           "model": "gpt-4o",
-                     *           "parameters": {
-                     *             "temperature": 0.6,
-                     *             "maxTokens": 256,
-                     *             "topP": 1
-                     *           },
-                     *           "messages": [
-                     *             {
-                     *               "role": "system",
-                     *               "content": "You are a prompt assistant."
-                     *             },
-                     *             {
-                     *               "role": "user",
-                     *               "content": "Summarize the request."
-                     *             }
-                     *           ]
-                     *         }
-                     *       },
-                     *       {
-                     *         "id": "prompt-102",
-                     *         "name": "release_notes",
-                     *         "group": "release",
-                     *         "description": "Draft weekly release notes.",
-                     *         "status": "RETIRED",
-                     *         "version": "0.9.0",
-                     *         "revision": 2,
-                     *         "createdAt": "2025-01-15T09:00:00Z",
-                     *         "updatedAt": "2025-02-10T08:00:00Z",
-                     *         "request": {
-                     *           "type": "chat/completion",
-                     *           "vendor": "anthropic",
-                     *           "model": "claude-3-5",
-                     *           "parameters": {
-                     *             "temperature": 0.5,
-                     *             "maxTokens": 512,
-                     *             "topP": 0.9
-                     *           },
-                     *           "messages": [
-                     *             {
-                     *               "role": "system",
-                     *               "content": "You are a release note assistant."
-                     *             },
-                     *             {
-                     *               "role": "user",
-                     *               "content": "Draft release notes for this week."
-                     *             }
-                     *           ]
-                     *         }
-                     *       }
-                     *     ]
-                     */
                     "application/json": components["schemas"]["PromptSpec"][];
                 };
             };
@@ -1525,38 +1364,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    /**
-                     * @example {
-                     *       "id": "prompt-201",
-                     *       "name": "quarterly_report",
-                     *       "group": "reporting",
-                     *       "description": "Draft a quarterly status update.",
-                     *       "version": "0.1.0",
-                     *       "revision": 1,
-                     *       "createdAt": "2025-02-27T09:00:00Z",
-                     *       "updatedAt": "2025-02-27T09:00:00Z",
-                     *       "request": {
-                     *         "type": "chat/completion",
-                     *         "vendor": "openai",
-                     *         "model": "gpt-4o",
-                     *         "parameters": {
-                     *           "temperature": 0.7,
-                     *           "maxTokens": 512,
-                     *           "topP": 1
-                     *         },
-                     *         "messages": [
-                     *           {
-                     *             "role": "system",
-                     *             "content": "You are a helpful assistant."
-                     *           },
-                     *           {
-                     *             "role": "user",
-                     *             "content": "Write the quarterly update."
-                     *           }
-                     *         ]
-                     *       }
-                     *     }
-                     */
                     "application/json": components["schemas"]["PromptSpec"];
                 };
             };
@@ -1583,45 +1390,47 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The newly released prompt specification. */
+            /** @description Release operation response as prompt specification. Header X-PromptLM-Release-State mirrors extensions.x-promptlm.release.state (requested|released). */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    /**
-                     * @example {
-                     *       "id": "prompt-101",
-                     *       "name": "customer_support",
-                     *       "group": "support",
-                     *       "description": "Handle customer support messages.",
-                     *       "status": "ACTIVE",
-                     *       "version": "1.0.1",
-                     *       "revision": 5,
-                     *       "createdAt": "2025-02-01T10:00:00Z",
-                     *       "updatedAt": "2025-02-27T10:20:00Z",
-                     *       "request": {
-                     *         "type": "chat/completion",
-                     *         "vendor": "openai",
-                     *         "model": "gpt-4o",
-                     *         "parameters": {
-                     *           "temperature": 0.6,
-                     *           "maxTokens": 256,
-                     *           "topP": 1
-                     *         },
-                     *         "messages": [
-                     *           {
-                     *             "role": "system",
-                     *             "content": "You are a prompt assistant."
-                     *           },
-                     *           {
-                     *             "role": "user",
-                     *             "content": "Summarize the request."
-                     *           }
-                     *         ]
-                     *       }
-                     *     }
-                     */
+                    "application/json": components["schemas"]["PromptSpec"];
+                };
+            };
+            /** @description Prompt specification with the given ID not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PromptSpec"];
+                };
+            };
+        };
+    };
+    completeReleasePrompt: {
+        parameters: {
+            query: {
+                /** @description Pull request number or URL for the pending release request. */
+                pr: string;
+            };
+            header?: never;
+            path: {
+                /** @description The unique identifier of the prompt specification to complete. */
+                promptSpecId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Completed release response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
                     "application/json": components["schemas"]["PromptSpec"];
                 };
             };
@@ -1658,43 +1467,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    /**
-                     * @example {
-                     *       "id": "prompt-101",
-                     *       "name": "customer_support",
-                     *       "group": "support",
-                     *       "description": "Handle customer support messages.",
-                     *       "status": "ACTIVE",
-                     *       "version": "1.0.0",
-                     *       "revision": 5,
-                     *       "createdAt": "2025-02-01T10:00:00Z",
-                     *       "updatedAt": "2025-02-27T10:15:00Z",
-                     *       "request": {
-                     *         "type": "chat/completion",
-                     *         "vendor": "openai",
-                     *         "model": "gpt-4o",
-                     *         "parameters": {
-                     *           "temperature": 0.6,
-                     *           "maxTokens": 256,
-                     *           "topP": 1
-                     *         },
-                     *         "messages": [
-                     *           {
-                     *             "role": "system",
-                     *             "content": "You are a prompt assistant."
-                     *           },
-                     *           {
-                     *             "role": "user",
-                     *             "content": "Summarize the request."
-                     *           }
-                     *         ]
-                     *       },
-                     *       "response": {
-                     *         "type": "chat/completion",
-                     *         "content": "Mock response for customer_support"
-                     *       }
-                     *     }
-                     */
                     "application/json": components["schemas"]["PromptSpec"];
                 };
             };
@@ -1704,7 +1476,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["PromptSpec"];
+                    "*/*": Record<string, never>;
                 };
             };
             /** @description Error executing the prompt */
@@ -1713,7 +1485,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["PromptSpec"];
+                    "*/*": Record<string, never>;
                 };
             };
         };
@@ -1737,43 +1509,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    /**
-                     * @example {
-                     *       "id": "prompt-101",
-                     *       "name": "customer_support",
-                     *       "group": "support",
-                     *       "description": "Handle customer support messages.",
-                     *       "status": "ACTIVE",
-                     *       "version": "1.0.0",
-                     *       "revision": 5,
-                     *       "createdAt": "2025-02-01T10:00:00Z",
-                     *       "updatedAt": "2025-02-27T10:15:00Z",
-                     *       "request": {
-                     *         "type": "chat/completion",
-                     *         "vendor": "openai",
-                     *         "model": "gpt-4o",
-                     *         "parameters": {
-                     *           "temperature": 0.6,
-                     *           "maxTokens": 256,
-                     *           "topP": 1
-                     *         },
-                     *         "messages": [
-                     *           {
-                     *             "role": "system",
-                     *             "content": "You are a prompt assistant."
-                     *           },
-                     *           {
-                     *             "role": "user",
-                     *             "content": "Summarize the request."
-                     *           }
-                     *         ]
-                     *       },
-                     *       "response": {
-                     *         "type": "chat/completion",
-                     *         "content": "Mock response for customer_support"
-                     *       }
-                     *     }
-                     */
                     "application/json": components["schemas"]["PromptSpec"];
                 };
             };
@@ -1783,7 +1518,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["PromptSpec"];
+                    "*/*": Record<string, never>;
                 };
             };
             /** @description Error executing the prompt */
@@ -1792,7 +1527,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["PromptSpec"];
+                    "*/*": Record<string, never>;
                 };
             };
         };
@@ -1812,20 +1547,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    /**
-                     * @example [
-                     *       {
-                     *         "id": "owner-1",
-                     *         "displayName": "PromptLM",
-                     *         "type": "ORGANIZATION"
-                     *       },
-                     *       {
-                     *         "id": "owner-2",
-                     *         "displayName": "FK",
-                     *         "type": "USER"
-                     *       }
-                     *     ]
-                     */
                     "application/json": components["schemas"]["RepositoryOwner"][];
                 };
             };
@@ -1846,32 +1567,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    /**
-                     * @example [
-                     *       {
-                     *         "id": "11111111-1111-1111-1111-111111111111",
-                     *         "name": "Alpha Workspace",
-                     *         "description": "Primary prompt workspace",
-                     *         "promptCount": 2,
-                     *         "createdAt": "2025-01-20T08:00:00Z",
-                     *         "updatedAt": "2025-02-26T12:00:00Z",
-                     *         "localPath": "/repos/alpha",
-                     *         "repositoryUrl": "https://example.com/alpha.git",
-                     *         "healthStatus": "HEALTHY"
-                     *       },
-                     *       {
-                     *         "id": "22222222-2222-2222-2222-222222222222",
-                     *         "name": "Beta Workspace",
-                     *         "description": "Experimental prompts",
-                     *         "promptCount": 1,
-                     *         "createdAt": "2025-01-10T08:00:00Z",
-                     *         "updatedAt": "2025-02-24T12:00:00Z",
-                     *         "localPath": "/repos/beta",
-                     *         "repositoryUrl": "https://example.com/beta.git",
-                     *         "healthStatus": "HEALTHY"
-                     *       }
-                     *     ]
-                     */
                     "application/json": components["schemas"]["ProjectSpec"][];
                 };
             };
@@ -1912,19 +1607,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    /**
-                     * @example {
-                     *       "totalPrompts": 2,
-                     *       "activePrompts": 1,
-                     *       "retiredPrompts": 0,
-                     *       "countByGroup": {
-                     *         "support": 1,
-                     *         "release": 1
-                     *       },
-                     *       "activeProjects": 2,
-                     *       "lastUpdated": "2025-02-27T10:30:00Z"
-                     *     }
-                     */
                     "application/json": components["schemas"]["PromptStats"];
                 };
             };
@@ -1968,26 +1650,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    /**
-                     * @example {
-                     *       "vendors": [
-                     *         {
-                     *           "vendor": "anthropic",
-                     *           "displayName": "Anthropic",
-                     *           "active": true,
-                     *           "models": [
-                     *             {
-                     *               "id": "claude-3-5",
-                     *               "displayName": "claude-3-5",
-                     *               "source": "config",
-                     *               "supportsChat": true,
-                     *               "requiresConfig": false
-                     *             }
-                     *           ]
-                     *         }
-                     *       ]
-                     *     }
-                     */
                     "application/json": components["schemas"]["ModelCatalogResponse"];
                 };
             };

@@ -44,5 +44,7 @@ public interface PromptLifecycleService {
 
     PromptSpec releasePrompt(String promptSpecId);
 
+    PromptSpec completeReleasePrompt(String promptSpecId, String pullRequestReference);
+
     PromptSpec persistEvaluatedPrompt(PromptSpec evaluatedPromptSpec);
 }
