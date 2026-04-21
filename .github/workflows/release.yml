@@ -76,7 +76,7 @@ jobs:
           echo "version=$next_version" >> "$GITHUB_OUTPUT"
 
   release:
-    needs: calculate_version
+    needs: [calculate_version, build-native-matrix, native-smoke]
     runs-on: ubuntu-latest
     env:
       GITHUB_ACTOR: ${{ github.actor }}
@@ -168,7 +168,7 @@ jobs:
           overwrite: true
 
   build-native-matrix:
-    needs: release
+    needs: calculate_version
     strategy:
       fail-fast: false
       matrix:
@@ -242,7 +242,7 @@ jobs:
           overwrite: true
 
   native-smoke:
-    needs: release
+    needs: calculate_version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
