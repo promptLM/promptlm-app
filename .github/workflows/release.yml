@@ -106,7 +106,39 @@ jobs:
           git config user.email "actions@github.com"
           git config user.name "GitHub Actions"
 
+      - name: Check if release version is already published
+        id: release-version-check
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ needs.calculate_version.outputs.version }}"
+          package_name="dev.promptlm.promptlm-parent"
+          versions_file="$(mktemp)"
+          error_file="$(mktemp)"
+
+          set +e
+          gh api "/orgs/promptlm/packages/maven/${package_name}/versions?per_page=100" --paginate --jq '.[].name' >"$versions_file" 2>"$error_file"
+          api_exit=$?
+          set -e
+
+          if [[ $api_exit -eq 0 ]]; then
+            if grep -Fxq "$version" "$versions_file"; then
+              echo "already_published=true" >> "$GITHUB_OUTPUT"
+              echo "Release version ${version} already exists in GitHub Packages. Skipping deploy and rebuilding release jars only."
+            else
+              echo "already_published=false" >> "$GITHUB_OUTPUT"
+              echo "Release version ${version} not found in GitHub Packages. Running full Maven release deploy."
+            fi
+          elif grep -Eq "404|Package not found" "$error_file"; then
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+            echo "Maven package ${package_name} not found yet. Treating release version ${version} as not published."
+          else
+            cat "$error_file" >&2
+            exit "$api_exit"
+          fi
+
       - name: Prepare Maven Release
+        if: steps.release-version-check.outputs.already_published != 'true'
         run: |
           mvn -B release:clean release:prepare \
             -DscmCredentialsId=github \
@@ -115,7 +147,14 @@ jobs:
             -DdevelopmentVersion=${{ needs.calculate_version.outputs.version }}-SNAPSHOT
 
       - name: Perform Maven Release
+        if: steps.release-version-check.outputs.already_published != 'true'
         run: mvn release:perform -DlocalCheckout=true
+
+      - name: Rebuild app jars for already-published release version
+        if: steps.release-version-check.outputs.already_published == 'true'
+        run: |
+          mvn -B versions:set -DnewVersion=${{ needs.calculate_version.outputs.version }} -DgenerateBackupPoms=false
+          mvn -B -pl apps/promptlm-cli,apps/promptlm-webapp -am -DskipTests package
 
       - name: Upload JAR Artifact
         uses: actions/upload-artifact@v4
