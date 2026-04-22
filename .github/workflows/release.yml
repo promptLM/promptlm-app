@@ -92,6 +92,20 @@ jobs:
           cache: 'maven'
       - name: Run JVM build and tests
         run: mvn -B verify
+
+  jvm-acceptance:
+    needs: jvm-verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Install artifacts required by acceptance-tests
+        run: mvn -B -DskipTests -pl apps/promptlm-cli,apps/promptlm-webapp,components/repository-template -am install
       - name: Run acceptance tests
         run: mvn -B -f acceptance-tests/pom.xml -Dpromptlm.bootstrap.skip=true test
       - name: Upload Acceptance Test Artifacts
@@ -107,7 +121,7 @@ jobs:
           retention-days: 1
 
   release:
-    needs: [calculate_version, jvm-verify, build-native-matrix, native-smoke]
+    needs: [calculate_version, jvm-verify, jvm-acceptance, build-native-matrix, native-smoke]
     runs-on: ubuntu-latest
     env:
       GITHUB_ACTOR: ${{ github.actor }}
@@ -199,7 +213,7 @@ jobs:
           overwrite: true
 
   build-native-matrix:
-    needs: calculate_version
+    needs: jvm-acceptance
     strategy:
       fail-fast: false
       matrix:
@@ -273,7 +287,7 @@ jobs:
           overwrite: true
 
   native-smoke:
-    needs: calculate_version
+    needs: jvm-acceptance
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -285,8 +299,8 @@ jobs:
           components: 'native-image'
       - name: Build native executables
         run: mvn -B -Pnative -pl apps/promptlm-cli,apps/promptlm-webapp -am -DskipTests package
-      - name: Install repository-template for acceptance test classpath
-        run: mvn -B -DskipTests -pl components/repository-template -am install
+      - name: Install artifacts required by acceptance-tests
+        run: mvn -B -DskipTests -pl apps/promptlm-cli,apps/promptlm-webapp,components/repository-template -am install
       - name: Run native smoke acceptance tests
         run: |
           mvn -B -f acceptance-tests/pom.xml \
