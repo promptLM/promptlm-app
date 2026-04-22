@@ -386,14 +386,31 @@ jobs:
           )
           cat target/native/SHA256SUMS
 
+      - name: Check whether repository has release tags
+        id: tag-check
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag_count="$(gh api "/repos/${{ github.repository }}/tags?per_page=1" --jq 'length')"
+          if [[ "$tag_count" -gt 0 ]]; then
+            echo "has_tags=true" >> "$GITHUB_OUTPUT"
+            echo "Found existing tags; changelog will be generated from tag history."
+          else
+            echo "has_tags=false" >> "$GITHUB_OUTPUT"
+            echo "No existing tags found; using initial release notes fallback."
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Generate Changelog
+        if: steps.tag-check.outputs.has_tags == 'true'
         id: changelog
         uses: mikepenz/release-changelog-builder-action@v5
         with:
           configurationJson: |
             {
               "template": "#{{CHANGELOG}}\n\n<details>\n<summary>Uncategorized</summary>\n\n#{{UNCATEGORIZED}}\n</details>",
-              "pr_templatze": "#{{TITLE}} (#{{ASSIGNEES[*]}})",
+              "pr_template": "#{{TITLE}} (#{{ASSIGNEES[*]}})",
               "categories": [
                 {
                   "title": "## 🚀 Features",
@@ -412,7 +429,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create Release
+      - name: Create Release (With Changelog)
+        if: steps.tag-check.outputs.has_tags == 'true'
         uses: mikepenz/action-gh-release@v1
         with:
           tag_name: v${{ needs.calculate_version.outputs.version }}
@@ -421,6 +439,28 @@ jobs:
           files: |
             target/jars/**/*.jar
             target/native/*
-          body: ${{steps.changelog.outputs.changelog}}
+          body: ${{ steps.changelog.outputs.changelog }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Release (Initial Notes Fallback)
+        if: steps.tag-check.outputs.has_tags != 'true'
+        uses: mikepenz/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.calculate_version.outputs.version }}
+          allowUpdates: true
+          replacesArtifacts: true
+          files: |
+            target/jars/**/*.jar
+            target/native/*
+          body: |
+            ## Initial Release v${{ needs.calculate_version.outputs.version }}
+
+            This is the first published PromptLM release in this repository.
+
+            Included assets:
+            - JVM app JARs
+            - Native binaries for Linux, macOS, and Windows
+            - SHA256 checksums for native binaries
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
