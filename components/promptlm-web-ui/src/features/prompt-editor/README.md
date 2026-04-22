@@ -24,7 +24,7 @@ This feature owns the end-user prompt authoring experience in `@promptlm/web-ui`
 
 - API contract source of truth remains generated OpenAPI/AsyncAPI models in `@promptlm/api-client`.
 - `PromptEditorPage` works on `PromptDraftInput` and converts through `buildPromptSpecCreationRequest` / `buildExecutePromptRequest`.
-- Placeholder value substitution is applied only to runtime/request payload content before save/run.
+- Placeholder value substitution is applied only to runtime/request payload content before execution.
 
 ## Testing Strategy
 

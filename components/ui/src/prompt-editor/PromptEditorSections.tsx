@@ -910,6 +910,7 @@ export type MessagesCardProps = {
   onAddMessage: (role: PromptEditorMessageRole) => void;
   onMessageChange: (index: number, field: 'role' | 'content' | 'name', value: string) => void;
   onRemoveMessage: (index: number) => void;
+  onContentSelectionChange?: (selection: MessageContentSelection | null) => void;
   onTryRun: () => void;
   onNavigateBack: () => void;
   isBusy: boolean;
@@ -919,12 +920,19 @@ export type MessagesCardProps = {
   errors?: MessagesErrors;
 };
 
+export type MessageContentSelection = {
+  messageIndex: number;
+  selectionStart: number;
+  selectionEnd: number;
+};
+
 export const MessagesCard: React.FC<MessagesCardProps> = ({
   messages,
   availableRoles,
   onAddMessage,
   onMessageChange,
   onRemoveMessage,
+  onContentSelectionChange,
   onTryRun,
   onNavigateBack,
   isBusy,
@@ -932,128 +940,154 @@ export const MessagesCard: React.FC<MessagesCardProps> = ({
   hasActiveProject,
   isActiveProjectLoading,
   errors,
-}) => (
-  <SectionCard title="Prompt messages" subtitle="Ordered chat conversation fed to the model">
-    {errors?.general ? (
-      <Alert severity="error" variant="outlined" sx={{ mb: 2 }}>
-        {errors.general}
-      </Alert>
-    ) : null}
-    <Stack direction="row" spacing={1} flexWrap="wrap">
-      {availableRoles.map((role) => (
-        <Button
-          key={role}
-          variant="outlined"
-          size="small"
-          onClick={() => onAddMessage(role)}
-          data-testid={role === 'user' ? 'user-prompt-button' : undefined}
-        >
-          Add {MESSAGE_ROLE_LABEL[role]}
-        </Button>
-      ))}
-    </Stack>
-    <Stack spacing={2} sx={{ mt: 1 }} data-testid="prompt-messages">
-      {messages.map((message, index) => {
-        const messageErrors = errors?.list?.[index];
-        return (
-          <Paper key={message.id} variant="outlined" sx={{ p: 2, borderRadius: 2, borderColor: 'divider' }}>
-            <Stack spacing={1.5}>
-              <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Chip size="small" color={MESSAGE_ROLE_COLORS[message.role]} label={MESSAGE_ROLE_LABEL[message.role]} />
-                  <FormControl sx={{ minWidth: 160 }} size="small" error={Boolean(messageErrors?.role)}>
-                    <Select value={message.role} onChange={(event) => onMessageChange(index, 'role', event.target.value)}>
-                      {DEFAULT_MESSAGE_ROLES.map((role) => (
-                        <MenuItem key={role} value={role}>
-                          {MESSAGE_ROLE_LABEL[role]}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {messageErrors?.role ? <FormHelperText>{messageErrors.role}</FormHelperText> : null}
-                  </FormControl>
-                </Stack>
-                <Tooltip title="Remove message">
-                  <span>
-                    <IconButton size="small" onClick={() => onRemoveMessage(index)}>
-                      <DeleteOutline fontSize="small" />
-                    </IconButton>
-                  </span>
-                </Tooltip>
-              </Stack>
-              {message.role === 'tool' ? (
-                <TextField
-                  label="Tool name"
-                  size="small"
-                  value={message.name ?? ''}
-                  onChange={(event) => onMessageChange(index, 'name', event.target.value)}
-                  fullWidth
-                  error={Boolean(messageErrors?.name)}
-                  helperText={messageErrors?.name}
-                />
-              ) : null}
-              <Stack spacing={0.75}>
-                <Typography variant="caption" color={messageErrors?.content ? 'error' : 'text.secondary'}>
-                  Content
-                </Typography>
-                <Box
-                  component="textarea"
-                  value={message.content}
-                  onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => onMessageChange(index, 'content', event.target.value)}
-                  rows={message.role === 'system' ? 3 : 2}
-                  data-testid={message.role === 'user' && index === messages.length - 1 ? 'prompt-text' : undefined}
-                  aria-label={`Message content ${index + 1}`}
-                  sx={{
-                    width: '100%',
-                    resize: 'vertical',
-                    borderRadius: 1,
-                    border: 1,
-                    borderColor: messageErrors?.content ? 'error.main' : 'divider',
-                    px: 1.75,
-                    py: 1.25,
-                    font: 'inherit',
-                    color: 'text.primary',
-                    backgroundColor: 'background.paper',
-                    '&:focus': {
-                      outline: 'none',
-                      borderColor: messageErrors?.content ? 'error.main' : 'primary.main',
-                      boxShadow: (theme) =>
-                        `0 0 0 2px ${messageErrors?.content ? theme.palette.error.light : theme.palette.primary.light}`,
-                    },
-                  }}
-                />
-                {messageErrors?.content ? <FormHelperText error>{messageErrors.content}</FormHelperText> : null}
-              </Stack>
-            </Stack>
-          </Paper>
-        );
-      })}
-    </Stack>
-    <Stack
-      direction={{ xs: 'column', sm: 'row' }}
-      spacing={1.5}
-      alignItems={{ xs: 'stretch', sm: 'center' }}
-      justifyContent="space-between"
-      sx={{ mt: 2 }}
-    >
-      <Button variant="text" onClick={onNavigateBack} disabled={isBusy}>
-        Back to Prompts
-      </Button>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-        <Button variant="outlined" onClick={onTryRun} disabled={isBusy}>
-          Run
-        </Button>
-        <Button
-          type="submit"
-          variant="contained"
-          disabled={isSaving || !hasActiveProject || isActiveProjectLoading}
-          data-testid="save-prompt-button"
-        >
-          Save
-        </Button>
+}) => {
+  const emitSelection = React.useCallback(
+    (messageIndex: number, target: HTMLTextAreaElement) => {
+      if (!onContentSelectionChange) {
+        return;
+      }
+      const selectionStart = target.selectionStart ?? 0;
+      const selectionEnd = target.selectionEnd ?? selectionStart;
+      onContentSelectionChange({
+        messageIndex,
+        selectionStart,
+        selectionEnd,
+      });
+    },
+    [onContentSelectionChange],
+  );
+
+  return (
+    <SectionCard title="Prompt messages" subtitle="Ordered chat conversation fed to the model">
+      {errors?.general ? (
+        <Alert severity="error" variant="outlined" sx={{ mb: 2 }}>
+          {errors.general}
+        </Alert>
+      ) : null}
+      <Stack direction="row" spacing={1} flexWrap="wrap">
+        {availableRoles.map((role) => (
+          <Button
+            key={role}
+            variant="outlined"
+            size="small"
+            onClick={() => onAddMessage(role)}
+            data-testid={role === 'user' ? 'user-prompt-button' : undefined}
+          >
+            Add {MESSAGE_ROLE_LABEL[role]}
+          </Button>
+        ))}
       </Stack>
-    </Stack>
-  </SectionCard>
-);
+      <Stack spacing={2} sx={{ mt: 1 }} data-testid="prompt-messages">
+        {messages.map((message, index) => {
+          const messageErrors = errors?.list?.[index];
+          return (
+            <Paper key={message.id} variant="outlined" sx={{ p: 2, borderRadius: 2, borderColor: 'divider' }}>
+              <Stack spacing={1.5}>
+                <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Chip size="small" color={MESSAGE_ROLE_COLORS[message.role]} label={MESSAGE_ROLE_LABEL[message.role]} />
+                    <FormControl sx={{ minWidth: 160 }} size="small" error={Boolean(messageErrors?.role)}>
+                      <Select value={message.role} onChange={(event) => onMessageChange(index, 'role', event.target.value)}>
+                        {DEFAULT_MESSAGE_ROLES.map((role) => (
+                          <MenuItem key={role} value={role}>
+                            {MESSAGE_ROLE_LABEL[role]}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                      {messageErrors?.role ? <FormHelperText>{messageErrors.role}</FormHelperText> : null}
+                    </FormControl>
+                  </Stack>
+                  <Tooltip title="Remove message">
+                    <span>
+                      <IconButton size="small" onClick={() => onRemoveMessage(index)}>
+                        <DeleteOutline fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                </Stack>
+                {message.role === 'tool' ? (
+                  <TextField
+                    label="Tool name"
+                    size="small"
+                    value={message.name ?? ''}
+                    onChange={(event) => onMessageChange(index, 'name', event.target.value)}
+                    fullWidth
+                    error={Boolean(messageErrors?.name)}
+                    helperText={messageErrors?.name}
+                  />
+                ) : null}
+                <Stack spacing={0.75}>
+                  <Typography variant="caption" color={messageErrors?.content ? 'error' : 'text.secondary'}>
+                    Content
+                  </Typography>
+                  <Box
+                    component="textarea"
+                    value={message.content}
+                    onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => {
+                      onMessageChange(index, 'content', event.target.value);
+                      emitSelection(index, event.currentTarget);
+                    }}
+                    onFocus={(event: React.FocusEvent<HTMLTextAreaElement>) => emitSelection(index, event.currentTarget)}
+                    onClick={(event: React.MouseEvent<HTMLTextAreaElement>) => emitSelection(index, event.currentTarget)}
+                    onSelect={(event: React.SyntheticEvent<HTMLTextAreaElement>) => emitSelection(index, event.currentTarget)}
+                    onKeyUp={(event: React.KeyboardEvent<HTMLTextAreaElement>) => emitSelection(index, event.currentTarget)}
+                    onBlur={() => onContentSelectionChange?.(null)}
+                    rows={message.role === 'system' ? 3 : 2}
+                    data-testid={message.role === 'user' && index === messages.length - 1 ? 'prompt-text' : undefined}
+                    aria-label={`Message content ${index + 1}`}
+                    sx={{
+                      width: '100%',
+                      resize: 'vertical',
+                      borderRadius: 1,
+                      border: 1,
+                      borderColor: messageErrors?.content ? 'error.main' : 'divider',
+                      px: 1.75,
+                      py: 1.25,
+                      font: 'inherit',
+                      color: 'text.primary',
+                      backgroundColor: 'background.paper',
+                      '&:focus': {
+                        outline: 'none',
+                        borderColor: messageErrors?.content ? 'error.main' : 'primary.main',
+                        boxShadow: (theme) =>
+                          `0 0 0 2px ${messageErrors?.content ? theme.palette.error.light : theme.palette.primary.light}`,
+                      },
+                    }}
+                  />
+                  {messageErrors?.content ? <FormHelperText error>{messageErrors.content}</FormHelperText> : null}
+                </Stack>
+              </Stack>
+            </Paper>
+          );
+        })}
+      </Stack>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={1.5}
+        alignItems={{ xs: 'stretch', sm: 'center' }}
+        justifyContent="space-between"
+        sx={{ mt: 2 }}
+      >
+        <Button variant="text" onClick={onNavigateBack} disabled={isBusy}>
+          Back to Prompts
+        </Button>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+          <Button variant="outlined" onClick={onTryRun} disabled={isBusy}>
+            Run
+          </Button>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={isSaving || !hasActiveProject || isActiveProjectLoading}
+            data-testid="save-prompt-button"
+          >
+            Save
+          </Button>
+        </Stack>
+      </Stack>
+    </SectionCard>
+  );
+};
 
 export type PromptPreviewCardProps = {
   draftSummary: string;

@@ -34,7 +34,6 @@ export type SavePromptDraftInput = {
   draft: PromptDraftInput;
   evaluationEnabled: boolean;
   validationHasErrors: boolean;
-  processText: (text: string) => string;
   createPrompt: (payload: PromptSpecCreationRequest) => Promise<PromptSpec>;
   updatePrompt: (id: string, payload: PromptSpecCreationRequest) => Promise<PromptSpec>;
 };
@@ -46,20 +45,6 @@ export type SavePromptDraftResult = {
   toast: ActionToast;
 };
 
-const withProcessedPlaceholders = (
-  draft: PromptDraftInput,
-  processText: (text: string) => string,
-): PromptDraftInput => ({
-  ...draft,
-  request: {
-    ...draft.request,
-    messages: draft.request.messages.map((message) => ({
-      ...message,
-      content: processText(message.content),
-    })),
-  },
-});
-
 export const savePromptDraftAction = async ({
   mode,
   createdPromptId,
@@ -69,7 +54,6 @@ export const savePromptDraftAction = async ({
   draft,
   evaluationEnabled,
   validationHasErrors,
-  processText,
   createPrompt,
   updatePrompt,
 }: SavePromptDraftInput): Promise<SavePromptDraftResult> => {
@@ -102,7 +86,7 @@ export const savePromptDraftAction = async ({
     evaluationEnabled,
     activeProjectRepositoryUrl ?? undefined,
   );
-  const payload = buildPromptSpecCreationRequest(withProcessedPlaceholders(preparedDraft, processText));
+  const payload = buildPromptSpecCreationRequest(preparedDraft);
 
   try {
     if (mode === 'create' && !createdPromptId) {

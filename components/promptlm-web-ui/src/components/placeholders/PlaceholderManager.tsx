@@ -18,7 +18,7 @@ import { Input } from '@promptlm/ui';
 import { Label } from '@promptlm/ui';
 import { Badge } from '@promptlm/ui';
 import { Textarea } from '@promptlm/ui';
-import { Plus, Trash2, X, Settings, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, Settings, ChevronDown } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -32,7 +32,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@promptlm/ui';
-import { cn } from '@/lib/utils';
 
 export interface Placeholder {
   id: string;
@@ -64,9 +63,7 @@ export function PlaceholderManager({
 }: PlaceholderManagerProps) {
   const [newPlaceholderName, setNewPlaceholderName] = useState('');
   const [editingPlaceholder, setEditingPlaceholder] = useState<Placeholder | null>(null);
-  const [newValue, setNewValue] = useState('');
   const [configOpen, setConfigOpen] = useState(false);
-  const dialogDescriptionId = 'placeholder-config-description';
 
   const addPlaceholder = useCallback(() => {
     if (!newPlaceholderName.trim()) return;
@@ -94,43 +91,32 @@ export function PlaceholderManager({
   }, [placeholders, onPlaceholdersChange, editingPlaceholder]);
 
   const updatePlaceholder = useCallback((id: string, updates: Partial<Placeholder>) => {
+    const singleValue = updates.values ? [updates.values[0] ?? ''] : undefined;
     onPlaceholdersChange(
-      placeholders.map(p => p.id === id ? { ...p, ...updates } : p)
+      placeholders.map((placeholder) =>
+        placeholder.id === id
+          ? {
+              ...placeholder,
+              ...updates,
+              values: singleValue ?? placeholder.values,
+              currentValueIndex: 0,
+            }
+          : placeholder,
+      )
     );
     if (editingPlaceholder?.id === id) {
-      setEditingPlaceholder(prev => prev ? { ...prev, ...updates } : null);
+      setEditingPlaceholder((previous) =>
+        previous
+          ? {
+              ...previous,
+              ...updates,
+              values: singleValue ?? previous.values,
+              currentValueIndex: 0,
+            }
+          : null,
+      );
     }
   }, [placeholders, onPlaceholdersChange, editingPlaceholder]);
-
-  const addValueToPlaceholder = useCallback((id: string) => {
-    if (!newValue.trim()) return;
-    
-    const placeholder = placeholders.find(p => p.id === id);
-    if (!placeholder) return;
-    
-    updatePlaceholder(id, { values: [...placeholder.values, newValue.trim()] });
-    setNewValue('');
-  }, [newValue, placeholders, updatePlaceholder]);
-
-  const removeValueFromPlaceholder = useCallback((id: string, valueIndex: number) => {
-    const placeholder = placeholders.find(p => p.id === id);
-    if (!placeholder || placeholder.values.length <= 1) return;
-    
-    const newValues = placeholder.values.filter((_, i) => i !== valueIndex);
-    const newCurrentIndex = placeholder.currentValueIndex >= newValues.length 
-      ? newValues.length - 1 
-      : placeholder.currentValueIndex;
-    
-    updatePlaceholder(id, { values: newValues, currentValueIndex: newCurrentIndex });
-  }, [placeholders, updatePlaceholder]);
-
-  const cycleValue = useCallback((id: string) => {
-    const placeholder = placeholders.find(p => p.id === id);
-    if (!placeholder || placeholder.values.length <= 1) return;
-    
-    const nextIndex = (placeholder.currentValueIndex + 1) % placeholder.values.length;
-    updatePlaceholder(id, { currentValueIndex: nextIndex });
-  }, [placeholders, updatePlaceholder]);
 
   const formatPlaceholder = useCallback((name: string) => {
     return `${config.openSequence}${name}${config.closeSequence}`;
@@ -215,28 +201,20 @@ export function PlaceholderManager({
                 <div className="flex items-center gap-2">
                   <code
                     className="text-xs text-primary cursor-pointer hover:underline truncate"
-                    onClick={() => onInsertPlaceholder?.(placeholder.name)}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      onInsertPlaceholder?.(placeholder.name);
+                    }}
                     title="Click to insert"
                   >
                     {formatPlaceholder(placeholder.name)}
                   </code>
-                  <Badge
-                    variant="secondary"
-                    className="text-xs cursor-pointer hover:bg-secondary shrink-0"
-                    onClick={() => cycleValue(placeholder.id)}
-                    title="Click to cycle values"
-                  >
-                    {placeholder.values.length > 1 ? (
-                      <>
-                        {placeholder.currentValueIndex + 1}/{placeholder.values.length}
-                      </>
-                    ) : (
-                      '1 value'
-                    )}
+                  <Badge variant="secondary" className="text-xs shrink-0">
+                    1 value
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground truncate mt-0.5">
-                  {placeholder.values[placeholder.currentValueIndex] || '(empty)'}
+                  {placeholder.values[0] || '(empty)'}
                 </p>
               </div>
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -266,17 +244,8 @@ export function PlaceholderManager({
                     </DialogHeader>
                     <PlaceholderValueEditor
                       placeholder={placeholder}
-                      newValue={newValue}
-                      setNewValue={setNewValue}
-                      onAddValue={() => addValueToPlaceholder(placeholder.id)}
-                      onRemoveValue={(index) => removeValueFromPlaceholder(placeholder.id, index)}
-                      onSelectValue={(index) => updatePlaceholder(placeholder.id, { currentValueIndex: index })}
                       onUpdateDescription={(desc) => updatePlaceholder(placeholder.id, { description: desc })}
-                      onUpdateValue={(index, value) => {
-                        const newValues = [...placeholder.values];
-                        newValues[index] = value;
-                        updatePlaceholder(placeholder.id, { values: newValues });
-                      }}
+                      onUpdateValue={(value) => updatePlaceholder(placeholder.id, { values: [value], currentValueIndex: 0 })}
                     />
                   </DialogContent>
                 </Dialog>
@@ -303,22 +272,12 @@ export function PlaceholderManager({
 
 interface PlaceholderValueEditorProps {
   placeholder: Placeholder;
-  newValue: string;
-  setNewValue: (value: string) => void;
-  onAddValue: () => void;
-  onRemoveValue: (index: number) => void;
-  onSelectValue: (index: number) => void;
   onUpdateDescription: (description: string) => void;
-  onUpdateValue: (index: number, value: string) => void;
+  onUpdateValue: (value: string) => void;
 }
 
 function PlaceholderValueEditor({
   placeholder,
-  newValue,
-  setNewValue,
-  onAddValue,
-  onRemoveValue,
-  onSelectValue,
   onUpdateDescription,
   onUpdateValue,
 }: PlaceholderValueEditorProps) {
@@ -335,76 +294,16 @@ function PlaceholderValueEditor({
         />
       </div>
 
-      {/* Value Set */}
+      {/* Value */}
       <div className="space-y-2">
-        <Label className="text-xs">Value Set</Label>
-        <div className="space-y-2 max-h-[200px] overflow-y-auto scrollbar-thin">
-          {placeholder.values.map((value, index) => (
-            <div
-              key={index}
-              className={cn(
-                "flex items-start gap-2 p-2 rounded-md border transition-colors cursor-pointer",
-                index === placeholder.currentValueIndex
-                  ? "border-primary bg-primary/10"
-                  : "border-border bg-secondary/20 hover:border-primary/30"
-              )}
-              onClick={() => onSelectValue(index)}
-            >
-              <div className="flex-1">
-                <Textarea
-                  value={value}
-                  onChange={(e) => {
-                    e.stopPropagation();
-                    onUpdateValue(index, e.target.value);
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                  placeholder="Enter value..."
-                  data-testid={`placeholder-value-textarea-${placeholder.name}-${index}`}
-                  className="min-h-[60px] bg-transparent border-none p-0 resize-none focus-visible:ring-0 text-sm"
-                />
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                {index === placeholder.currentValueIndex && (
-                  <Badge variant="default" className="text-xs">
-                    Active
-                  </Badge>
-                )}
-                {placeholder.values.length > 1 && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRemoveValue(index);
-                    }}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Add Value */}
-      <div className="flex gap-2">
-        <Input
-          placeholder="Add another value..."
-          value={newValue}
-          onChange={(e) => setNewValue(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && onAddValue()}
-          className="bg-secondary/30"
+        <Label className="text-xs">Value</Label>
+        <Textarea
+          value={placeholder.values[0] ?? ''}
+          onChange={(e) => onUpdateValue(e.target.value)}
+          placeholder="Enter value..."
+          data-testid={`placeholder-value-textarea-${placeholder.name}-0`}
+          className="min-h-[80px] bg-secondary/30 text-sm"
         />
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onAddValue}
-          disabled={!newValue.trim()}
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
       </div>
     </div>
   );

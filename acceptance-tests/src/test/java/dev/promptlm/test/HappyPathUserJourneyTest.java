@@ -165,8 +165,18 @@ public class HappyPathUserJourneyTest {
 
         // add user message
         page.getByTestId("user-prompt-button").click();
-        Locator messageTextareas = page.getByTestId("prompt-messages").locator("textarea");
-        messageTextareas.last().fill("Number one [[number_one]] plus number two [[number_two]] equals?");
+        Locator promptTextarea = page.getByTestId("prompt-messages").locator("textarea").last();
+        promptTextarea.fill("Number one ");
+        insertPlaceholderToken("number_one");
+        promptTextarea = page.getByTestId("prompt-messages").locator("textarea").last();
+        promptTextarea.click();
+        page.keyboard().press("End");
+        page.keyboard().type(" plus number two ");
+        insertPlaceholderToken("number_two");
+        promptTextarea = page.getByTestId("prompt-messages").locator("textarea").last();
+        promptTextarea.click();
+        page.keyboard().press("End");
+        page.keyboard().type(" equals?");
 
         // Click the save button
         page.getByTestId("save-prompt-button").click();
@@ -195,7 +205,7 @@ public class HappyPathUserJourneyTest {
         assertThat(savedRequest.getMessages())
                 .isNotNull()
                 .anyMatch(message -> "user".equalsIgnoreCase(message.getRole())
-                        && "Number one 1 plus number two 2 equals?".equals(message.getContent()));
+                        && "Number one [[number_one]] plus number two [[number_two]] equals?".equals(message.getContent()));
     }
 
     @Test
@@ -386,6 +396,13 @@ public class HappyPathUserJourneyTest {
         valueEditor.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
         valueEditor.fill(value);
         page.keyboard().press("Escape");
+    }
+
+    private void insertPlaceholderToken(String placeholderName) {
+        Locator placeholderRow = page.getByTestId("placeholder-row-" + placeholderName);
+        placeholderRow.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
+        Locator placeholderToken = placeholderRow.locator("code").first();
+        placeholderToken.click();
     }
 
     // TODO: do only once
