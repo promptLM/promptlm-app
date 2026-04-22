@@ -299,8 +299,8 @@ jobs:
           components: 'native-image'
       - name: Build native executables
         run: mvn -B -Pnative -pl apps/promptlm-cli,apps/promptlm-webapp -am -DskipTests package
-      - name: Install repository-template for acceptance test classpath
-        run: mvn -B -DskipTests -pl components/repository-template -am install
+      - name: Install artifacts required by acceptance-tests
+        run: mvn -B -DskipTests -pl apps/promptlm-cli,apps/promptlm-webapp,components/repository-template -am install
       - name: Run native smoke acceptance tests
         run: |
           mvn -B -f acceptance-tests/pom.xml \
