@@ -17,8 +17,6 @@
 package dev.promptlm;
 
 import dev.promptlm.infrastructure.config.ObjectMapperConfiguration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -36,8 +34,6 @@ import org.springframework.shell.core.command.CommandRegistry;
 @SpringBootApplication
 @Import(ObjectMapperConfiguration.class)
 public class CliApplication {
-    
-    private static final Logger log = LoggerFactory.getLogger(CliApplication.class);
 
     public static void main(String[] args) {
         new SpringApplicationBuilder(CliApplication.class)
@@ -83,10 +79,17 @@ public class CliApplication {
             new NonInteractiveShellRunner(commandParser, commandRegistry).run(sourceArgs);
         }
         catch (CommandNotFoundException ex) {
-            log.error("Error: Command '%s' not found.".formatted(ex.getCommandName()));
+            throw new IllegalArgumentException("Command '%s' not found.".formatted(ex.getCommandName()), ex);
         }
         catch (CommandExecutionException ex) {
-            log.error("Error: " + ex);
+            Throwable rootCause = ex;
+            while (rootCause.getCause() != null && rootCause.getCause() != rootCause) {
+                rootCause = rootCause.getCause();
+            }
+            String message = rootCause != ex
+                    ? "Error executing command: " + rootCause
+                    : "Error executing command.";
+            throw new IllegalStateException(message, ex);
         }
     }
 

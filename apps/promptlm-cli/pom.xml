@@ -129,6 +129,7 @@
                         <executions>
                             <execution>
                                 <id>process-aot</id>
+                                <phase>process-classes</phase>
                                 <goals>
                                     <goal>process-aot</goal>
                                 </goals>

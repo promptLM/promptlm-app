@@ -165,6 +165,7 @@ public class PromptLmUiLauncher {
                 removeShutdownHook(shutdownHook);
             }
         }, "promptlm-ui-process-waiter");
+        waiter.setDaemon(true);
         waiter.start();
     }
 

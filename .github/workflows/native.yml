@@ -28,7 +28,7 @@ jobs:
       - name: Set up GraalVM
         uses: graalvm/setup-graalvm@v1
         with:
-          java-version: '21'
+          java-version: '25.0.2'
           distribution: 'graalvm-community'
           components: 'native-image'
       - name: Build native executables
@@ -41,7 +41,7 @@ jobs:
       - name: Set up GraalVM
         uses: graalvm/setup-graalvm@v1
         with:
-          java-version: '21'
+          java-version: '25.0.2'
           distribution: 'graalvm-community'
           components: 'native-image'
       - name: Build native executables

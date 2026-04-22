@@ -149,7 +149,10 @@ class NativeCliSmokeTest {
 
         NativeBinaryLauncher.CommandResult releasePrompt = runCliCommand(List.of("prompt", "release", "--id", promptId));
         assertCommandSucceeded(releasePrompt);
-        assertThat(releasePrompt.output()).contains("-SNAPSHOT");
+        String releaseLine = lastNonBlankLine(releasePrompt.output());
+        assertThat(releaseLine)
+                .as("Release output should contain either a release version, a next development version, or a PR request marker")
+                .matches("^(requested\\s+\\S+\\s+pr#\\d+|\\d+\\.\\d+\\.\\d+(?:-SNAPSHOT)?)$");
     }
 
     /**

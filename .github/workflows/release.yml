@@ -27,6 +27,10 @@ on:
           - minor
           - patch
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   calculate_version:
     runs-on: ubuntu-latest
@@ -75,8 +79,35 @@ jobs:
           next_version="${major}.${minor}.${patch}"
           echo "version=$next_version" >> "$GITHUB_OUTPUT"
 
+  jvm-verify:
+    needs: calculate_version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Run JVM build and tests
+        run: mvn -B verify
+      - name: Run acceptance tests
+        run: mvn -B -f acceptance-tests/pom.xml -Dpromptlm.bootstrap.skip=true test
+      - name: Upload Acceptance Test Artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-acceptance-tests-${{ github.sha }}
+          if-no-files-found: warn
+          path: |
+            acceptance-tests/target/surefire-reports/**
+            acceptance-tests/target/screenshots/**
+            acceptance-tests/target/traces/**
+          retention-days: 1
+
   release:
-    needs: [calculate_version, build-native-matrix, native-smoke]
+    needs: [calculate_version, jvm-verify, build-native-matrix, native-smoke]
     runs-on: ubuntu-latest
     env:
       GITHUB_ACTOR: ${{ github.actor }}
@@ -148,7 +179,7 @@ jobs:
 
       - name: Perform Maven Release
         if: steps.release-version-check.outputs.already_published != 'true'
-        run: mvn release:perform -DlocalCheckout=true
+        run: mvn -B release:perform -DlocalCheckout=true -Darguments="-DdeployAtEnd=true"
 
       - name: Rebuild app jars for already-published release version
         if: steps.release-version-check.outputs.already_published == 'true'
@@ -185,7 +216,7 @@ jobs:
       - name: Set up GraalVM
         uses: graalvm/setup-graalvm@v1
         with:
-          java-version: '21'
+          java-version: '25.0.2'
           distribution: 'graalvm-community'
           components: 'native-image'
       - name: Build native executables
@@ -249,7 +280,7 @@ jobs:
       - name: Set up GraalVM
         uses: graalvm/setup-graalvm@v1
         with:
-          java-version: '21'
+          java-version: '25.0.2'
           distribution: 'graalvm-community'
           components: 'native-image'
       - name: Build native executables
@@ -371,6 +402,8 @@ jobs:
         uses: mikepenz/action-gh-release@v1
         with:
           tag_name: v${{ needs.calculate_version.outputs.version }}
+          allowUpdates: true
+          replacesArtifacts: true
           files: |
             target/jars/**/*.jar
             target/native/*
