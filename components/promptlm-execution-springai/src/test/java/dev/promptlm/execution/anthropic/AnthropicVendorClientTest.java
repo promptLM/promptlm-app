@@ -20,78 +20,47 @@ import dev.promptlm.execution.gateway.GatewayResponse;
 import dev.promptlm.domain.promptspec.ChatCompletionRequest;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.core.retry.RetryTemplate;
-import org.springframework.test.web.client.ExpectedCount;
-import org.springframework.test.web.client.MockRestServiceServer;
-import io.micrometer.observation.ObservationRegistry;
-import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClient.Builder;
-import org.springframework.web.client.ResponseErrorHandler;
-import org.springframework.web.client.DefaultResponseErrorHandler;
-import org.springframework.ai.model.tool.ToolCallingManager;
-import org.springframework.ai.model.tool.ToolExecutionEligibilityPredicate;
-import org.springframework.ai.chat.prompt.ChatOptions;
-import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.anthropic.api.AnthropicApi;
 import org.springframework.ai.anthropic.AnthropicChatModel;
 import org.springframework.ai.anthropic.AnthropicChatOptions;
-import org.springframework.ai.model.tool.ToolCallingChatOptions;
-import org.springframework.ai.model.tool.DefaultToolExecutionResult;
-import org.springframework.ai.model.tool.ToolExecutionResult;
-import org.springframework.ai.tool.definition.ToolDefinition;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.chat.prompt.Prompt;
 
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class AnthropicVendorClientTest {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
             .withUserConfiguration(TestConfig.class, AnthropicVendorClient.class);
 
+    /**
+     * Verifies that AnthropicVendorClient maps all PromptSpec parameters correctly
+     * onto AnthropicChatOptions and processes the response.
+     */
     @Test
     void executesPromptUsingAnthropicChatModel() {
         contextRunner.run(context -> {
             AnthropicVendorClient client = context.getBean(AnthropicVendorClient.class);
-            MockRestServiceServer server = context.getBean(MockRestServiceServer.class);
+            AnthropicChatModel chatModel = context.getBean(AnthropicChatModel.class);
 
-            server.expect(ExpectedCount.once(), requestTo("http://anthropic.test/v1/messages"))
-                    .andExpect(method(HttpMethod.POST))
-                    .andExpect(jsonPath("$.model").value("claude-3-5-sonnet"))
-                    .andExpect(jsonPath("$.max_tokens").value(200))
-                    .andExpect(jsonPath("$.temperature").value(0.5))
-                    .andExpect(jsonPath("$.top_p").value(0.9))
-                    .andExpect(jsonPath("$.top_k").value(10))
-                    .andExpect(jsonPath("$.stop_sequences[0]").value("STOP"))
-                    .andExpect(jsonPath("$.messages[0].role").value("user"))
-                    .andExpect(jsonPath("$.messages[0].content[0].text").value("Hello Anthropic"))
-                    .andRespond(withSuccess("""
-                            {
-                              "type": "message",
-                              "role": "assistant",
-                              "content": [
-                                {
-                                  "type": "text",
-                                  "text": "Hi there!"
-                                }
-                              ]
-                            }
-                            """, MediaType.APPLICATION_JSON));
+            ChatResponse stubResponse = new ChatResponse(
+                    List.of(new Generation(new AssistantMessage("Hi there!"))));
+            ArgumentCaptor<Prompt> promptCaptor = ArgumentCaptor.forClass(Prompt.class);
+            when(chatModel.call(promptCaptor.capture())).thenReturn(stubResponse);
 
             ChatCompletionRequest request = ChatCompletionRequest.builder()
                     .withVendor("anthropic")
-                    .withModel("claude-3-5-sonnet")
+                    .withModel("claude-3-haiku-20240307")
                     .withParameters(Map.of(
                             "temperature", 0.5,
                             "top_p", 0.9,
@@ -115,8 +84,17 @@ class AnthropicVendorClientTest {
 
             GatewayResponse response = client.execute(promptSpec);
 
-            server.verify();
             assertThat(response.response()).isNotNull();
+
+            Prompt capturedPrompt = promptCaptor.getValue();
+            assertThat(capturedPrompt.getInstructions()).anyMatch(m -> m.getText().contains("Hello Anthropic"));
+            AnthropicChatOptions options = (AnthropicChatOptions) capturedPrompt.getOptions();
+            assertThat(options.getModel()).isEqualTo("claude-3-haiku-20240307");
+            assertThat(options.getTemperature()).isEqualTo(0.5);
+            assertThat(options.getTopP()).isEqualTo(0.9);
+            assertThat(options.getTopK()).isEqualTo(10);
+            assertThat(options.getMaxTokens()).isEqualTo(200);
+            assertThat(options.getStopSequences()).containsExactly("STOP");
         });
     }
 
@@ -124,74 +102,8 @@ class AnthropicVendorClientTest {
     static class TestConfig {
 
         @Bean
-        Builder restClientBuilder() {
-            return RestClient.builder();
-        }
-
-        @Bean
-        ResponseErrorHandler responseErrorHandler() {
-            return new DefaultResponseErrorHandler();
-        }
-
-        @Bean
-        MockRestServiceServer mockRestServiceServer(Builder restClientBuilder) {
-            return MockRestServiceServer.bindTo(restClientBuilder).build();
-        }
-
-        @Bean
-        RetryTemplate retryTemplate() {
-            return new RetryTemplate();
-        }
-
-        @Bean
-        ToolCallingManager toolCallingManager() {
-            return new ToolCallingManager() {
-                @Override
-                public List<ToolDefinition> resolveToolDefinitions(ToolCallingChatOptions options) {
-                    return List.of();
-                }
-
-                @Override
-                public ToolExecutionResult executeToolCalls(Prompt prompt, ChatResponse response) {
-                    return new DefaultToolExecutionResult(List.of(), false);
-                }
-            };
-        }
-
-        @Bean
-        ToolExecutionEligibilityPredicate toolExecutionEligibilityPredicate() {
-            return (ChatOptions options, ChatResponse response) -> false;
-        }
-
-        @Bean
-        ObservationRegistry observationRegistry() {
-            return ObservationRegistry.create();
-        }
-
-        @Bean
-        AnthropicApi anthropicApi(Builder restClientBuilder, ResponseErrorHandler responseErrorHandler,
-                @SuppressWarnings("unused") MockRestServiceServer server) {
-            return AnthropicApi.builder()
-                    .baseUrl("http://anthropic.test")
-                    .completionsPath("/v1/messages")
-                    .apiKey("dummy")
-                    .restClientBuilder(restClientBuilder)
-                    .responseErrorHandler(responseErrorHandler)
-                    .build();
-        }
-
-        @Bean
-        AnthropicChatModel anthropicChatModel(AnthropicApi anthropicApi, RetryTemplate retryTemplate,
-                ToolCallingManager toolCallingManager, ToolExecutionEligibilityPredicate predicate,
-                ObservationRegistry observationRegistry) {
-            return AnthropicChatModel.builder()
-                    .anthropicApi(anthropicApi)
-                    .defaultOptions(AnthropicChatOptions.builder().build())
-                    .retryTemplate(retryTemplate)
-                    .toolCallingManager(toolCallingManager)
-                    .toolExecutionEligibilityPredicate(predicate)
-                    .observationRegistry(observationRegistry)
-                    .build();
+        AnthropicChatModel anthropicChatModel() {
+            return mock(AnthropicChatModel.class);
         }
     }
 }

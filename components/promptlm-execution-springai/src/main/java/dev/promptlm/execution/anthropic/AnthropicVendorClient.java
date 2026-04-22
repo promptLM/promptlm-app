@@ -24,7 +24,7 @@ import dev.promptlm.domain.promptspec.ChatCompletionResponse;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import org.springframework.ai.anthropic.AnthropicChatModel;
 import org.springframework.ai.anthropic.AnthropicChatOptions;
-import org.springframework.ai.anthropic.api.AnthropicApi;
+import com.anthropic.models.messages.Model;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.stereotype.Component;
@@ -33,8 +33,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * Anthropic vendor integration backed by Spring AI.
@@ -42,18 +40,31 @@ import java.util.stream.Stream;
 @Component
 public class AnthropicVendorClient implements SpringAiVendorClient {
 
-    private static final Set<String> SUPPORTED_MODELS = Stream.of(AnthropicApi.ChatModel.values())
-            .flatMap(model -> Stream.of(model.getValue(), model.getName(), model.name(),
-                    model.name().replace('_', '-')))
-            .map(AnthropicVendorClient::normalize)
-            .filter(s -> !s.isEmpty())
-            .collect(Collectors.toUnmodifiableSet());
+    private static final Set<String> SUPPORTED_MODELS;
+    private static final Set<String> CATALOG_MODELS;
 
-    private static final Set<String> CATALOG_MODELS = Stream.of(AnthropicApi.ChatModel.values())
-            .map(AnthropicApi.ChatModel::getValue)
-            .map(String::trim)
-            .filter(s -> !s.isEmpty())
-            .collect(Collectors.toUnmodifiableSet());
+    static {
+        Set<String> supported = new java.util.HashSet<>();
+        Set<String> catalog = new java.util.HashSet<>();
+        for (java.lang.reflect.Field field : Model.class.getDeclaredFields()) {
+            if (java.lang.reflect.Modifier.isStatic(field.getModifiers())
+                    && Model.class.isAssignableFrom(field.getType())) {
+                try {
+                    Model model = (Model) field.get(null);
+                    String modelId = model.asString();
+                    if (modelId != null && !modelId.isBlank()) {
+                        catalog.add(modelId.trim());
+                        supported.add(normalize(modelId));
+                        supported.add(normalize(field.getName()));
+                        supported.add(normalize(field.getName().replace('_', '-')));
+                    }
+                } catch (IllegalAccessException ignored) {
+                }
+            }
+        }
+        SUPPORTED_MODELS = Set.copyOf(supported);
+        CATALOG_MODELS = Set.copyOf(catalog);
+    }
 
     private final AnthropicChatModel chatModel;
 
