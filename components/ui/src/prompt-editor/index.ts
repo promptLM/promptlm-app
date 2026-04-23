@@ -35,6 +35,7 @@ export type {
   EvaluationResultsCardProps,
   EvaluationPlanErrors,
   LastExecutionCardProps,
+  MessageContentSelection,
   MessagesCardProps,
   MessagesErrors,
   MetadataCardProps,

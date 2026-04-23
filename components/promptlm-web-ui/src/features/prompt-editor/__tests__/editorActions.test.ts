@@ -98,7 +98,6 @@ describe('savePromptDraftAction', () => {
       draft: buildDraft(),
       evaluationEnabled: false,
       validationHasErrors: false,
-      processText: (text) => text,
       createPrompt,
       updatePrompt,
     });
@@ -124,7 +123,6 @@ describe('savePromptDraftAction', () => {
       draft: buildDraft(),
       evaluationEnabled: false,
       validationHasErrors: true,
-      processText: (text) => text,
       createPrompt,
       updatePrompt,
     });
@@ -150,7 +148,6 @@ describe('savePromptDraftAction', () => {
       draft: buildDraft(),
       evaluationEnabled: true,
       validationHasErrors: false,
-      processText: (text) => text,
       createPrompt,
       updatePrompt,
     });
@@ -177,7 +174,6 @@ describe('savePromptDraftAction', () => {
       draft: buildDraft(),
       evaluationEnabled: false,
       validationHasErrors: false,
-      processText: (text) => text,
       createPrompt,
       updatePrompt,
     });
@@ -202,7 +198,6 @@ describe('savePromptDraftAction', () => {
       draft: buildDraft(),
       evaluationEnabled: false,
       validationHasErrors: false,
-      processText: (text) => text,
       createPrompt,
       updatePrompt,
     });
@@ -225,7 +220,6 @@ describe('savePromptDraftAction', () => {
       draft: buildDraft(),
       evaluationEnabled: false,
       validationHasErrors: false,
-      processText: (text) => text,
       createPrompt,
       updatePrompt,
     });
@@ -234,6 +228,44 @@ describe('savePromptDraftAction', () => {
       severity: 'error',
       message: 'save failed',
     });
+  });
+
+  it('persists raw placeholder tokens in saved message content', async () => {
+    const createPrompt = vi.fn().mockResolvedValue(buildPrompt('prompt-raw-token'));
+    const updatePrompt = vi.fn();
+    const draft = buildDraft();
+    draft.placeholders = {
+      startPattern: '[[',
+      endPattern: ']]',
+      list: [{ name: 'number_one', value: '1' }],
+      defaults: { number_one: '1' },
+    };
+    draft.request.messages = [
+      { role: 'user', content: 'Number one [[number_one]] equals?' },
+    ];
+
+    await savePromptDraftAction({
+      mode: 'create',
+      createdPromptId: null,
+      promptId: null,
+      activeProjectId: 'project-1',
+      activeProjectRepositoryUrl: 'https://example.com/repo',
+      draft,
+      evaluationEnabled: false,
+      validationHasErrors: false,
+      createPrompt,
+      updatePrompt,
+    });
+
+    expect(createPrompt).toHaveBeenCalledTimes(1);
+    const payload = createPrompt.mock.calls[0][0];
+    expect(payload.request?.messages).toEqual([
+      {
+        role: 'USER',
+        content: 'Number one [[number_one]] equals?',
+        name: undefined,
+      },
+    ]);
   });
 });
 

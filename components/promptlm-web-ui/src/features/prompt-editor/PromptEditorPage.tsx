@@ -29,6 +29,7 @@ import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 
 import type {
+  MessageContentSelection,
   PromptEditorBannerMessage,
   PromptEditorEvaluationResult,
   PromptEditorExecution,
@@ -64,6 +65,7 @@ import {
 
 import { createEmptyPromptDraft, createPromptDraftFromPrompt, sanitizePromptDraft, usePromptEditorDraft } from './draftState';
 import { mergeExecutions, pickSelectedExecution, releasePromptAction, savePromptDraftAction } from './editorActions';
+import { createPlaceholderToken, insertPlaceholderToken } from './placeholderInsertion';
 import type { PromptEditorMode } from './types';
 import { usePromptEditorData } from './usePromptEditorData';
 import { validatePromptEditor } from './validation';
@@ -186,6 +188,7 @@ export const PromptEditorPage: React.FC<PromptEditorPageProps> = ({ mode, prompt
   const [copied, setCopied] = useState(false);
   const [createdPromptId, setCreatedPromptId] = useState<string | null>(null);
   const [toolConfigs, setToolConfigs] = useState<PromptEditorToolConfig[]>([]);
+  const [messageSelection, setMessageSelection] = useState<MessageContentSelection | null>(null);
 
   const isEvaluationCapabilityEnabled = Boolean(capabilities.data?.features?.includes('evals'));
 
@@ -330,6 +333,33 @@ export const PromptEditorPage: React.FC<PromptEditorPageProps> = ({ mode, prompt
     [placeholderManagerState.config, updatePlaceholderManager],
   );
 
+  const handleInsertPlaceholder = useCallback(
+    (name: string) => {
+      const token = createPlaceholderToken(
+        placeholderManagerState.config.openSequence,
+        name,
+        placeholderManagerState.config.closeSequence,
+      );
+      const insertion = insertPlaceholderToken(editor.state.draft.request.messages, token, messageSelection);
+      if (insertion.type === 'error') {
+        showToast('error', insertion.message);
+        return;
+      }
+
+      editor.updateMessage(insertion.messageIndex, 'content', insertion.nextContent);
+      if (insertion.type === 'selection') {
+        setMessageSelection({
+          messageIndex: insertion.messageIndex,
+          selectionStart: insertion.caretPosition,
+          selectionEnd: insertion.caretPosition,
+        });
+        return;
+      }
+      setMessageSelection(null);
+    },
+    [editor, messageSelection, placeholderManagerState.config.closeSequence, placeholderManagerState.config.openSequence, showToast],
+  );
+
   const handleAddToolConfig = useCallback(() => {
     setToolConfigs((previous) => [
       ...previous,
@@ -372,7 +402,6 @@ export const PromptEditorPage: React.FC<PromptEditorPageProps> = ({ mode, prompt
       draft: editor.state.draft,
       evaluationEnabled: evaluationEnabledForPayload,
       validationHasErrors: currentValidation.hasErrors,
-      processText,
       createPrompt: data.createPrompt,
       updatePrompt: data.updatePrompt,
     });
@@ -697,7 +726,7 @@ export const PromptEditorPage: React.FC<PromptEditorPageProps> = ({ mode, prompt
                       Placeholders
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Template variables injected before execution and save.
+                      Template variables resolved at runtime.
                     </Typography>
                   </Box>
                   {displayedValidation?.placeholders?.general ? (
@@ -710,6 +739,7 @@ export const PromptEditorPage: React.FC<PromptEditorPageProps> = ({ mode, prompt
                     config={placeholderManagerState.config}
                     onPlaceholdersChange={handlePlaceholdersChange}
                     onConfigChange={handlePlaceholderConfigChange}
+                    onInsertPlaceholder={handleInsertPlaceholder}
                   />
                 </Stack>
               </Paper>
@@ -760,6 +790,7 @@ export const PromptEditorPage: React.FC<PromptEditorPageProps> = ({ mode, prompt
                 onAddMessage={editor.addMessage}
                 onMessageChange={(index, field, value) => editor.updateMessage(index, field, value)}
                 onRemoveMessage={editor.removeMessage}
+                onContentSelectionChange={setMessageSelection}
                 onTryRun={handleTryRun}
                 onNavigateBack={() => navigate('/prompts')}
                 isBusy={isBusy}
