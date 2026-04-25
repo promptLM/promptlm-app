@@ -366,9 +366,9 @@ public class PromptSpecController {
                 .filter(p -> p.getGroup() != null && !p.getGroup().isEmpty())
                 .collect(Collectors.groupingBy(PromptSpec::getGroup, Collectors.counting()));
 
-        ProjectSpec activeProject = AppContext.requireActiveProject(appContext);
+        ProjectSpec activeProject = appContext.getActiveProject();
         int activeProjects = appContext.getProjects().size();
-        Instant lastUpdated = resolveActiveProjectLastUpdatedFromGitMetadata(activeProject);
+        Instant lastUpdated = activeProject != null ? resolveActiveProjectLastUpdatedFromGitMetadata(activeProject) : null;
 
         return new PromptStats(
                 allPrompts.size(),
