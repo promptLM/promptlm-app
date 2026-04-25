@@ -311,6 +311,36 @@ class PromptSpecControllerWebMvcTest {
                 .andExpect(jsonPath("$[1]").value("support"));
     }
 
+    /**
+     * Verifies that /api/prompts/stats succeeds when no active project is configured,
+     * returning prompt counts with null lastUpdated. Regression test for the
+     * IllegalStateException thrown on fresh app start before any repository is set up.
+     */
+    @Test
+    void getPromptStatsReturnsStatsWithNullLastUpdatedWhenNoActiveProjectIsSet() throws Exception {
+        PromptSpec activePrompt = PromptSpec.builder()
+                .withGroup("support")
+                .withName("welcome")
+                .withVersion("1.0.0")
+                .withRevision(1)
+                .withDescription("active prompt")
+                .withRequest(null)
+                .build();
+
+        when(promptStore.listAllPrompts(true)).thenReturn(List.of(activePrompt));
+        when(appContext.getActiveProject()).thenReturn(null);
+        when(appContext.getProjects()).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/prompts/stats"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.totalPrompts").value(1))
+                .andExpect(jsonPath("$.activePrompts").value(1))
+                .andExpect(jsonPath("$.retiredPrompts").value(0))
+                .andExpect(jsonPath("$.activeProjects").value(0))
+                .andExpect(jsonPath("$.lastUpdated").doesNotExist());
+    }
+
     @Test
     void getPromptStatsFailsWhenActiveProjectRepoPathDoesNotExist() throws Exception {
         PromptSpec activePrompt = PromptSpec.builder()
