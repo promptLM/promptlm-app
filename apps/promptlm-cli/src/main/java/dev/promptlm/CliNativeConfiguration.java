@@ -18,7 +18,7 @@ package dev.promptlm;
 
 import dev.promptlm.cli.PromptCommands;
 import dev.promptlm.cli.RepositoryCommands;
-import dev.promptlm.cli.UiCommands;
+import dev.promptlm.cli.StudioCommands;
 import dev.promptlm.domain.BasicAppContext;
 import dev.promptlm.domain.projectspec.ProjectHealthStatus;
 import dev.promptlm.domain.projectspec.ProjectSpec;
@@ -60,7 +60,7 @@ class CliNativeConfiguration {
 
         registerAnnotatedCommands(applicationContext, commandRegistry, PromptCommands.class);
         registerAnnotatedCommands(applicationContext, commandRegistry, RepositoryCommands.class);
-        registerAnnotatedCommands(applicationContext, commandRegistry, UiCommands.class);
+        registerAnnotatedCommands(applicationContext, commandRegistry, StudioCommands.class);
 
         commandRegistry.registerCommand(Utils.QUIT_COMMAND);
         return commandRegistry;
@@ -85,12 +85,18 @@ class CliNativeConfiguration {
 
         @Override
         public void registerHints(RuntimeHints hints, ClassLoader classLoader) {
-            Stream.of(PromptCommands.class, RepositoryCommands.class, UiCommands.class)
+            Stream.of(PromptCommands.class, RepositoryCommands.class, StudioCommands.class)
                     .forEach(cls -> hints.reflection().registerType(cls, hint ->
                             hint.withMembers(
                                     MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
                                     MemberCategory.INVOKE_DECLARED_METHODS
                             )));
+
+            hints.reflection().registerTypeIfPresent(
+                    classLoader,
+                    "dev.promptlm.webapp.PromptLmWebAppApplication__ApplicationContextInitializer",
+                    MemberCategory.INVOKE_DECLARED_CONSTRUCTORS
+            );
 
             Stream.of(BasicAppContext.class, ProjectSpec.class, ProjectHealthStatus.class)
                     .forEach(cls -> hints.reflection().registerType(cls, hint ->

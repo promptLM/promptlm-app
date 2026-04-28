@@ -118,6 +118,29 @@ public final class NativeBinaryLauncher {
         }
     }
 
+    public static RunningProcess startCliCommand(Path userHome,
+                                                 Map<String, String> systemProperties,
+                                                 List<String> cliArguments) {
+        return startCliCommand(userHome, systemProperties, cliArguments, null);
+    }
+
+    public static RunningProcess startCliCommand(Path userHome,
+                                                 Map<String, String> systemProperties,
+                                                 List<String> cliArguments,
+                                                 Path workingDirectory) {
+        Path binaryPath = resolveRequiredCliBinaryPath();
+
+        List<String> command = buildNativeCommand(binaryPath, userHome, systemProperties);
+        command.addAll(cliArguments);
+        try {
+            Process process = startProcess(command, userHome, workingDirectory);
+            return new RunningProcess(process, binaryPath, command);
+        }
+        catch (IOException e) {
+            throw new IllegalStateException("Failed to start native CLI command", e);
+        }
+    }
+
     private static Process startProcess(List<String> command, Path userHome, Path workingDirectory) throws IOException {
         ProcessBuilder processBuilder = new ProcessBuilder(command);
         processBuilder.redirectErrorStream(true);

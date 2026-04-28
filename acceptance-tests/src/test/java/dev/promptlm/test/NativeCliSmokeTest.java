@@ -29,6 +29,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,6 +38,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -47,11 +49,8 @@ import static org.awaitility.Awaitility.await;
 class NativeCliSmokeTest {
 
     private static final Duration CLI_TIMEOUT = Duration.ofMinutes(3);
-    private static final String UI_WEBAPP_WRAPPER = """
-            #!/usr/bin/env bash
-            set -euo pipefail
-            exec "%s" "$@"
-            """;
+    private static final Duration STUDIO_START_TIMEOUT = Duration.ofMinutes(2);
+    private static final Duration STUDIO_STOP_TIMEOUT = Duration.ofSeconds(20);
 
     @TempDir
     private static Path tempDir;
@@ -189,28 +188,37 @@ class NativeCliSmokeTest {
     }
 
     /**
-     * Verifies ui command succeeds with the native CLI binary and releases the bound port afterwards.
+     * Verifies studio command starts in the foreground and releases the bound port when stopped.
      */
     @Test
     @Order(8)
-    @DisplayName("ui command succeeds")
-    void shouldRunUiCommand() throws IOException {
+    @DisplayName("studio command succeeds and stays foreground")
+    void shouldRunStudioCommand() throws IOException {
         createRepository();
 
-        int uiPort = findFreePort();
-        Path uiBundleRoot = workspaceRoot.resolve("ui-bundle");
-        prepareUiBundle(uiBundleRoot);
-        NativeBinaryLauncher.CommandResult uiCommand = runCliCommand(
-                List.of("ui", "--port", String.valueOf(uiPort), "--no-browser", "true"),
-                uiBundleRoot
+        int studioPort = findFreePort();
+        NativeBinaryLauncher.RunningProcess runningStudio = NativeBinaryLauncher.startCliCommand(
+                userHome,
+                nativeSystemProperties,
+                List.of("studio", "--port", String.valueOf(studioPort), "--no-browser", "true"),
+                workspaceRoot
         );
-        assertCommandSucceeded(uiCommand);
-        assertThat(uiCommand.output()).contains("PromptLM UI is running at");
+        Process studioProcess = runningStudio.process();
+        try {
+            String startupOutput = waitForOutputContains(studioProcess, "PromptLM Studio is running at", STUDIO_START_TIMEOUT);
+            assertThat(startupOutput).contains("PromptLM Studio is running at");
+            assertThat(studioProcess.isAlive())
+                    .as("Studio command should keep the CLI process in the foreground")
+                    .isTrue();
+        }
+        finally {
+            stopProcess(studioProcess);
+        }
 
         await()
                 .atMost(Duration.ofSeconds(30))
                 .pollInterval(Duration.ofSeconds(1))
-                .until(() -> isPortAvailable(uiPort));
+                .until(() -> isPortAvailable(studioPort));
     }
 
     private Path createRepository() throws IOException {
@@ -246,10 +254,6 @@ class NativeCliSmokeTest {
         return NativeBinaryLauncher.runCliCommand(userHome, nativeSystemProperties, arguments, CLI_TIMEOUT);
     }
 
-    private NativeBinaryLauncher.CommandResult runCliCommand(List<String> arguments, Path workingDirectory) {
-        return NativeBinaryLauncher.runCliCommand(userHome, nativeSystemProperties, arguments, CLI_TIMEOUT, workingDirectory);
-    }
-
     private static void assertCommandSucceeded(NativeBinaryLauncher.CommandResult commandResult) {
         assertThat(commandResult.exitCode())
                 .as("Native command exit code for %s from binary %s%nOutput:%n%s",
@@ -279,16 +283,52 @@ class NativeCliSmokeTest {
         }
     }
 
-    private void prepareUiBundle(Path uiBundleRoot) throws IOException {
-        Path binDirectory = uiBundleRoot.resolve("bin");
-        Files.createDirectories(binDirectory);
-        Path helperScript = binDirectory.resolve("promptlm-webapp");
-        Path webappBinaryPath = NativeBinaryLauncher.resolveRequiredWebappBinaryPath();
-        Files.writeString(helperScript, UI_WEBAPP_WRAPPER.formatted(webappBinaryPath.toAbsolutePath().normalize()));
-        helperScript.toFile().setExecutable(true, false);
-        assertThat(Files.isExecutable(helperScript))
-                .as("UI helper wrapper must be executable: %s", helperScript)
-                .isTrue();
+    private static String waitForOutputContains(Process process, String expectedFragment, Duration timeout) throws IOException {
+        long deadline = System.nanoTime() + timeout.toNanos();
+        StringBuilder output = new StringBuilder();
+        InputStream inputStream = process.getInputStream();
+        while (System.nanoTime() < deadline) {
+            while (inputStream.available() > 0) {
+                output.append((char) inputStream.read());
+            }
+            String collected = output.toString();
+            if (collected.contains(expectedFragment)) {
+                return collected;
+            }
+            if (!process.isAlive()) {
+                break;
+            }
+            try {
+                Thread.sleep(100);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Interrupted while waiting for native studio startup output", e);
+            }
+        }
+        while (inputStream.available() > 0) {
+            output.append((char) inputStream.read());
+        }
+        throw new IllegalStateException(
+                "Timed out waiting for native studio startup output containing '"
+                        + expectedFragment + "'. Output: " + output.toString().trim());
+    }
+
+    private static void stopProcess(Process process) {
+        if (process == null || !process.isAlive()) {
+            return;
+        }
+        process.destroy();
+        try {
+            if (!process.waitFor(STUDIO_STOP_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
+                process.destroyForcibly();
+                process.waitFor(STUDIO_STOP_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+            }
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            process.destroyForcibly();
+        }
     }
 
     private static boolean isPortAvailable(int port) {

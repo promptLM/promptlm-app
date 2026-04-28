@@ -54,12 +54,16 @@ public class PromptCommands {
         this.promptLifecycleFacade = promptLifecycleFacadeProvider;
     }
 
-    @Command(name = "prompt create", availabilityProvider = "promptAvailabilityProvider")
+    @Command(
+            name = "prompt create",
+            description = "Create a prompt draft from the backend template.",
+            availabilityProvider = "promptAvailabilityProvider"
+    )
     public String create(
-            @Option(longName = "name", required = true) String name,
-            @Option(longName = "group", defaultValue = "default") String group,
-            @Option(longName = "userMessage", shortName = 'u', required = true) String userMessage,
-            @Option(longName = "placeholder", defaultValue = "{}") List<String> placeholder) {
+            @Option(longName = "name", required = true, description = "Prompt name.") String name,
+            @Option(longName = "group", defaultValue = "default", description = "Prompt group.") String group,
+            @Option(longName = "userMessage", shortName = 'u', required = true, description = "User message template.") String userMessage,
+            @Option(longName = "placeholder", defaultValue = "{}", description = "Placeholder override in key=value format. Repeat to pass multiple placeholders.") List<String> placeholder) {
         PromptSpec template = promptLifecycleFacade.createDefaultPromptSpec();
         if (!(template.getRequest() instanceof ChatCompletionRequest templateRequest)) {
             throw new IllegalStateException("Prompt template request must be type chat/completion.");
@@ -110,21 +114,29 @@ public class PromptCommands {
         return placeholderMap;
     }
 
-    @Command(name = "prompt change", availabilityProvider = "promptAvailabilityProvider")
+    @Command(
+            name = "prompt change",
+            description = "Deprecated command kept for compatibility.",
+            availabilityProvider = "promptAvailabilityProvider"
+    )
     public String change(
-            @Option(longName = "id", required = true) String id,
-            @Option(longName = "userMessage", shortName = 'u', required = true) String userMessage
+            @Option(longName = "id", required = true, description = "Prompt id.") String id,
+            @Option(longName = "userMessage", shortName = 'u', required = true, description = "Updated user message.") String userMessage
     ) {
         // FIXME: Reactivate this command
-        return "prompt change is no longer supported in the CLI. Use `promptlm ui` and edit the prompt in the web UI.";
+        return "prompt change is no longer supported in the CLI. Use `promptlm studio` and edit the prompt in PromptLM Studio.";
         // promptLMSpecService.updatePrompt(id, )
     }
 
 
 
-    @Command(name = "prompt show", availabilityProvider = "promptAvailabilityProvider")
+    @Command(
+            name = "prompt show",
+            description = "Show the latest version of a prompt.",
+            availabilityProvider = "promptAvailabilityProvider"
+    )
     public String show(
-            @Option(longName = "id", required = true) String id
+            @Option(longName = "id", required = true, description = "Prompt id.") String id
     ) {
         Optional<PromptSpec> prompt = promptStore.getLatestVersion(id);
         if (prompt.isPresent()) {
@@ -134,18 +146,26 @@ public class PromptCommands {
         }
     }
 
-    @Command(name = "prompt release", availabilityProvider = "promptAvailabilityProvider")
+    @Command(
+            name = "prompt release",
+            description = "Request or perform a prompt release.",
+            availabilityProvider = "promptAvailabilityProvider"
+    )
     public String release(
-            @Option(longName = "id", required = true) String id
+            @Option(longName = "id", required = true, description = "Prompt id.") String id
     ) {
         PromptSpec promptSpec = promptLifecycleFacade.release(id);
         return renderReleaseResult(promptSpec);
     }
 
-    @Command(name = "prompt release complete", availabilityProvider = "promptReleaseCompleteAvailabilityProvider")
+    @Command(
+            name = "prompt release complete",
+            description = "Complete a two-phase prompt release after the release PR is merged.",
+            availabilityProvider = "promptReleaseCompleteAvailabilityProvider"
+    )
     public String completeRelease(
-            @Option(longName = "id", required = true) String id,
-            @Option(longName = "pr", required = true) String pullRequestReference
+            @Option(longName = "id", required = true, description = "Prompt id.") String id,
+            @Option(longName = "pr", required = true, description = "Pull request number or reference.") String pullRequestReference
     ) {
         PromptSpec promptSpec = promptLifecycleFacade.completeRelease(id, pullRequestReference);
         return renderReleaseResult(promptSpec);

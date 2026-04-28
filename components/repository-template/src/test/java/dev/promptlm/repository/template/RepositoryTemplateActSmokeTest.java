@@ -31,8 +31,10 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -66,6 +68,7 @@ class RepositoryTemplateActSmokeTest {
             Files.writeString(eventFile, "{\"ref\":\"refs/heads/main\"}\n", StandardCharsets.UTF_8);
 
             Path actExecutable = resolveActExecutable();
+            Map<String, String> actEnvironment = resolveActEnvironment(tempDir);
             Path actLog = tempDir.resolve("act-smoke.log");
             CommandResult result = runCommand(
                     List.of(
@@ -83,7 +86,8 @@ class RepositoryTemplateActSmokeTest {
                     ),
                     repositoryDir,
                     actLog,
-                    COMMAND_TIMEOUT);
+                    COMMAND_TIMEOUT,
+                    actEnvironment);
 
             assertThat(result.exitCode())
                     .withFailMessage("act smoke test failed. Full log:%n%s", result.output())
@@ -101,6 +105,56 @@ class RepositoryTemplateActSmokeTest {
 
     private static boolean isDockerDaemonAvailable() throws Exception {
         return commandSucceeds(List.of("docker", "info"), Duration.ofSeconds(20));
+    }
+
+    private static Map<String, String> resolveActEnvironment(Path tempDir) throws Exception {
+        Map<String, String> environment = new LinkedHashMap<>();
+        String dockerHost = readNonBlank(System.getenv("DOCKER_HOST"));
+        if (dockerHost == null) {
+            dockerHost = readNonBlank(detectDockerHostFromCurrentContext(tempDir));
+        }
+        if (dockerHost != null) {
+            environment.put("DOCKER_HOST", dockerHost);
+        }
+
+        String dockerContext = readNonBlank(System.getenv("DOCKER_CONTEXT"));
+        if (dockerContext != null) {
+            environment.put("DOCKER_CONTEXT", dockerContext);
+        }
+        return environment;
+    }
+
+    private static String detectDockerHostFromCurrentContext(Path tempDir) throws Exception {
+        CommandResult contextResult = runCommand(
+                List.of("docker", "context", "show"),
+                Path.of("."),
+                tempDir.resolve("docker-context-show.log"),
+                Duration.ofSeconds(20));
+        if (contextResult.exitCode() != 0) {
+            return null;
+        }
+        String contextName = readNonBlank(contextResult.output());
+        if (contextName == null) {
+            return null;
+        }
+
+        CommandResult inspectResult = runCommand(
+                List.of("docker", "context", "inspect", contextName, "--format", "{{.Endpoints.docker.Host}}"),
+                Path.of("."),
+                tempDir.resolve("docker-context-inspect.log"),
+                Duration.ofSeconds(20));
+        if (inspectResult.exitCode() != 0) {
+            return null;
+        }
+        return readNonBlank(inspectResult.output());
+    }
+
+    private static String readNonBlank(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private static Path resolveActExecutable() throws Exception {
@@ -258,11 +312,24 @@ class RepositoryTemplateActSmokeTest {
                                             Path workingDirectory,
                                             Path logFile,
                                             Duration timeout) throws Exception {
+        return runCommand(command, workingDirectory, logFile, timeout, Map.of());
+    }
+
+    private static CommandResult runCommand(List<String> command,
+                                            Path workingDirectory,
+                                            Path logFile,
+                                            Duration timeout,
+                                            Map<String, String> environmentOverrides) throws Exception {
         Files.createDirectories(logFile.getParent());
         ProcessBuilder processBuilder = new ProcessBuilder(new ArrayList<>(command))
                 .directory(workingDirectory.toFile())
                 .redirectErrorStream(true)
                 .redirectOutput(logFile.toFile());
+        environmentOverrides.forEach((key, value) -> {
+            if (value != null && !value.isBlank()) {
+                processBuilder.environment().put(key, value);
+            }
+        });
         Process process = processBuilder.start();
         boolean finished = process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS);
         if (!finished) {

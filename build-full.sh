@@ -14,6 +14,26 @@
 # limitations under the License.
 
 set -e
+
+if command -v vfox &>/dev/null; then
+  eval "$(vfox activate bash)"
+  vfox use java@25.0.1-graalce
+fi
+
+JAVA_VERSION_OUTPUT=$(java -version 2>&1)
+
+if ! echo "$JAVA_VERSION_OUTPUT" | grep -qi "graalvm"; then
+  echo "ERROR: GraalVM JDK required for a native build, but found:"
+  echo "$JAVA_VERSION_OUTPUT"
+  exit 1
+fi
+
+if ! echo "$JAVA_VERSION_OUTPUT" | grep -qE '"(21|25)\.'; then
+  echo "ERROR: GraalVM JDK 21 or 25 required, but found:"
+  echo "$JAVA_VERSION_OUTPUT"
+  exit 1
+fi
+
 ./build-jdk.sh
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

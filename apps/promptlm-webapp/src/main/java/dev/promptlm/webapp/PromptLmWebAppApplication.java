@@ -19,9 +19,18 @@ package dev.promptlm.webapp;
 import dev.promptlm.infrastructure.config.ObjectMapperConfiguration;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 
-@SpringBootApplication(scanBasePackages = "dev.promptlm")
+@SpringBootApplication
+@ComponentScan(
+        basePackages = "dev.promptlm",
+        excludeFilters = {
+                @ComponentScan.Filter(type = FilterType.REGEX, pattern = "dev\\.promptlm\\.cli\\..*"),
+                @ComponentScan.Filter(type = FilterType.REGEX, pattern = "dev\\.promptlm\\.Cli.*")
+        }
+)
 @Import(ObjectMapperConfiguration.class)
 public class PromptLmWebAppApplication {
 
