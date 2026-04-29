@@ -22,7 +22,7 @@
         <spring-ai.version>2.0.0-M4</spring-ai.version>
         <native.maven.plugin.version>0.11.5</native.maven.plugin.version>
         <spring-modulith.version>2.0.5</spring-modulith.version>
-        <spring-boot-maven-plugin.version>4.0.3</spring-boot-maven-plugin.version>
+        <spring-boot-maven-plugin.version>4.0.6</spring-boot-maven-plugin.version>
         <promptlm-gitea-artifactory.version>1.2.0</promptlm-gitea-artifactory.version>
         <swagger-annotations.version>2.2.43</swagger-annotations.version>
     </properties>
