@@ -308,10 +308,17 @@ public class PromptLmStudioLauncher {
                             "promptlm.cli.runner.enabled=false",
                             "spring.shell.interactive.enabled=false",
                             "spring.shell.noninteractive.enabled=false",
+                            "management.metrics.binders.jvm.enabled=false",
                             "management.endpoints.web.base-path=/api/monitor",
                             "management.endpoints.web.exposure.include=health,info",
                             "management.endpoints.web.path-mapping.health=health",
-                            "management.endpoint.health.probes.enabled=true"
+                            "management.endpoint.health.probes.enabled=true",
+                            "springdoc.api-docs.enabled=false",
+                            "springdoc.swagger-ui.enabled=false",
+                            "logging.level.dev.promptlm.infrastructure.config.SerializingAppContext=ERROR",
+                            "logging.level.io.micrometer.core.instrument.binder.jvm.JvmGcMetrics=ERROR",
+                            "logging.level.org.springdoc.core.events.SpringDocAppInitializer=ERROR",
+                            "logging.level.io.netty.resolver.dns.DnsServerAddressStreamProviders=OFF"
                     )
                     .run();
         }

@@ -45,6 +45,7 @@ public class CliApplication {
                         "debug=false",
                         "spring.main.banner-mode=off",
                         "promptlm.cli.runner.enabled=true",
+                        "logging.level.dev.promptlm.infrastructure.config.SerializingAppContext=ERROR",
                         "spring.autoconfigure.exclude="
                                 + "org.springframework.boot.micrometer.metrics.autoconfigure.jvm.JvmMetricsAutoConfiguration"
                 )
