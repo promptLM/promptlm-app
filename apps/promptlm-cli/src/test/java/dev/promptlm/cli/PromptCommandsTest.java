@@ -44,12 +44,12 @@ import static org.mockito.Mockito.when;
 class PromptCommandsTest {
 
     @Test
-    void changePointsUsersToUi() {
+    void changePointsUsersToStudio() {
         PromptCommands commands = new PromptCommands(mock(PromptRenderer.class), mock(PromptStore.class), mock(PromptLifecycleFacade.class));
 
         String result = commands.change("prompt-id", "updated message");
 
-        assertEquals("prompt change is no longer supported in the CLI. Use `promptlm ui` and edit the prompt in the web UI.", result);
+        assertEquals("prompt change is no longer supported in the CLI. Use `promptlm studio` and edit the prompt in PromptLM Studio.", result);
     }
 
     @Test

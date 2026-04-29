@@ -43,9 +43,9 @@ public class RepositoryCommands {
         this.context = context;
     }
 
-    @Command(name = "repo create")
+    @Command(name = "repo create", description = "Create a new PromptLM repository and set it as active.")
     public String createRepository(
-            @Option(longName = "dir", required = true) String repoDir,
+            @Option(longName = "dir", required = true, description = "Directory where the repository should be created.") String repoDir,
             @Option(longName = "name", required = true, description = "Repository name in format <owner>/<repo>, for example 'promptlm/promptlm-app'") String name
     ) {
         ProjectSpec response = null;
@@ -59,7 +59,7 @@ public class RepositoryCommands {
         }
     }
 
-    @Command(name = "repo clone")
+    @Command(name = "repo clone", description = "Clone an existing repository and set it as active.")
     public String cloneRepository(
             @Option(longName = "repo", required = true, description = "The url of the remote Git store to clone") String repoUrl,
             @Option(longName = "target", required = true, description = "The dir into which the store will be cloned") String targetDir
@@ -68,9 +68,9 @@ public class RepositoryCommands {
         return use(repoPath.getRepoDir().toString());
     }
 
-    @Command(name = "repo use")
+    @Command(name = "repo use", description = "Switch the active repository to a local PromptLM repository.")
     public String use(
-            @Option(longName = "path", required = true) String path
+            @Option(longName = "path", required = true, description = "Path to the local PromptLM repository.") String path
     ) {
         Path repoPath = parsePath(path, "path").toAbsolutePath().normalize();
         try {

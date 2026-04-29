@@ -212,7 +212,7 @@ public class SerializingAppContext implements AppContext, InitializingBean, Disp
         if (repoDir != null) {
             try {
                 if (Files.notExists(repoDir)) {
-                    log.warn("Local repository does not exist: {}", repoDir);
+                    log.debug("Local repository does not exist: {}", repoDir);
                     project.setHealthStatus(ProjectHealthStatus.BROKEN_LOCAL);
                     project.setHealthMessage("Local repository missing at \"%s\"".formatted(repoDir.toAbsolutePath()));
                 }

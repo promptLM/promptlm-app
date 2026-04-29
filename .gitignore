@@ -9,6 +9,7 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 dist/
+output/
 
 ### IntelliJ IDEA ###
 .idea/

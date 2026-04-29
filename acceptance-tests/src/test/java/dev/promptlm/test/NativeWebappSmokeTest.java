@@ -74,7 +74,7 @@ class NativeWebappSmokeTest {
                 .pollInterval(Duration.ofSeconds(1))
                 .untilAsserted(() -> {
                     assertProcessAlive();
-                    HttpResponse<String> response = get(healthUri);
+                    HttpResponse<String> response = getOrRetry(healthUri);
                     assertThat(response.statusCode()).isBetween(200, 299);
                     assertThat(response.body()).contains("\"status\":\"UP\"");
                 });
@@ -85,7 +85,7 @@ class NativeWebappSmokeTest {
                 .pollInterval(Duration.ofSeconds(1))
                 .untilAsserted(() -> {
                     assertProcessAlive();
-                    HttpResponse<String> response = get(capabilitiesUri);
+                    HttpResponse<String> response = getOrRetry(capabilitiesUri);
                     assertThat(response.statusCode()).isBetween(200, 299);
                     assertThat(response.body()).contains("\"features\"");
                 });
@@ -118,6 +118,19 @@ class NativeWebappSmokeTest {
                 .GET()
                 .build();
         return HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    private static HttpResponse<String> getOrRetry(URI uri) {
+        try {
+            return get(uri);
+        }
+        catch (IOException e) {
+            throw new AssertionError("HTTP probe failed while waiting for native webapp startup: " + uri, e);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("Interrupted while probing native webapp startup: " + uri, e);
+        }
     }
 
     private void assertProcessAlive() {

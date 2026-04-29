@@ -243,18 +243,14 @@ jobs:
           arch="$(echo "${RUNNER_ARCH}" | tr '[:upper:]' '[:lower:]')"
           work_dir="target/native/${{ matrix.platform }}-${arch}"
           cli_binary="apps/promptlm-cli/target/promptlm-cli"
-          webapp_binary="apps/promptlm-webapp/target/promptlm-webapp"
 
           [[ -x "$cli_binary" ]] || { echo "Missing or non-executable native binary: $cli_binary" >&2; exit 1; }
-          [[ -x "$webapp_binary" ]] || { echo "Missing or non-executable native binary: $webapp_binary" >&2; exit 1; }
 
-          mkdir -p "$work_dir/promptlm-cli" "$work_dir/promptlm-webapp"
+          mkdir -p "$work_dir/promptlm-cli"
           cp "$cli_binary" "$work_dir/promptlm-cli/promptlm-cli"
-          cp "$webapp_binary" "$work_dir/promptlm-webapp/promptlm-webapp"
 
           mkdir -p target/native
           tar -C "$work_dir" -czf "target/native/promptlm-cli-${{ matrix.platform }}-${arch}.tar.gz" promptlm-cli
-          tar -C "$work_dir" -czf "target/native/promptlm-webapp-${{ matrix.platform }}-${arch}.tar.gz" promptlm-webapp
       - name: Package native archives for Windows
         if: matrix.platform == 'windows'
         shell: pwsh
@@ -262,26 +258,20 @@ jobs:
           $arch = $env:RUNNER_ARCH.ToLowerInvariant()
           $workDir = "target/native/windows-$arch"
           $cliBinary = "apps/promptlm-cli/target/promptlm-cli.exe"
-          $webappBinary = "apps/promptlm-webapp/target/promptlm-webapp.exe"
 
           if (-not (Test-Path $cliBinary)) { throw "Missing native binary: $cliBinary" }
-          if (-not (Test-Path $webappBinary)) { throw "Missing native binary: $webappBinary" }
 
           New-Item -ItemType Directory -Path "$workDir/promptlm-cli" -Force | Out-Null
-          New-Item -ItemType Directory -Path "$workDir/promptlm-webapp" -Force | Out-Null
 
           Copy-Item $cliBinary "$workDir/promptlm-cli/promptlm-cli.exe"
-          Copy-Item $webappBinary "$workDir/promptlm-webapp/promptlm-webapp.exe"
 
           Compress-Archive -Path "$workDir/promptlm-cli/*" -DestinationPath "target/native/promptlm-cli-windows-$arch.zip" -Force
-          Compress-Archive -Path "$workDir/promptlm-webapp/*" -DestinationPath "target/native/promptlm-webapp-windows-$arch.zip" -Force
       - name: Upload Native Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: native-${{ matrix.platform }}
           path: |
             target/native/promptlm-cli-${{ matrix.platform }}-*
-            target/native/promptlm-webapp-${{ matrix.platform }}-*
           if-no-files-found: error
           retention-days: 1
           overwrite: true
@@ -374,11 +364,8 @@ jobs:
           }
 
           check_single_asset "target/native/promptlm-cli-linux-*.tar.gz" "Linux CLI"
-          check_single_asset "target/native/promptlm-webapp-linux-*.tar.gz" "Linux webapp"
           check_single_asset "target/native/promptlm-cli-macos-*.tar.gz" "macOS CLI"
-          check_single_asset "target/native/promptlm-webapp-macos-*.tar.gz" "macOS webapp"
           check_single_asset "target/native/promptlm-cli-windows-*.zip" "Windows CLI"
-          check_single_asset "target/native/promptlm-webapp-windows-*.zip" "Windows webapp"
 
           (
             cd target/native

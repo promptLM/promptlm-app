@@ -21,21 +21,25 @@ import org.springframework.shell.core.command.annotation.Option;
 import org.springframework.stereotype.Component;
 
 /**
- * Spring Shell command for launching the promptLM web UI.
- * Provides the {@code ui} command which starts an embedded server on a configurable port.
+ * Spring Shell command for launching PromptLM Studio.
  */
 @Component
-public class UiCommands {
+public class StudioCommands {
 
-    private final PromptLmUiLauncher promptLmUiLauncher;
+    private final PromptLmStudioLauncher promptLmStudioLauncher;
 
-    public UiCommands(PromptLmUiLauncher promptLmUiLauncher) {
-        this.promptLmUiLauncher = promptLmUiLauncher;
+    public StudioCommands(PromptLmStudioLauncher promptLmStudioLauncher) {
+        this.promptLmStudioLauncher = promptLmStudioLauncher;
     }
 
-    @Command(name = "ui")
-    public String ui(@Option(longName = "port", defaultValue = "8085") int port,
-                     @Option(longName = "no-browser", defaultValue = "false") boolean noBrowser) {
-        return promptLmUiLauncher.launch(port, noBrowser);
+    @Command(
+            name = "studio",
+            description = "Start PromptLM Studio in the foreground."
+    )
+    public String studio(
+            @Option(longName = "port", defaultValue = "8085", description = "Port used by PromptLM Studio.") int port,
+            @Option(longName = "no-browser", defaultValue = "false", description = "Do not auto-open the browser after startup.") boolean noBrowser
+    ) {
+        return promptLmStudioLauncher.launch(port, noBrowser);
     }
 }

@@ -21,11 +21,11 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.shell.core.NonInteractiveShellRunner;
-import org.springframework.shell.core.ShellRunner;
 import org.springframework.shell.core.command.CommandParser;
 import org.springframework.shell.core.command.CommandExecutionException;
 import org.springframework.shell.core.command.CommandNotFoundException;
@@ -44,27 +44,26 @@ public class CliApplication {
                 .properties(
                         "debug=false",
                         "spring.main.banner-mode=off",
+                        "promptlm.cli.runner.enabled=true",
+                        "logging.level.dev.promptlm.infrastructure.config.SerializingAppContext=ERROR",
                         "spring.autoconfigure.exclude="
-                                + "org.springframework.modulith.runtime.autoconfigure.SpringModulithRuntimeAutoConfiguration,"
                                 + "org.springframework.boot.micrometer.metrics.autoconfigure.jvm.JvmMetricsAutoConfiguration"
                 )
                 .run(args);
     }
 
     @Bean
-    ApplicationRunner cliShellApplicationRunner(ShellRunner shellRunner,
-                                                CommandParser commandParser,
+    ApplicationRunner cliShellApplicationRunner(CommandParser commandParser,
                                                 CommandRegistry commandRegistry,
+                                                @Value("${promptlm.cli.runner.enabled:false}") boolean cliRunnerEnabled,
                                                 ConfigurableApplicationContext applicationContext) {
         return applicationArguments -> {
+            if (!cliRunnerEnabled) {
+                return;
+            }
             String[] sourceArgs = normalizeArgs(applicationArguments.getSourceArgs());
             try {
-                if (sourceArgs.length == 0) {
-                    shellRunner.run(sourceArgs);
-                }
-                else {
-                    runNonInteractive(sourceArgs, commandParser, commandRegistry);
-                }
+                runNonInteractive(sourceArgs, commandParser, commandRegistry);
             }
             finally {
                 applicationContext.close();
@@ -94,6 +93,9 @@ public class CliApplication {
     }
 
     private static String[] normalizeArgs(String[] sourceArgs) {
+        if (sourceArgs.length == 0) {
+            return new String[]{"help"};
+        }
         if (sourceArgs.length == 1) {
             return switch (sourceArgs[0]) {
                 case "--help", "-h" -> new String[]{"help"};

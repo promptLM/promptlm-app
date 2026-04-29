@@ -35,7 +35,7 @@ java -jar target/promptlm-cli-*.jar
 | `repo create`    | Create a remote repository
 | `repo clone`     | Clone a remote repository
 | `repo use`       | Set the active repository
-| `ui`             | Launch the promptLM web UI
+| `studio`         | Launch PromptLM Studio
 |===
 
 == License
