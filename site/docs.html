@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>promptLM User Documentation (Draft)</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #111111;
+            --bg-card: #161616;
+            --text-primary: #ffffff;
+            --text-secondary: #b3b3b3;
+            --border-color: #2d2d2d;
+            --accent: #6d7cff;
+            --accent-2: #45d4ff;
+            --success: #22c55e;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: radial-gradient(circle at top, #151a2a 0%, var(--bg-primary) 45%);
+            color: var(--text-primary);
+            line-height: 1.65;
+        }
+
+        .container {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+        }
+
+        .navbar {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            backdrop-filter: blur(8px);
+            background: rgba(10, 10, 10, 0.88);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .nav-inner {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 64px;
+        }
+
+        .brand {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            text-decoration: none;
+            color: var(--text-primary);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .nav-links a:hover {
+            color: var(--accent-2);
+        }
+
+        .hero {
+            padding: 4.25rem 0 1.5rem;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.65rem;
+            font-size: 0.78rem;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            border: 1px solid rgba(109, 124, 255, 0.6);
+            border-radius: 999px;
+            color: #d8deff;
+            background: rgba(109, 124, 255, 0.12);
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: clamp(1.85rem, 4vw, 2.8rem);
+            margin-bottom: 0.75rem;
+        }
+
+        .hero p {
+            color: var(--text-secondary);
+            max-width: 760px;
+        }
+
+        main {
+            padding: 1.5rem 0 4rem;
+        }
+
+        section {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        h2 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.2rem;
+            margin-bottom: 0.85rem;
+        }
+
+        h3 {
+            margin-top: 1.1rem;
+            margin-bottom: 0.35rem;
+            font-size: 1rem;
+        }
+
+        p, li {
+            color: var(--text-secondary);
+        }
+
+        ul, ol {
+            padding-left: 1.2rem;
+        }
+
+        li + li {
+            margin-top: 0.3rem;
+        }
+
+        pre {
+            background: #090d18;
+            border: 1px solid #23304f;
+            border-radius: 10px;
+            padding: 0.95rem;
+            overflow-x: auto;
+            margin-top: 0.45rem;
+        }
+
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            color: #e6ecff;
+        }
+
+        .quick-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .quick-links a {
+            text-decoration: none;
+            color: #d7f8ff;
+            border: 1px solid #2e4d6e;
+            background: rgba(69, 212, 255, 0.08);
+            border-radius: 999px;
+            padding: 0.25rem 0.7rem;
+            font-size: 0.88rem;
+        }
+
+        .status-note {
+            border-left: 4px solid var(--success);
+            background: rgba(34, 197, 94, 0.08);
+            padding: 0.75rem 0.85rem;
+            margin-top: 1rem;
+            border-radius: 8px;
+        }
+
+        .status-note p {
+            color: #d8ffe6;
+        }
+
+        .links-list a {
+            color: #9ecaff;
+            text-decoration: none;
+        }
+
+        .links-list a:hover {
+            text-decoration: underline;
+        }
+
+        footer {
+            color: #9299a8;
+            text-align: center;
+            padding: 0 0 2rem;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+<nav class="navbar" aria-label="Primary navigation">
+    <div class="container nav-inner">
+        <a class="brand" href="index.html">promptLM</a>
+        <div class="nav-links">
+            <a href="index.html">Website</a>
+            <a href="docs.html">Docs</a>
+            <a href="https://github.com/promptLM/promptlm-app" target="_blank" rel="noopener">GitHub</a>
+        </div>
+    </div>
+</nav>
+
+<header class="hero">
+    <div class="container">
+        <span class="badge">First Draft</span>
+        <h1>promptLM User Documentation</h1>
+        <p>
+            This page is the initial end-user documentation draft for promptLM.
+            It focuses on installation, first-run workflows, and the core commands required to create and release prompts.
+        </p>
+        <div class="status-note">
+            <p>promptLM is in early alpha. Commands and workflow details may change in upcoming releases.</p>
+        </div>
+        <div class="quick-links">
+            <a href="#get-started">Get Started</a>
+            <a href="#workflow">CLI Workflow</a>
+            <a href="#studio">Studio</a>
+            <a href="#troubleshooting">Troubleshooting</a>
+            <a href="#links">Reference Links</a>
+        </div>
+    </div>
+</header>
+
+<main class="container">
+    <section id="get-started">
+        <h2>Get Started</h2>
+        <h3>Prerequisites</h3>
+        <ul>
+            <li>Git installed locally.</li>
+            <li>A GitHub account and repository access for remote storage workflows.</li>
+            <li>macOS, Linux, or Windows shell access.</li>
+        </ul>
+
+        <h3>Install promptlm-cli (macOS / Linux)</h3>
+        <pre><code>curl -fsSL https://raw.githubusercontent.com/promptLM/promptlm-app/main/scripts/install.sh | bash</code></pre>
+
+        <h3>Install promptlm-cli (Windows PowerShell)</h3>
+        <pre><code>$script = irm https://raw.githubusercontent.com/promptLM/promptlm-app/main/scripts/install.ps1
+&amp; ([scriptblock]::Create($script))</code></pre>
+
+        <h3>Verify installation</h3>
+        <pre><code>promptlm-cli --version</code></pre>
+    </section>
+
+    <section id="workflow">
+        <h2>Core CLI Workflow</h2>
+        <p>Use these commands to connect a prompt repository, create a prompt draft, inspect it, and request a release.</p>
+
+        <h3>1. Create a new prompt repository</h3>
+        <pre><code>promptlm-cli repo create --dir ./workspace --name your-org/your-prompt-repo</code></pre>
+        <p>Alternative: clone an existing repository instead of creating one.</p>
+        <pre><code>promptlm-cli repo clone --repo https://github.com/your-org/your-prompt-repo.git --target ./workspace</code></pre>
+
+        <h3>2. Create a prompt draft</h3>
+        <pre><code>promptlm-cli prompt create --name sentiment-check --group support --userMessage "Analyze the sentiment of: {text}" --placeholder text="I love promptLM"</code></pre>
+        <p>The command returns the prompt id. Keep it for the next commands.</p>
+
+        <h3>3. Show the latest prompt version</h3>
+        <pre><code>promptlm-cli prompt show --id &lt;prompt-id&gt;</code></pre>
+
+        <h3>4. Request a release</h3>
+        <pre><code>promptlm-cli prompt release --id &lt;prompt-id&gt;</code></pre>
+        <p>If your project uses two-phase promotion, complete the release after the pull request is merged.</p>
+        <pre><code>promptlm-cli prompt release complete --id &lt;prompt-id&gt; --pr &lt;pr-number&gt;</code></pre>
+    </section>
+
+    <section id="studio">
+        <h2>PromptLM Studio</h2>
+        <p>Start the local Studio web app from the CLI:</p>
+        <pre><code>promptlm-cli studio --port 8085</code></pre>
+        <p>To start without opening a browser automatically:</p>
+        <pre><code>promptlm-cli studio --port 8085 --no-browser true</code></pre>
+        <p>Default URL: <code>http://127.0.0.1:8085/</code></p>
+    </section>
+
+    <section id="troubleshooting">
+        <h2>Troubleshooting</h2>
+        <ul>
+            <li>If <code>promptlm-cli</code> is not found, add the install directory to your shell <code>PATH</code>.</li>
+            <li>If Studio startup reports a used port, rerun with a different port (for example <code>--port 8090</code>).</li>
+            <li>If release commands fail, verify repository connectivity and GitHub permissions.</li>
+            <li>For product issues and bugs, use the GitHub Issues tracker linked below.</li>
+        </ul>
+    </section>
+
+    <section id="links">
+        <h2>Reference Links</h2>
+        <ul class="links-list">
+            <li><a href="https://github.com/promptLM/promptlm-app" target="_blank" rel="noopener">promptLM repository</a></li>
+            <li><a href="https://github.com/promptLM/promptlm-app/releases" target="_blank" rel="noopener">Releases</a></li>
+            <li><a href="https://github.com/promptLM/promptlm-app/issues" target="_blank" rel="noopener">Issues and support</a></li>
+            <li><a href="https://github.com/promptLM/promptlm-app/blob/main/README.adoc" target="_blank" rel="noopener">Project README</a></li>
+        </ul>
+    </section>
+</main>
+
+<footer>
+    <p>&copy; 2026 promptLM</p>
+</footer>
+</body>
+</html>
