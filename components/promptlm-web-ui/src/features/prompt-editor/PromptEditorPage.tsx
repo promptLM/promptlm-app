@@ -836,7 +836,6 @@ export const PromptEditorPage: React.FC<PromptEditorPageProps> = ({ mode, prompt
                             color="secondary"
                             onClick={() => void handleRelease()}
                             disabled={isReleasing}
-                            data-testid="prompt-editor-release-action"
                           >
                             {isReleasing ? 'Publishing…' : 'Release'}
                           </Button>

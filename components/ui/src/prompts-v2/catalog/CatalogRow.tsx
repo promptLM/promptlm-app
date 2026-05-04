@@ -64,6 +64,7 @@ export const CatalogRow: React.FC<CatalogRowProps> = ({
             }
           : undefined
       }
+      data-testid={`prompt-card-${p.name}-action`}
       style={{
         display: 'grid',
         gridTemplateColumns: CATALOG_GRID_COLUMNS,

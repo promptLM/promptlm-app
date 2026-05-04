@@ -50,6 +50,7 @@ const TopBar = ({ name, editTo }: { name: string; editTo: string }) => (
     <Link
       to={editTo}
       className="pl-btn pl-btn-primary"
+      data-testid="prompt-edit-action"
       style={{
         height: 32,
         padding: '0 14px',
