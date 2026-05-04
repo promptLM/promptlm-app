@@ -32,9 +32,9 @@ vi.mock('@/features/prompt-editor/PromptEditorPage', () => ({
   },
 }));
 
-import PromptDetail from '../PromptDetail';
+import PromptEdit from '../PromptEdit';
 
-describe('PromptDetail', () => {
+describe('PromptEdit', () => {
   beforeEach(() => {
     mocks.useParamsMock.mockReset();
     mocks.promptEditorPageMock.mockReset();
@@ -43,7 +43,7 @@ describe('PromptDetail', () => {
   it('renders the unified prompt editor in edit mode with route prompt id', () => {
     mocks.useParamsMock.mockReturnValue({ id: 'prompt-42' });
 
-    renderToString(React.createElement(PromptDetail));
+    renderToString(React.createElement(PromptEdit));
 
     expect(mocks.promptEditorPageMock).toHaveBeenCalledTimes(1);
     expect(mocks.promptEditorPageMock).toHaveBeenCalledWith(
@@ -57,7 +57,7 @@ describe('PromptDetail', () => {
   it('passes null prompt id when the route param is missing', () => {
     mocks.useParamsMock.mockReturnValue({});
 
-    renderToString(React.createElement(PromptDetail));
+    renderToString(React.createElement(PromptEdit));
 
     expect(mocks.promptEditorPageMock).toHaveBeenCalledTimes(1);
     expect(mocks.promptEditorPageMock).toHaveBeenCalledWith(

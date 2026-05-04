@@ -29,25 +29,27 @@ import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 
 import type {
+  EditorTopBarMessage,
   MessageContentSelection,
-  PromptEditorBannerMessage,
   PromptEditorEvaluationResult,
   PromptEditorExecution,
   PromptEditorTab,
   PromptEditorToolConfig,
 } from '@promptlm/ui';
 import {
+  EditorTopBar,
   EvaluationPlanCard,
   EvaluationResultsCard,
   LastExecutionCard,
   MessagesCard,
   MetadataCard,
   ModelConfigurationCard,
-  PromptEditorHeader,
   PromptEditorTabsLayout,
   PromptPreviewCard,
   ToolConfigsCard,
 } from '@promptlm/ui';
+
+import { featureFlags } from '@/lib/featureFlags';
 
 import { toDisplayError } from '@api-common/apiError';
 import type { PromptSpec } from '@promptlm/api-client';
@@ -190,7 +192,11 @@ export const PromptEditorPage: React.FC<PromptEditorPageProps> = ({ mode, prompt
   const [toolConfigs, setToolConfigs] = useState<PromptEditorToolConfig[]>([]);
   const [messageSelection, setMessageSelection] = useState<MessageContentSelection | null>(null);
 
-  const isEvaluationCapabilityEnabled = Boolean(capabilities.data?.features?.includes('evals'));
+  // Evals are gated by the runtime capability AND the v2 feature flag. Until
+  // the commercial rollout (issue #80) the flag stays off so the eval-related
+  // surfaces (plan, results) don't render even on capable backends.
+  const isEvaluationCapabilityEnabled =
+    featureFlags.evals && Boolean(capabilities.data?.features?.includes('evals'));
 
   const evaluationEnabledForValidation = isEvaluationCapabilityEnabled ? editor.state.evaluationEnabled : false;
 
@@ -564,8 +570,8 @@ export const PromptEditorPage: React.FC<PromptEditorPageProps> = ({ mode, prompt
     editor.addEvaluation();
   }, [editor, isEvaluationCapabilityEnabled]);
 
-  const headerMessages = useMemo<PromptEditorBannerMessage[]>(() => {
-    const messages: PromptEditorBannerMessage[] = [];
+  const headerMessages = useMemo<EditorTopBarMessage[]>(() => {
+    const messages: EditorTopBarMessage[] = [];
 
     if (!data.activeProjectId && !data.isActiveProjectLoading) {
       messages.push({
@@ -644,8 +650,22 @@ export const PromptEditorPage: React.FC<PromptEditorPageProps> = ({ mode, prompt
     );
   }
 
+  const editorTitle =
+    mode === 'create' ? 'new prompt' : editor.state.draft.name || 'edit prompt';
+
   return (
-    <Box component="form" onSubmit={handleSubmit} noValidate>
+    <Box
+      component="form"
+      onSubmit={handleSubmit}
+      noValidate
+      sx={{
+        background: 'var(--pl-canvas)',
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
       <Snackbar
         open={toast.open}
         autoHideDuration={3000}
@@ -657,31 +677,23 @@ export const PromptEditorPage: React.FC<PromptEditorPageProps> = ({ mode, prompt
         </Alert>
       </Snackbar>
 
-      <Stack spacing={3}>
-        <PromptEditorHeader
-          mode={mode}
-          title={mode === 'create' ? 'Create prompt' : editor.state.draft.name || 'Edit prompt'}
-          description={
-            mode === 'create'
-              ? 'Compose a prompt draft and save it into the active project.'
-              : editor.state.draft.description || 'Review, test, and release the current prompt draft.'
-          }
-          isBusy={isBusy}
-          isReleasing={isReleasing}
-          messages={headerMessages}
-          onBack={() => navigate('/prompts')}
-          onCreate={() => {
-            void saveDraft();
-          }}
-          onEdit={() => {
-            void saveDraft();
-          }}
-          onRelease={handleRelease}
-          createLabel="Save prompt"
-          editLabel="Save prompt"
-          releaseLabel="Release"
-        />
+      <EditorTopBar
+        mode={mode}
+        breadcrumb={['prompts', editorTitle]}
+        isBusy={isBusy}
+        isSaving={data.isSaving}
+        isReleasing={isReleasing}
+        messages={headerMessages}
+        saveLabel="Save prompt"
+        releaseLabel="Release"
+        onSave={() => {
+          void saveDraft();
+        }}
+        onRelease={mode === 'edit' ? handleRelease : undefined}
+        onBack={() => navigate('/prompts')}
+      />
 
+      <Stack spacing={3} sx={{ p: 4 }}>
         <PromptEditorTabsLayout
           tabs={tabs}
           activeTab={activeTab}
@@ -853,7 +865,7 @@ export const PromptEditorPage: React.FC<PromptEditorPageProps> = ({ mode, prompt
                 />
               ) : null}
 
-              {evaluationResults.length > 0 ? (
+              {featureFlags.evals && evaluationResults.length > 0 ? (
                 <EvaluationResultsCard results={evaluationResults} />
               ) : null}
             </Stack>
