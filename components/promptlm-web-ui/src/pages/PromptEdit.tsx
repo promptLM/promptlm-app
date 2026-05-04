@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { createRoot } from "react-dom/client";
-import App from "./App.tsx";
-import "./index.css";
-import "@promptlm/ui/prompts-v2/tokens.css";
+import { useParams } from 'react-router-dom';
+import { PromptEditorPage } from '@/features/prompt-editor/PromptEditorPage';
 
-createRoot(document.getElementById("root")!).render(<App />);
+export default function PromptEdit() {
+  const { id } = useParams<{ id: string }>();
+  return <PromptEditorPage mode="edit" promptId={id ?? null} />;
+}
