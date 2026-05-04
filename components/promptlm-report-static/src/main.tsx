@@ -12,10 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export * from './atoms';
-export * from './catalog';
-export * from './detail';
-export * from './diff';
-export * from './editor';
-export * from './report';
-export * from './shell';
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { App } from './App';
+import '@promptlm/ui/prompts-v2/tokens.css';
+
+const container = document.getElementById('root');
+if (!container) throw new Error('Missing #root container');
+createRoot(container).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+);

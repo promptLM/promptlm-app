@@ -10,7 +10,15 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./prompts-v2/tokens.css": "./dist/prompts-v2/tokens.css"
+    "./prompts-v2/tokens.css": "./dist/prompts-v2/tokens.css",
+    "./prompts-v2/diff/sampleData": {
+      "types": "./dist/prompts-v2/diff/sampleData.d.ts",
+      "import": "./dist/prompts-v2/diff/sampleData.js"
+    },
+    "./prompts-v2/report/sampleData": {
+      "types": "./dist/prompts-v2/report/sampleData.d.ts",
+      "import": "./dist/prompts-v2/report/sampleData.js"
+    }
   },
   "files": [
     "dist"
