@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export * from './atoms';
-export * from './catalog';
-export * from './detail';
-export * from './editor';
-export * from './shell';
+export { EditorTopBar } from './EditorTopBar';
+export type {
+  EditorTopBarProps,
+  EditorTopBarMessage,
+  EditorMode,
+} from './EditorTopBar';
