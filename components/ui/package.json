@@ -9,13 +9,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    }
+    },
+    "./prompts-v2/tokens.css": "./dist/prompts-v2/tokens.css"
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json && node ./scripts/fix-dist-imports.mjs",
+    "build": "tsc -p tsconfig.json && node ./scripts/fix-dist-imports.mjs && node ./scripts/copy-assets.mjs",
     "test": "npm run build && mkdir -p ../../.tmp && esbuild test/ui-package-smoke.mjs --bundle --platform=node --format=cjs --external:react --external:react-dom --external:react-dom/server --external:@mui/material --external:@mui/material/* --external:@mui/icons-material --external:@mui/icons-material/* --external:@emotion/react --external:@emotion/styled --outfile=../../.tmp/ui-package-smoke.bundle.cjs && node ../../.tmp/ui-package-smoke.bundle.cjs",
     "test:watch": "npm run test",
     "storybook": "storybook dev -p 6006",

@@ -24,7 +24,9 @@
     "src/components/SectionCard/**/*.ts",
     "src/components/SectionCard/**/*.tsx",
     "src/prompt-editor/**/*.ts",
-    "src/prompt-editor/**/*.tsx"
+    "src/prompt-editor/**/*.tsx",
+    "src/prompts-v2/**/*.ts",
+    "src/prompts-v2/**/*.tsx"
   ],
   "exclude": [
     "src/**/*.stories.ts",
