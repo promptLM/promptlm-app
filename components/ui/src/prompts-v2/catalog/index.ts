@@ -12,7 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export * from './atoms';
-export * from './catalog';
-export * from './detail';
-export * from './shell';
+export { CatalogTopBar } from './CatalogTopBar';
+export type { CatalogTopBarProps } from './CatalogTopBar';
+export { CatalogFacetRail, CatalogFacetGroup } from './CatalogFacetRail';
+export type { CatalogFacetRailProps, CatalogFacetGroupProps } from './CatalogFacetRail';
+export { CatalogRow, CATALOG_GRID_COLUMNS } from './CatalogRow';
+export type { CatalogRowProps } from './CatalogRow';
+export { CatalogList } from './CatalogList';
+export type { CatalogListProps } from './CatalogList';
+export type { CatalogRowItem, CatalogFacetItem, CatalogFacetGroupSpec } from './types';

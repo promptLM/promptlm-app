@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export * from './atoms';
-export * from './catalog';
-export * from './detail';
-export * from './shell';
+export { AppShellV2 } from './AppShellV2';
+export type { AppShellV2Props } from './AppShellV2';
+export { AppSidebar } from './AppSidebar';
+export type { AppSidebarProps } from './AppSidebar';
+export { DocumentChrome } from './DocumentChrome';
+export type { DocumentChromeProps } from './DocumentChrome';
+export type { SidebarNavItem, SidebarWorkspace, SidebarUser } from './types';
