@@ -12,10 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export * from './atoms';
-export * from './catalog';
-export * from './detail';
-export * from './diff';
-export * from './editor';
-export * from './report';
-export * from './shell';
+import type { Meta, StoryObj } from '@storybook/react';
+import { AuthorsTable } from './AuthorsTable';
+import { SAMPLE_AUTHORS } from './sampleData';
+
+const meta: Meta<typeof AuthorsTable> = {
+  title: 'Prompts v2 / Report / AuthorsTable',
+  component: AuthorsTable,
+  parameters: { layout: 'padded' },
+  tags: ['autodocs'],
+};
+export default meta;
+type Story = StoryObj<typeof AuthorsTable>;
+
+export const Default: Story = {
+  render: () => (
+    <div style={{ background: 'var(--pl-canvas)', padding: 24 }}>
+      <AuthorsTable authors={SAMPLE_AUTHORS} />
+    </div>
+  ),
+};

@@ -5,7 +5,8 @@
   "workspaces": [
     "components/ui",
     "components/promptlm-api-client",
-    "components/promptlm-web-ui"
+    "components/promptlm-web-ui",
+    "components/promptlm-report-static"
   ],
   "scripts": {
     "contracts:validate:asyncapi": "npm --workspace @promptlm/api-client run validate:asyncapi",

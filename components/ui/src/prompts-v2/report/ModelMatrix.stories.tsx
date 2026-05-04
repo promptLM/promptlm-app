@@ -12,10 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export * from './atoms';
-export * from './catalog';
-export * from './detail';
-export * from './diff';
-export * from './editor';
-export * from './report';
-export * from './shell';
+import type { Meta, StoryObj } from '@storybook/react';
+import { ModelMatrix } from './ModelMatrix';
+import { SAMPLE_MODELS } from './sampleData';
+
+const meta: Meta<typeof ModelMatrix> = {
+  title: 'Prompts v2 / Report / ModelMatrix',
+  component: ModelMatrix,
+  parameters: { layout: 'padded' },
+  tags: ['autodocs'],
+};
+export default meta;
+type Story = StoryObj<typeof ModelMatrix>;
+
+export const Default: Story = {
+  render: () => (
+    <div style={{ background: 'var(--pl-canvas)', padding: 24 }}>
+      <ModelMatrix models={SAMPLE_MODELS} totalPrompts={12} />
+    </div>
+  ),
+};
