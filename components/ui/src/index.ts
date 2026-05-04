@@ -66,3 +66,4 @@ export * from './components/ui/toggle-group';
 export * from './components/ui/toggle';
 export * from './components/ui/tooltip';
 export * from './prompt-editor';
+export * from './prompts-v2';

@@ -6,14 +6,23 @@ import {
   AppShellHeader,
   CloneProjectForm,
   CreateProjectForm,
+  DiffLine,
   ImportLocalProjectForm,
   InfoCard,
   InfoCardHeader,
+  MetaPill,
+  MiniLogo,
+  Mono,
+  PlaceholderToken,
   ProjectSelectionDialog,
   PromptEditorHeader,
   PromptEditorTabs,
   SectionCard,
   SideNav,
+  Sparkline,
+  StatusDot,
+  Tag,
+  VendorMark,
 } from '../dist/index.js';
 import { renderWithPromptLMTheme } from './renderWithPromptLMTheme.mjs';
 
@@ -147,9 +156,54 @@ const verifyPromptEditorExports = () => {
   assert.match(tabsMarkup, /Preview content/);
 };
 
+const verifyPromptsV2Atoms = () => {
+  const monoMarkup = renderWithPromptLMTheme(
+    React.createElement(Mono, { size: 12, color: 'var(--pl-ink-700)' }, 'prm_8f3a'),
+  );
+  const tagMarkup = renderWithPromptLMTheme(
+    React.createElement(Tag, { tone: 'signal' }, 'v1.8.0'),
+  );
+  const statusMarkup = renderWithPromptLMTheme(
+    React.createElement(StatusDot, { status: 'production' }),
+  );
+  const vendorMarkup = renderWithPromptLMTheme(
+    React.createElement(VendorMark, { vendor: 'anthropic', size: 14 }),
+  );
+  const sparkMarkup = renderWithPromptLMTheme(
+    React.createElement(Sparkline, {
+      values: [1, 2, 3, 2, 4, 5, 4, 6],
+      width: 96,
+      height: 24,
+      ariaLabel: 'success rate trend',
+    }),
+  );
+  const logoMarkup = renderWithPromptLMTheme(React.createElement(MiniLogo, { size: 22 }));
+  const pillMarkup = renderWithPromptLMTheme(
+    React.createElement(MetaPill, { label: 'version', value: '1.8.0', mono: true }),
+  );
+  const placeholderMarkup = renderWithPromptLMTheme(
+    React.createElement(PlaceholderToken, { name: 'agent_name' }),
+  );
+  const diffMarkup = renderWithPromptLMTheme(
+    React.createElement(DiffLine, { kind: 'add' }, 'added line'),
+  );
+
+  assert.match(monoMarkup, /prm_8f3a/);
+  assert.match(tagMarkup, /v1\.8\.0/);
+  assert.match(statusMarkup, /production/);
+  assert.match(vendorMarkup, /<span/);
+  assert.match(sparkMarkup, /success rate trend/);
+  assert.match(logoMarkup, /<svg/);
+  assert.match(pillMarkup, /version/);
+  assert.match(pillMarkup, /1\.8\.0/);
+  assert.match(placeholderMarkup, /\{\{agent_name\}\}/);
+  assert.match(diffMarkup, /added line/);
+};
+
 verifyLayoutExports();
 verifyInfoAndSectionCards();
 verifyPromptEditorExports();
+verifyPromptsV2Atoms();
 
 console.log('UI package smoke checks passed');
 process.exit(0);
