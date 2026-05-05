@@ -16,17 +16,6 @@ import React from 'react';
 import { Box, Paper, Typography } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material';
 
-export type SectionCardVariant = 'mui' | 'v2';
-
-const SectionCardVariantContext = React.createContext<SectionCardVariant>('mui');
-
-export const SectionCardVariantProvider: React.FC<{
-  variant: SectionCardVariant;
-  children: React.ReactNode;
-}> = ({ variant, children }) => (
-  <SectionCardVariantContext.Provider value={variant}>{children}</SectionCardVariantContext.Provider>
-);
-
 export type SectionCardProps = {
   title: React.ReactNode;
   subtitle?: React.ReactNode;
@@ -37,7 +26,15 @@ export type SectionCardProps = {
   contentSx?: SxProps<Theme>;
 };
 
-const renderMuiChrome = ({
+/**
+ * Outlined card primitive used by non-form surfaces (catalog filters, info
+ * cards). The prompt editor used to render through this; the v2 form is
+ * now standalone (`prompts-v2/form/PromptFormPage`) and no longer routes
+ * through SectionCard. The chrome variant context that bridged the
+ * cards-stack rewrite (#88) was removed alongside the cards in #93's
+ * cleanup.
+ */
+export const SectionCard: React.FC<SectionCardProps> = ({
   title,
   subtitle,
   action,
@@ -45,7 +42,7 @@ const renderMuiChrome = ({
   sx,
   headerSx,
   contentSx,
-}: SectionCardProps) => {
+}) => {
   const paperBaseSx: SxProps<Theme> = {
     borderRadius: 2,
     borderColor: 'divider',
@@ -93,74 +90,6 @@ const renderMuiChrome = ({
       <Box sx={contentSx}>{children}</Box>
     </Paper>
   );
-};
-
-const renderV2Chrome = ({
-  title,
-  subtitle,
-  action,
-  children,
-  contentSx,
-}: SectionCardProps) => (
-  <div
-    style={{
-      border: '1px solid var(--pl-ink-200)',
-      borderRadius: 8,
-      background: 'var(--pl-paper)',
-      overflow: 'hidden',
-      display: 'flex',
-      flexDirection: 'column',
-    }}
-  >
-    <div
-      style={{
-        padding: '10px 16px',
-        background: 'var(--pl-canvas)',
-        borderBottom: '1px solid var(--pl-ink-200)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 12,
-        flexWrap: 'wrap',
-      }}
-    >
-      <div style={{ minWidth: 0 }}>
-        <div
-          style={{
-            fontFamily: 'var(--pl-mono)',
-            fontSize: 11,
-            fontWeight: 500,
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
-            color: 'var(--pl-ink-700)',
-          }}
-        >
-          {title}
-        </div>
-        {subtitle ? (
-          <div
-            style={{
-              fontFamily: 'var(--pl-display)',
-              fontSize: 12.5,
-              color: 'var(--pl-ink-600)',
-              marginTop: 2,
-            }}
-          >
-            {subtitle}
-          </div>
-        ) : null}
-      </div>
-      {action ? <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>{action}</div> : null}
-    </div>
-    <Box sx={contentSx} style={{ padding: 16 }}>
-      {children}
-    </Box>
-  </div>
-);
-
-export const SectionCard: React.FC<SectionCardProps> = (props) => {
-  const variant = React.useContext(SectionCardVariantContext);
-  return variant === 'v2' ? renderV2Chrome(props) : renderMuiChrome(props);
 };
 
 SectionCard.displayName = 'SectionCard';

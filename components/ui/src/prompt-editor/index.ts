@@ -12,18 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Legacy editor module. The form cards (`MetadataCard`, `MessagesCard`,
-// `ModelConfigurationCard`, etc.) are now exclusively surfaced via
-// `prompts-v2/editor`, which wraps the same implementation in the v2 chrome
-// via `SectionCardVariantProvider`. Imports of those names should resolve
-// through `@promptlm/ui` (the package barrel) where the v2 versions win, or
-// be added explicitly under `prompts-v2/editor`.
-//
-// This file keeps only the items not yet ported to v2 — the editor header
-// (used by the legacy create flow shell) and the tabs primitive.
-
+// Legacy editor type aliases. The visual editor lives at
+// `prompts-v2/form` (`PromptFormPage`); the webapp's draft state pivots on
+// the type aliases re-exported here. There is no runtime code under
+// `prompt-editor/` anymore — the cards, header, tabs, and tabs-layout
+// components were removed when `PromptFormShell` shipped (issue #93 cleanup).
 export * from './types';
-export { PromptEditorHeader } from './PromptEditorHeader';
-export type { PromptEditorHeaderProps } from './PromptEditorHeader';
-export { PromptEditorTabs } from './PromptEditorTabs';
-export type { PromptEditorTabsProps } from './PromptEditorTabs';

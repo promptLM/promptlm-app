@@ -65,19 +65,26 @@ export * from './components/ui/toast';
 export * from './components/ui/toggle-group';
 export * from './components/ui/toggle';
 export * from './components/ui/tooltip';
-// Editor surface: v2 cards win at the package barrel. The legacy MUI cards
-// remain importable via `@promptlm/ui` only for non-conflicting items
-// (PromptEditorHeader, PromptEditorTabs, shared types). Webapp consumers should
-// import editor cards from the v2 barrel (`./prompts-v2`) — see issues #89/#90.
-export {
-  PromptEditorHeader,
-  PromptEditorTabs,
-} from './prompt-editor';
+// Editor surface: the prompt form lives at `prompts-v2/form/PromptFormPage`.
+// `./prompt-editor` retains type aliases consumed by the webapp's draft
+// reducer and persistence helpers; runtime components were removed in #93's
+// cleanup.
 export type {
-  PromptEditorHeaderProps,
-  PromptEditorTabsProps,
   PromptEditorTab,
   PromptEditorTabDefinition,
   PromptEditorExecutionOption,
+  PromptEditorMode,
+  PromptEditorBannerMessage,
+  PromptEditorMessage,
+  PromptEditorMessageRole,
+  PromptEditorPlaceholder,
+  PromptEditorPlaceholderConfig,
+  PromptEditorToolConfig,
+  PromptEditorEvaluationPlan,
+  PromptEditorEvaluationResult,
+  PromptEditorExecution,
+  PromptEditorRequestDraft,
+  MessageContentSelection,
 } from './prompt-editor';
+export { DEFAULT_MESSAGE_ROLES } from './prompt-editor';
 export * from './prompts-v2';
