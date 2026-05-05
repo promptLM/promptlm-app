@@ -13,9 +13,9 @@
 // limitations under the License.
 
 import { useParams } from 'react-router-dom';
-import { PromptEditorPage } from '@/features/prompt-editor/PromptEditorPage';
+import { PromptFormShell } from '@/features/prompt-editor/PromptFormShell';
 
 export default function PromptEdit() {
   const { id } = useParams<{ id: string }>();
-  return <PromptEditorPage mode="edit" promptId={id ?? null} />;
+  return <PromptFormShell mode="edit" promptId={id ?? null} />;
 }

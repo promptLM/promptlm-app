@@ -18,16 +18,17 @@ import { renderToString } from 'react-dom/server';
 
 const mocks = vi.hoisted(() => ({
   useParamsMock: vi.fn(),
-  promptEditorPageMock: vi.fn(),
+  promptFormShellMock: vi.fn(),
 }));
 
 vi.mock('react-router-dom', () => ({
   useParams: mocks.useParamsMock,
+  useNavigate: () => () => undefined,
 }));
 
-vi.mock('@/features/prompt-editor/PromptEditorPage', () => ({
-  PromptEditorPage: (props: { mode: 'create' | 'edit'; promptId: string | null }) => {
-    mocks.promptEditorPageMock(props);
+vi.mock('@/features/prompt-editor/PromptFormShell', () => ({
+  PromptFormShell: (props: { mode: 'create' | 'edit'; promptId: string | null }) => {
+    mocks.promptFormShellMock(props);
     return React.createElement('div');
   },
 }));
@@ -37,16 +38,16 @@ import PromptEdit from '../PromptEdit';
 describe('PromptEdit', () => {
   beforeEach(() => {
     mocks.useParamsMock.mockReset();
-    mocks.promptEditorPageMock.mockReset();
+    mocks.promptFormShellMock.mockReset();
   });
 
-  it('renders the unified prompt editor in edit mode with route prompt id', () => {
+  it('renders the v2 prompt form shell in edit mode with route prompt id', () => {
     mocks.useParamsMock.mockReturnValue({ id: 'prompt-42' });
 
     renderToString(React.createElement(PromptEdit));
 
-    expect(mocks.promptEditorPageMock).toHaveBeenCalledTimes(1);
-    expect(mocks.promptEditorPageMock).toHaveBeenCalledWith(
+    expect(mocks.promptFormShellMock).toHaveBeenCalledTimes(1);
+    expect(mocks.promptFormShellMock).toHaveBeenCalledWith(
       expect.objectContaining({
         mode: 'edit',
         promptId: 'prompt-42',
@@ -59,8 +60,8 @@ describe('PromptEdit', () => {
 
     renderToString(React.createElement(PromptEdit));
 
-    expect(mocks.promptEditorPageMock).toHaveBeenCalledTimes(1);
-    expect(mocks.promptEditorPageMock).toHaveBeenCalledWith(
+    expect(mocks.promptFormShellMock).toHaveBeenCalledTimes(1);
+    expect(mocks.promptFormShellMock).toHaveBeenCalledWith(
       expect.objectContaining({
         mode: 'edit',
         promptId: null,

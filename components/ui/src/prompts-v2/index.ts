@@ -17,6 +17,7 @@ export * from './catalog';
 export * from './detail';
 export * from './diff';
 export * from './editor';
+export * from './form';
 export * from './forms';
 export * from './report';
 export * from './shell';
