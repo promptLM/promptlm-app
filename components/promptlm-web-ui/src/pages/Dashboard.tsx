@@ -12,159 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useMemo, type CSSProperties, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import { useNavigate } from 'react-router-dom';
-import { formatDistanceToNowStrict } from 'date-fns';
 import { Mono } from '@promptlm/ui';
-import type { Execution, PromptSpec } from '@promptlm/api-client';
 import { useDashboardSummary, usePrompts } from '@/api/hooks';
+import {
+  FEED_FILTER_LABELS,
+  TIME_WINDOW_LABELS,
+  buildActivityFeed,
+  buildGroupCounts,
+  buildOpenWork,
+  filterFeed,
+  findLastRelease,
+  type FeedFilterKind,
+  type FeedItem,
+  type OpenWorkItem,
+  type TimeWindow,
+} from './Dashboard.helpers';
 
-type FeedItem = {
-  key: string;
-  kind: 'release' | 'run' | 'draft' | 'create';
-  when: string;
-  prompt: string;
-  group?: string;
-  promptId?: string;
-  to?: string;
-  from?: string;
-  summary?: string;
-  status?: 'ok' | 'fail';
-};
-
-type OpenWorkItem = {
-  key: string;
-  kind: 'draft' | 'untested' | 'retired';
-  prompt: string;
-  promptId?: string;
-  note: string;
-  cta: string;
-  href?: string;
-};
-
-const ACTIVITY_LIMIT = 10;
-const OPEN_WORK_LIMIT = 4;
-
-const safeRelative = (iso?: string): string => {
-  if (!iso) return '—';
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '—';
-  return formatDistanceToNowStrict(date, { addSuffix: false });
-};
-
-const buildSortedFeed = (prompts: readonly PromptSpec[]): FeedItem[] => {
-  type Carrier = { item: FeedItem; ts: number };
-  const carriers: Carrier[] = [];
-  for (const spec of prompts) {
-    const promptName = spec.name ?? spec.id ?? 'unnamed';
-    const promptId = spec.id ?? spec.name;
-    const group = spec.group;
-
-    if (spec.updatedAt) {
-      const ts = new Date(spec.updatedAt).getTime();
-      const isDraft = (spec.revision ?? 0) > 0;
-      const isRetired = spec.status === 'RETIRED';
-      if (!isRetired) {
-        carriers.push({
-          ts: Number.isNaN(ts) ? 0 : ts,
-          item: {
-            key: `${promptId}:edit`,
-            kind: isDraft ? 'draft' : 'release',
-            when: safeRelative(spec.updatedAt),
-            prompt: promptName,
-            promptId,
-            group,
-            to: isDraft ? undefined : spec.version,
-            summary: isDraft
-              ? `revision ${spec.revision ?? 1} · not yet released`
-              : 'released',
-          },
-        });
-      }
-    }
-
-    const executions: readonly Execution[] = spec.executions ?? [];
-    for (const run of executions) {
-      const ts = run.timestamp ? new Date(run.timestamp).getTime() : 0;
-      carriers.push({
-        ts: Number.isNaN(ts) ? 0 : ts,
-        item: {
-          key: `${promptId}:run:${run.id ?? run.timestamp ?? carriers.length}`,
-          kind: 'run',
-          when: safeRelative(run.timestamp),
-          prompt: promptName,
-          promptId,
-          group,
-          status: run.response ? 'ok' : 'fail',
-          summary: 'execution recorded',
-        },
-      });
-    }
-  }
-  carriers.sort((a, b) => b.ts - a.ts);
-  return carriers.slice(0, ACTIVITY_LIMIT).map((c) => c.item);
-};
-
-const buildOpenWork = (prompts: readonly PromptSpec[]): OpenWorkItem[] => {
-  const items: OpenWorkItem[] = [];
-  for (const spec of prompts) {
-    const promptName = spec.name ?? spec.id ?? 'unnamed';
-    const promptId = spec.id ?? spec.name;
-    const executions = spec.executions ?? [];
-    const isRetired = spec.status === 'RETIRED';
-    if (isRetired) continue;
-
-    if ((spec.revision ?? 0) > 0) {
-      items.push({
-        key: `${promptId}:draft`,
-        kind: 'draft',
-        prompt: promptName,
-        promptId,
-        note: `Draft on revision ${spec.revision} · not released`,
-        cta: 'Open in editor',
-        href: promptId ? `/prompts/${encodeURIComponent(promptId)}/edit` : undefined,
-      });
-      continue;
-    }
-
-    if (executions.length === 0) {
-      items.push({
-        key: `${promptId}:untested`,
-        kind: 'untested',
-        prompt: promptName,
-        promptId,
-        note: 'Never run · no executions captured',
-        cta: 'Open prompt',
-        href: promptId ? `/prompts/${encodeURIComponent(promptId)}` : undefined,
-      });
-    }
-  }
-  return items.slice(0, OPEN_WORK_LIMIT);
-};
-
-const findLastRelease = (prompts: readonly PromptSpec[]): {
-  ref: string;
-  when: string;
-} | null => {
-  let best: { ts: number; spec: PromptSpec } | null = null;
-  for (const spec of prompts) {
-    if (spec.status === 'RETIRED') continue;
-    if ((spec.revision ?? 0) > 0) continue;
-    if (!spec.updatedAt) continue;
-    const ts = new Date(spec.updatedAt).getTime();
-    if (Number.isNaN(ts)) continue;
-    if (!best || ts > best.ts) {
-      best = { ts, spec };
-    }
-  }
-  if (!best) return null;
-  const name = best.spec.name ?? best.spec.id ?? 'prompt';
-  const version = best.spec.version ? ` · ${best.spec.version}` : '';
-  return {
-    ref: `${name}${version}`,
-    when: safeRelative(best.spec.updatedAt) + ' ago',
-  };
-};
+const ACTIVITY_VISIBLE_LIMIT = 12;
+const FEED_FILTERS: FeedFilterKind[] = ['all', 'release', 'run', 'draft'];
+const TIME_WINDOWS: TimeWindow[] = ['24h', '7d', 'all'];
 
 const eyebrowStyle: CSSProperties = {
   fontFamily: 'var(--pl-mono)',
@@ -196,7 +71,10 @@ const dotForKind = (item: FeedItem): { glyph: string; color: string } => {
   }
 };
 
-const ActivityRow = ({ item, onClick }: {
+const ActivityRow = ({
+  item,
+  onClick,
+}: {
   item: FeedItem;
   onClick?: () => void;
 }) => {
@@ -211,12 +89,9 @@ const ActivityRow = ({ item, onClick }: {
         alignItems: 'baseline',
         gap: 14,
         padding: '14px 0',
-        borderTop: '1px solid var(--pl-ink-200)',
         background: 'transparent',
         border: 'none',
-        borderTopColor: 'var(--pl-ink-200)',
-        borderTopStyle: 'solid',
-        borderTopWidth: 1,
+        borderTop: '1px solid var(--pl-ink-200)',
         width: '100%',
         textAlign: 'left',
         cursor: onClick ? 'pointer' : 'default',
@@ -259,7 +134,11 @@ const ActivityRow = ({ item, onClick }: {
           {item.kind === 'release' && item.to && (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               <span style={{ color: 'var(--pl-ink-400)', fontSize: 11 }}>→</span>
-              <Mono size={11.5} color="var(--pl-signal-deep)" style={{ fontWeight: 500 }}>
+              <Mono
+                size={11.5}
+                color="var(--pl-signal-deep)"
+                style={{ fontWeight: 500 }}
+              >
                 {item.to}
               </Mono>
             </span>
@@ -315,7 +194,55 @@ const GroupChip = ({
   </button>
 );
 
-const OpenWorkRow = ({ item, onClick }: { item: OpenWorkItem; onClick?: () => void }) => {
+const FilterButton = ({
+  label,
+  active,
+  count,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  count?: number;
+  onClick: () => void;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-pressed={active}
+    style={{
+      background: 'transparent',
+      border: 'none',
+      padding: 0,
+      fontFamily: 'var(--pl-display)',
+      fontSize: 12.5,
+      color: active ? 'var(--pl-ink-900)' : 'var(--pl-ink-500)',
+      fontWeight: active ? 500 : 400,
+      cursor: 'pointer',
+      borderBottom: active
+        ? '1px solid var(--pl-ink-900)'
+        : '1px solid transparent',
+      paddingBottom: 1,
+      display: 'inline-flex',
+      alignItems: 'baseline',
+      gap: 5,
+    }}
+  >
+    <span>{label}</span>
+    {typeof count === 'number' && (
+      <Mono size={11} color={active ? 'var(--pl-ink-700)' : 'var(--pl-ink-400)'}>
+        {count}
+      </Mono>
+    )}
+  </button>
+);
+
+const OpenWorkRow = ({
+  item,
+  onClick,
+}: {
+  item: OpenWorkItem;
+  onClick?: () => void;
+}) => {
   const tone = (() => {
     switch (item.kind) {
       case 'draft':
@@ -394,28 +321,98 @@ const SkeletonRow = ({ width, inline }: { width: string; inline?: boolean }) => 
   />
 );
 
+const QuickActionButton = ({
+  label,
+  kbd,
+  onClick,
+}: {
+  label: string;
+  kbd: string;
+  onClick: () => void;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      width: '100%',
+      padding: '8px 10px',
+      background: 'transparent',
+      border: '1px solid var(--pl-ink-200)',
+      borderRadius: 6,
+      cursor: 'pointer',
+      fontFamily: 'var(--pl-display)',
+      fontSize: 12.5,
+      color: 'var(--pl-ink-800)',
+      textAlign: 'left',
+    }}
+  >
+    <span>{label}</span>
+    <Mono
+      size={10.5}
+      color="var(--pl-ink-500)"
+      style={{
+        border: '1px solid var(--pl-ink-300)',
+        padding: '1px 5px',
+        borderRadius: 3,
+      }}
+    >
+      {kbd}
+    </Mono>
+  </button>
+);
+
+const isTypingTarget = (target: EventTarget | null): boolean => {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  const tag = target.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+};
+
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { data: stats, isLoading: isStatsLoading, error: statsError } = useDashboardSummary();
-  const { data: prompts, isLoading: isPromptsLoading, error: promptsError } = usePrompts();
+  const { data: stats, isLoading: isStatsLoading, error: statsError } =
+    useDashboardSummary();
+  const { data: prompts, isLoading: isPromptsLoading, error: promptsError } =
+    usePrompts();
 
   const promptList = useMemo(() => prompts ?? [], [prompts]);
 
-  const groupCounts = useMemo<Array<[string, number]>>(() => {
-    if (stats?.countByGroup) {
-      return Object.entries(stats.countByGroup).sort((a, b) => b[1] - a[1]);
-    }
-    const fallback = new Map<string, number>();
-    for (const spec of promptList) {
-      const key = spec.group ?? 'ungrouped';
-      fallback.set(key, (fallback.get(key) ?? 0) + 1);
-    }
-    return Array.from(fallback.entries()).sort((a, b) => b[1] - a[1]);
-  }, [stats, promptList]);
+  const groupCounts = useMemo(
+    () => buildGroupCounts(stats?.countByGroup, promptList),
+    [stats, promptList],
+  );
 
-  const feed = useMemo(() => buildSortedFeed(promptList), [promptList]);
+  const fullFeed = useMemo(() => buildActivityFeed(promptList), [promptList]);
   const openWork = useMemo(() => buildOpenWork(promptList), [promptList]);
   const lastRelease = useMemo(() => findLastRelease(promptList), [promptList]);
+
+  const [filterKind, setFilterKind] = useState<FeedFilterKind>('all');
+  const [timeWindow, setTimeWindow] = useState<TimeWindow>('24h');
+
+  // Counts per kind, scoped to the active time window so the filter strip
+  // tells the user exactly how many items each chip would surface.
+  const filterCounts = useMemo(() => {
+    const counts: Record<FeedFilterKind, number> = {
+      all: 0,
+      release: 0,
+      run: 0,
+      draft: 0,
+      create: 0,
+    };
+    for (const item of filterFeed(fullFeed, 'all', timeWindow)) {
+      counts.all += 1;
+      counts[item.kind] += 1;
+    }
+    return counts;
+  }, [fullFeed, timeWindow]);
+
+  const visibleFeed = useMemo(
+    () => filterFeed(fullFeed, filterKind, timeWindow).slice(0, ACTIVITY_VISIBLE_LIMIT),
+    [fullFeed, filterKind, timeWindow],
+  );
 
   const totalPrompts = stats?.totalPrompts ?? promptList.length;
   const activePrompts =
@@ -425,7 +422,32 @@ export default function Dashboard() {
     stats?.retiredPrompts ??
     promptList.filter((p) => p.status === 'RETIRED').length;
 
+  const goToNew = useCallback(() => navigate('/prompts/new'), [navigate]);
+  const goToCatalog = useCallback(() => navigate('/prompts'), [navigate]);
+
+  // Global keyboard shortcuts: N = new prompt, P = browse catalog. Ignored
+  // while the user is typing in any input/textarea/select/contenteditable.
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (isTypingTarget(event.target)) return;
+      const key = event.key.toLowerCase();
+      if (key === 'n') {
+        event.preventDefault();
+        goToNew();
+      } else if (key === 'p') {
+        event.preventDefault();
+        goToCatalog();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [goToNew, goToCatalog]);
+
   const hasError = Boolean(statsError || promptsError);
+  const showFeedSkeleton = isPromptsLoading && fullFeed.length === 0;
+  const totalFiltered = filterCounts.all;
+  const hasMore = visibleFeed.length < filterFeed(fullFeed, filterKind, timeWindow).length;
 
   return (
     <div
@@ -449,7 +471,9 @@ export default function Dashboard() {
             fontSize: 13,
           }}
         >
-          {statsError && <div>Failed to load corpus stats: {statsError.message}</div>}
+          {statsError && (
+            <div>Failed to load corpus stats: {statsError.message}</div>
+          )}
           {promptsError && <div>Failed to load prompts: {promptsError.message}</div>}
         </div>
       )}
@@ -500,7 +524,6 @@ export default function Dashboard() {
           )}
         </p>
 
-        {/* Group strip — jump to filtered catalog. One-shot orientation, not a permanent rail. */}
         <div
           style={{
             display: 'flex',
@@ -540,38 +563,60 @@ export default function Dashboard() {
           alignItems: 'start',
         }}
       >
-        {/* Center — activity feed */}
         <section>
           <div
             style={{
               display: 'flex',
               alignItems: 'baseline',
               justifyContent: 'space-between',
+              gap: 14,
               marginBottom: 6,
+              flexWrap: 'wrap',
             }}
           >
-            <Eyebrow>recent activity</Eyebrow>
-            <a
-              href="/prompts"
-              style={{
-                fontSize: 12.5,
-                color: 'var(--pl-ink-600)',
-                textDecoration: 'none',
-                borderBottom: '1px solid var(--pl-ink-300)',
-                paddingBottom: 1,
-              }}
-            >
-              All prompts →
-            </a>
+            <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 12 }}>
+              <Eyebrow>recent activity · {TIME_WINDOW_LABELS[timeWindow]}</Eyebrow>
+            </div>
+            <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 14 }}>
+              {TIME_WINDOWS.map((win) => (
+                <FilterButton
+                  key={win}
+                  label={TIME_WINDOW_LABELS[win]}
+                  active={timeWindow === win}
+                  onClick={() => setTimeWindow(win)}
+                />
+              ))}
+            </div>
           </div>
-          {isPromptsLoading && feed.length === 0 ? (
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: 16,
+              padding: '4px 0 10px',
+              flexWrap: 'wrap',
+            }}
+          >
+            {FEED_FILTERS.map((kind) => (
+              <FilterButton
+                key={kind}
+                label={FEED_FILTER_LABELS[kind]}
+                active={filterKind === kind}
+                count={filterCounts[kind]}
+                onClick={() => setFilterKind(kind)}
+              />
+            ))}
+          </div>
+
+          {showFeedSkeleton ? (
             <div style={{ paddingTop: 8 }}>
               <SkeletonRow width="55%" />
               <SkeletonRow width="70%" />
               <SkeletonRow width="60%" />
               <SkeletonRow width="65%" />
             </div>
-          ) : feed.length === 0 ? (
+          ) : visibleFeed.length === 0 ? (
             <div
               style={{
                 marginTop: 16,
@@ -583,12 +628,13 @@ export default function Dashboard() {
                 lineHeight: 1.6,
               }}
             >
-              No activity yet. Create a prompt or run an existing one to see it
-              show up here.
+              {totalFiltered === 0 && filterKind === 'all'
+                ? 'No activity in this window. Widen the time range or run a prompt to see it here.'
+                : `No ${FEED_FILTER_LABELS[filterKind]} in this window.`}
             </div>
           ) : (
             <div>
-              {feed.map((item) => (
+              {visibleFeed.map((item) => (
                 <ActivityRow
                   key={item.key}
                   item={item}
@@ -599,11 +645,35 @@ export default function Dashboard() {
                   }
                 />
               ))}
+              {hasMore && (
+                <div
+                  style={{
+                    borderTop: '1px solid var(--pl-ink-200)',
+                    padding: '14px 0',
+                    textAlign: 'center',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setTimeWindow('all')}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      padding: 0,
+                      fontFamily: 'var(--pl-display)',
+                      fontSize: 12.5,
+                      color: 'var(--pl-ink-600)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    View older activity →
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </section>
 
-        {/* Right rail — open work */}
         <aside style={{ position: 'sticky', top: 28 }}>
           <Eyebrow>open work</Eyebrow>
           <p
@@ -633,11 +703,7 @@ export default function Dashboard() {
                 <OpenWorkRow
                   key={item.key}
                   item={item}
-                  onClick={
-                    item.href
-                      ? () => navigate(item.href!)
-                      : undefined
-                  }
+                  onClick={item.href ? () => navigate(item.href!) : undefined}
                 />
               ))
             )}
@@ -646,71 +712,16 @@ export default function Dashboard() {
           <div style={{ height: 1, background: 'var(--pl-ink-200)', margin: '20px 0' }} />
 
           <Eyebrow>quick actions</Eyebrow>
-          <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <button
-              type="button"
-              onClick={() => navigate('/prompts/new')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                width: '100%',
-                padding: '8px 10px',
-                background: 'transparent',
-                border: '1px solid var(--pl-ink-200)',
-                borderRadius: 6,
-                cursor: 'pointer',
-                fontFamily: 'var(--pl-display)',
-                fontSize: 12.5,
-                color: 'var(--pl-ink-800)',
-                textAlign: 'left',
-              }}
-            >
-              <span>New prompt</span>
-              <Mono
-                size={10.5}
-                color="var(--pl-ink-500)"
-                style={{
-                  border: '1px solid var(--pl-ink-300)',
-                  padding: '1px 5px',
-                  borderRadius: 3,
-                }}
-              >
-                N
-              </Mono>
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/prompts')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                width: '100%',
-                padding: '8px 10px',
-                background: 'transparent',
-                border: '1px solid var(--pl-ink-200)',
-                borderRadius: 6,
-                cursor: 'pointer',
-                fontFamily: 'var(--pl-display)',
-                fontSize: 12.5,
-                color: 'var(--pl-ink-800)',
-                textAlign: 'left',
-              }}
-            >
-              <span>Browse catalog</span>
-              <Mono
-                size={10.5}
-                color="var(--pl-ink-500)"
-                style={{
-                  border: '1px solid var(--pl-ink-300)',
-                  padding: '1px 5px',
-                  borderRadius: 3,
-                }}
-              >
-                P
-              </Mono>
-            </button>
+          <div
+            style={{
+              marginTop: 10,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+            }}
+          >
+            <QuickActionButton label="New prompt" kbd="N" onClick={goToNew} />
+            <QuickActionButton label="Browse catalog" kbd="P" onClick={goToCatalog} />
           </div>
         </aside>
       </div>
