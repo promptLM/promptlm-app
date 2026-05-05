@@ -1,0 +1,144 @@
+#
+# Copyright 2025 promptLM
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Acceptance Tests
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Nightly full run against the default branch at 03:00 UTC.
+    - cron: '0 3 * * *'
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  decide:
+    name: Decide whether to run acceptance
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+      reason: ${{ steps.decide.outputs.reason }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect changed paths
+        id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            critical:
+              - 'pom.xml'
+              - '**/pom.xml'
+              - 'acceptance-tests/**'
+              - 'components/repository-template/**'
+              - '.github/workflows/acceptance.yml'
+              - '.github/workflows/CI.yml'
+
+      - name: Decide
+        id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          LABEL_NAME: ${{ github.event.label.name }}
+          HAS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'run-acceptance') }}
+          PATHS_MATCH: ${{ steps.filter.outputs.critical }}
+        run: |
+          run=false
+          reason=""
+          case "$EVENT" in
+            workflow_dispatch)
+              run=true; reason="manual dispatch"
+              ;;
+            schedule)
+              run=true; reason="nightly schedule"
+              ;;
+            pull_request)
+              if [[ "$ACTION" == "labeled" ]]; then
+                if [[ "$LABEL_NAME" == "run-acceptance" ]]; then
+                  run=true; reason="run-acceptance label added"
+                else
+                  reason="unrelated label '$LABEL_NAME' — skipping"
+                fi
+              else
+                if [[ "$HAS_LABEL" == "true" ]]; then
+                  run=true; reason="run-acceptance label present"
+                elif [[ "$PATHS_MATCH" == "true" ]]; then
+                  run=true; reason="critical paths changed"
+                else
+                  reason="no critical paths and no label — skipping"
+                fi
+              fi
+              ;;
+            *)
+              reason="unsupported event '$EVENT'"
+              ;;
+          esac
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "reason=$reason" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Acceptance gate::run=$run ($reason)"
+
+  acceptance:
+    name: Acceptance Tests
+    needs: decide
+    if: needs.decide.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      REPO_REMOTE_URL: ${{ secrets.REPO_REMOTE_URL }}
+      REPO_REMOTE_USERNAME: ${{ secrets.REPO_REMOTE_USERNAME }}
+      REPO_REMOTE_TOKEN: ${{ secrets.REPO_REMOTE_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+          server-id: github
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - name: Build promptLM Framework
+        run: mvn -B -DskipTests install
+
+      - name: Run Acceptance Tests
+        run: mvn -B -f acceptance-tests/pom.xml -Dpromptlm.bootstrap.skip=true test
+
+      - name: Upload Acceptance Test Artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: acceptance-tests-${{ github.sha }}
+          if-no-files-found: warn
+          path: |
+            acceptance-tests/target/surefire-reports/**
+            acceptance-tests/target/screenshots/**
+            acceptance-tests/target/traces/**
+          retention-days: 1
