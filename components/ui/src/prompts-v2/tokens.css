@@ -1,0 +1,118 @@
+/* Copyright 2025 promptLM
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ */
+
+/* promptLM v2 design tokens — slate ink + electric signal.
+ * Loaded by both @promptlm/web-ui (via main.tsx) and the storybook
+ * preview. Fonts (Geist, JetBrains Mono) are loaded by the host app. */
+:root {
+  /* Slate / paper neutrals — cool */
+  --pl-ink-900: oklch(0.16 0.02 250);
+  --pl-ink-800: oklch(0.22 0.02 250);
+  --pl-ink-700: oklch(0.32 0.018 250);
+  --pl-ink-600: oklch(0.45 0.015 250);
+  --pl-ink-500: oklch(0.58 0.012 250);
+  --pl-ink-400: oklch(0.72 0.01 245);
+  --pl-ink-300: oklch(0.84 0.008 240);
+  --pl-ink-200: oklch(0.92 0.006 240);
+  --pl-ink-100: oklch(0.965 0.004 240);
+  --pl-paper:   oklch(0.985 0.003 240);
+  --pl-canvas:  oklch(0.975 0.005 235);
+
+  /* Signal — electric cyan/blue */
+  --pl-signal:        oklch(0.78 0.16 220);
+  --pl-signal-bright: oklch(0.86 0.18 215);
+  --pl-signal-deep:   oklch(0.55 0.18 235);
+  --pl-signal-ink:    oklch(0.32 0.14 240);
+
+  /* Functional accents — share chroma 0.13, lightness 0.68 */
+  --pl-ok:    oklch(0.74 0.13 155);
+  --pl-warn:  oklch(0.78 0.13 75);
+  --pl-fail:  oklch(0.66 0.18 25);
+
+  /* Type */
+  --pl-display: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --pl-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* Radii / shadows */
+  --pl-r-sm: 4px;
+  --pl-r-md: 8px;
+  --pl-r-lg: 14px;
+  --pl-shadow-sm: 0 1px 0 oklch(0.2 0.02 250 / 0.04), 0 1px 2px oklch(0.2 0.02 250 / 0.05);
+  --pl-shadow-md: 0 1px 0 oklch(0.2 0.02 250 / 0.04), 0 12px 32px -12px oklch(0.2 0.02 250 / 0.18);
+  --pl-shadow-lg: 0 1px 0 oklch(0.2 0.02 250 / 0.05), 0 28px 64px -20px oklch(0.2 0.02 250 / 0.22);
+}
+
+/* base */
+.pl {
+  font-family: var(--pl-display);
+  color: var(--pl-ink-900);
+  background: var(--pl-paper);
+  font-feature-settings: 'ss01', 'cv11';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+.pl-mono { font-family: var(--pl-mono); font-feature-settings: 'zero', 'ss02'; letter-spacing: -0.005em; }
+
+/* hairline grid background */
+.pl-grid-bg {
+  background-image:
+    linear-gradient(to right, oklch(0.2 0.02 250 / 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(0.2 0.02 250 / 0.045) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.pl-eyebrow {
+  font-family: var(--pl-mono);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--pl-ink-600);
+}
+
+.pl-btn {
+  font-family: var(--pl-display);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  border-radius: var(--pl-r-md);
+  padding: 10px 16px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.pl-btn-primary { background: var(--pl-ink-900); color: var(--pl-paper); }
+.pl-btn-primary:hover { background: var(--pl-ink-800); }
+.pl-btn-ghost { background: transparent; color: var(--pl-ink-900); border-color: var(--pl-ink-300); }
+.pl-btn-ghost:hover { background: var(--pl-ink-100); }
+.pl-btn-signal {
+  background: var(--pl-paper);
+  color: var(--pl-ink-900);
+  border-color: var(--pl-ink-200);
+  box-shadow: inset 0 0 0 1px var(--pl-paper), var(--pl-shadow-sm);
+}
+
+.pl-card {
+  background: var(--pl-paper);
+  border: 1px solid var(--pl-ink-200);
+  border-radius: var(--pl-r-lg);
+}
+
+.pl-divider { height: 1px; background: var(--pl-ink-200); }
+
+/* signal dot pulse */
+@keyframes pl-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.85); }
+}
+.pl-pulse { animation: pl-pulse 2s ease-in-out infinite; }

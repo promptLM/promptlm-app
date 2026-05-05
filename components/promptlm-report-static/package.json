@@ -1,0 +1,27 @@
+{
+  "name": "@promptlm/report-static",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "ui:build": "npm --workspace @promptlm/ui run build",
+    "predev": "npm run ui:build",
+    "prebuild": "npm run ui:build",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@promptlm/ui": "0.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.8.3",
+    "vite": "^5.4.19",
+    "vite-plugin-singlefile": "^2.1.0"
+  }
+}

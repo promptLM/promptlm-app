@@ -6,14 +6,22 @@ import {
   AppShellHeader,
   CloneProjectForm,
   CreateProjectForm,
+  DiffLine,
   ImportLocalProjectForm,
   InfoCard,
   InfoCardHeader,
+  MetaPill,
+  MiniLogo,
+  Mono,
+  PlaceholderToken,
   ProjectSelectionDialog,
-  PromptEditorHeader,
-  PromptEditorTabs,
+  PromptFormPage,
   SectionCard,
   SideNav,
+  Sparkline,
+  StatusDot,
+  Tag,
+  VendorMark,
 } from '../dist/index.js';
 import { renderWithPromptLMTheme } from './renderWithPromptLMTheme.mjs';
 
@@ -105,51 +113,107 @@ const verifyInfoAndSectionCards = () => {
   assert.match(sectionCardMarkup, /Prompt details/);
 };
 
-const verifyPromptEditorExports = () => {
-  const headerMarkup = renderWithPromptLMTheme(
-    React.createElement(PromptEditorHeader, {
-      mode: 'create',
-      title: 'Create Prompt',
-      description: 'Draft a new prompt definition.',
-      messages: [{ severity: 'info', text: 'Latest draft saved a minute ago.' }],
-      onCreate: () => undefined,
-      onBack: () => undefined,
-    }),
-  );
-  const tabsMarkup = renderWithPromptLMTheme(
-    React.createElement(PromptEditorTabs, {
-      tabs: [
-        { value: 'editor', label: 'Editor' },
-        { value: 'preview', label: 'Preview', badge: 2 },
-        { value: 'history', label: 'History' },
-      ],
-      value: 'preview',
-      onChange: () => undefined,
-      executionOptions: {
-        selectedId: 'execution-2',
-        options: [
-          { id: 'execution-1', label: 'Manual run', helperText: '5 min ago' },
-          { id: 'execution-2', label: 'Canary', helperText: '12 min ago' },
-        ],
-        onSelect: () => undefined,
+const verifyPromptFormPageExport = () => {
+  const draft = {
+    name: 'doc-rag-answer',
+    group: 'rag',
+    description: 'Answer doc questions',
+    request: {
+      type: 'chat',
+      vendor: 'openai',
+      model: 'gpt-4.1',
+      modelSnapshot: '',
+      parameters: {
+        temperature: 0.2,
+        topP: 1,
+        maxTokens: 1024,
+        frequencyPenalty: 0,
+        presencePenalty: 0,
       },
-      tabPanelSlot: React.createElement('div', null, 'Preview content'),
+      messages: [
+        { role: 'system', content: 'You are a helpful assistant.' },
+        { role: 'user', content: 'Hello.' },
+      ],
+    },
+    placeholders: { startPattern: '{{', endPattern: '}}', list: [] },
+    toolConfigs: [],
+    evaluations: [],
+  };
+  const context = {
+    version: '0.1.0',
+    revision: 'r1',
+    repositoryUrl: 'github.com/acme/agents',
+    branch: 'main',
+  };
+  const formMarkup = renderWithPromptLMTheme(
+    React.createElement(PromptFormPage, {
+      mode: 'create',
+      draft,
+      context,
+      evalEnabled: false,
+      onChangeDraft: () => undefined,
+      onToggleEvalEnabled: () => undefined,
+      onCancel: () => undefined,
+      onSaveDraft: () => undefined,
+      onSubmit: () => undefined,
     }),
   );
 
-  assert.match(headerMarkup, /Create Prompt/);
-  assert.match(headerMarkup, /Latest draft saved a minute ago\./);
-  assert.match(headerMarkup, /New prompt/);
-  assert.match(headerMarkup, /Back to prompts/);
-  assert.match(tabsMarkup, /Editor/);
-  assert.match(tabsMarkup, /Preview/);
-  assert.match(tabsMarkup, /Canary/);
-  assert.match(tabsMarkup, /Preview content/);
+  assert.match(formMarkup, /doc-rag-answer/);
+  assert.match(formMarkup, /Save draft/);
+  assert.match(formMarkup, /Identity/);
+  assert.match(formMarkup, /Messages/);
+  assert.match(formMarkup, /github\.com\/acme\/agents/);
+};
+
+const verifyPromptsV2Atoms = () => {
+  const monoMarkup = renderWithPromptLMTheme(
+    React.createElement(Mono, { size: 12, color: 'var(--pl-ink-700)' }, 'prm_8f3a'),
+  );
+  const tagMarkup = renderWithPromptLMTheme(
+    React.createElement(Tag, { tone: 'signal' }, 'v1.8.0'),
+  );
+  const statusMarkup = renderWithPromptLMTheme(
+    React.createElement(StatusDot, { status: 'production' }),
+  );
+  const vendorMarkup = renderWithPromptLMTheme(
+    React.createElement(VendorMark, { vendor: 'anthropic', size: 14 }),
+  );
+  const sparkMarkup = renderWithPromptLMTheme(
+    React.createElement(Sparkline, {
+      values: [1, 2, 3, 2, 4, 5, 4, 6],
+      width: 96,
+      height: 24,
+      ariaLabel: 'success rate trend',
+    }),
+  );
+  const logoMarkup = renderWithPromptLMTheme(React.createElement(MiniLogo, { size: 22 }));
+  const pillMarkup = renderWithPromptLMTheme(
+    React.createElement(MetaPill, { label: 'version', value: '1.8.0', mono: true }),
+  );
+  const placeholderMarkup = renderWithPromptLMTheme(
+    React.createElement(PlaceholderToken, { name: 'agent_name' }),
+  );
+  const diffMarkup = renderWithPromptLMTheme(
+    React.createElement(DiffLine, { kind: 'add' }, 'added line'),
+  );
+
+  assert.match(monoMarkup, /prm_8f3a/);
+  assert.match(tagMarkup, /v1\.8\.0/);
+  assert.match(statusMarkup, /production/);
+  assert.match(vendorMarkup, /<span/);
+  assert.match(sparkMarkup, /success rate trend/);
+  assert.match(logoMarkup, /<svg/);
+  assert.match(pillMarkup, /version/);
+  assert.match(pillMarkup, /1\.8\.0/);
+  assert.match(placeholderMarkup, /\{\{agent_name\}\}/);
+  assert.match(diffMarkup, /added line/);
 };
 
 verifyLayoutExports();
 verifyInfoAndSectionCards();
-verifyPromptEditorExports();
+verifyPromptFormPageExport();
+verifyPromptsV2Atoms();
 
 console.log('UI package smoke checks passed');
 process.exit(0);

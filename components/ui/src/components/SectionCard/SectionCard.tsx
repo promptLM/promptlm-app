@@ -26,6 +26,14 @@ export type SectionCardProps = {
   contentSx?: SxProps<Theme>;
 };
 
+/**
+ * Outlined card primitive used by non-form surfaces (catalog filters, info
+ * cards). The prompt editor used to render through this; the v2 form is
+ * now standalone (`prompts-v2/form/PromptFormPage`) and no longer routes
+ * through SectionCard. The chrome variant context that bridged the
+ * cards-stack rewrite (#88) was removed alongside the cards in #93's
+ * cleanup.
+ */
 export const SectionCard: React.FC<SectionCardProps> = ({
   title,
   subtitle,
@@ -65,11 +73,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
     : [headerBaseSx];
 
   return (
-    <Paper
-      elevation={0}
-      variant="outlined"
-      sx={paperSx}
-    >
+    <Paper elevation={0} variant="outlined" sx={paperSx}>
       <Box sx={headerMergedSx}>
         <Box>
           <Typography variant="subtitle1" fontWeight={600} color="text.primary">

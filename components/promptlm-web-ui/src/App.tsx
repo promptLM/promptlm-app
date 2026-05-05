@@ -19,13 +19,15 @@ import { TooltipProvider } from '@promptlm/ui';
 import { createPromptLMTheme } from '@promptlm/ui';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { ThemeProvider, useTheme } from "next-themes";
+import { ThemeProvider } from "next-themes";
 import { CssBaseline } from "@mui/material";
 import { ThemeProvider as MuiThemeProvider } from "@mui/material/styles";
-import { Header } from "@/components/layout/Header";
+import { AppShellLayout } from "@/components/layout/AppShellLayout";
 import Index from "./pages/Index";
 import Prompts from "./pages/Prompts";
 import PromptDetail from "./pages/PromptDetail";
+import PromptDiff from "./pages/PromptDiff";
+import PromptEdit from "./pages/PromptEdit";
 import NewPrompt from "./pages/NewPrompt";
 import Projects from "./pages/Projects";
 import NotFound from "./pages/NotFound";
@@ -46,10 +48,12 @@ const ExtensionsBootstrap = () => {
   return null;
 };
 
+// v2 ships in light only — dark-mode tokens were not part of the design
+// handoff. We pin next-themes to "light" so existing components built on the
+// HSL `--background`/`--foreground` Tailwind tokens render against the same
+// palette as the new --pl-* tokens. Re-enable when a dark token pass lands.
 const MuiThemeBridge = ({ children }: { children: ReactNode }) => {
-  const { resolvedTheme } = useTheme();
-  const variant = resolvedTheme === "light" ? "lightTech" : "darkAurora";
-  const muiTheme = useMemo(() => createPromptLMTheme({ variant }), [variant]);
+  const muiTheme = useMemo(() => createPromptLMTheme({ variant: 'lightTech' }), []);
 
   return (
     <MuiThemeProvider theme={muiTheme}>
@@ -65,28 +69,24 @@ const App = () => (
     <GeneratedApiClientProvider>
       <ProjectsProvider>
         <ExtensionsBootstrap />
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
           <MuiThemeBridge>
             <TooltipProvider>
               <Toaster />
               <Sonner />
               <BrowserRouter>
-                <div className="min-h-screen bg-background flex flex-col">
-                  <Header />
-                  <main
-                    className="container flex-1 min-h-0 overflow-y-auto py-6"
-                    data-testid="app-main-content"
-                  >
-                    <Routes>
-                      <Route path="/" element={<Index />} />
-                      <Route path="/prompts" element={<Prompts />} />
-                      <Route path="/prompts/new" element={<NewPrompt />} />
-                      <Route path="/prompts/:id" element={<PromptDetail />} />
-                      <Route path="/projects" element={<Projects />} />
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </main>
-                </div>
+                <AppShellLayout>
+                  <Routes>
+                    <Route path="/" element={<Index />} />
+                    <Route path="/prompts" element={<Prompts />} />
+                    <Route path="/prompts/new" element={<NewPrompt />} />
+                    <Route path="/prompts/:id" element={<PromptDetail />} />
+                    <Route path="/prompts/:id/diff" element={<PromptDiff />} />
+                    <Route path="/prompts/:id/edit" element={<PromptEdit />} />
+                    <Route path="/projects" element={<Projects />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </AppShellLayout>
               </BrowserRouter>
             </TooltipProvider>
           </MuiThemeBridge>

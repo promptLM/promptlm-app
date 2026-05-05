@@ -1,0 +1,29 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "webui",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--workspace", "@promptlm/web-ui", "--", "--port", "5174"],
+      "port": 5174
+    },
+    {
+      "name": "report-static",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--workspace", "@promptlm/report-static"],
+      "port": 5180
+    },
+    {
+      "name": "handoff-webui",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "5181", "--directory", "design/handoff/webui"],
+      "port": 5181
+    },
+    {
+      "name": "handoff-playbook",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "5182", "--directory", "design/handoff"],
+      "port": 5182
+    }
+  ]
+}

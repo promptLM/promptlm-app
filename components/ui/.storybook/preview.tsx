@@ -16,6 +16,7 @@ import type { Decorator, Preview } from '@storybook/react';
 import React from 'react';
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import { createPromptLMTheme } from '../src/theme/createPromptLMTheme';
+import '../src/prompts-v2/tokens.css';
 
 const withTheme: Decorator = (Story, context) => {
   const variant = context.globals.themeVariant ?? 'lightTech';

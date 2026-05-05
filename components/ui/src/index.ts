@@ -65,4 +65,26 @@ export * from './components/ui/toast';
 export * from './components/ui/toggle-group';
 export * from './components/ui/toggle';
 export * from './components/ui/tooltip';
-export * from './prompt-editor';
+// Editor surface: the prompt form lives at `prompts-v2/form/PromptFormPage`.
+// `./prompt-editor` retains type aliases consumed by the webapp's draft
+// reducer and persistence helpers; runtime components were removed in #93's
+// cleanup.
+export type {
+  PromptEditorTab,
+  PromptEditorTabDefinition,
+  PromptEditorExecutionOption,
+  PromptEditorMode,
+  PromptEditorBannerMessage,
+  PromptEditorMessage,
+  PromptEditorMessageRole,
+  PromptEditorPlaceholder,
+  PromptEditorPlaceholderConfig,
+  PromptEditorToolConfig,
+  PromptEditorEvaluationPlan,
+  PromptEditorEvaluationResult,
+  PromptEditorExecution,
+  PromptEditorRequestDraft,
+  MessageContentSelection,
+} from './prompt-editor';
+export { DEFAULT_MESSAGE_ROLES } from './prompt-editor';
+export * from './prompts-v2';

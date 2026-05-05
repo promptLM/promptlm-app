@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { PromptEditorPage } from '@/features/prompt-editor/PromptEditorPage';
+import { PromptFormShell } from '@/features/prompt-editor/PromptFormShell';
 
 export default function NewPrompt() {
-  return <PromptEditorPage mode="create" promptId={null} />;
+  return <PromptFormShell mode="create" promptId={null} />;
 }

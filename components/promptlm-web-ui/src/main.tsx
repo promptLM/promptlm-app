@@ -15,5 +15,6 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import "@promptlm/ui/prompts-v2/tokens.css";
 
 createRoot(document.getElementById("root")!).render(<App />);
