@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   DetailSection,
@@ -26,12 +26,22 @@ import {
   SpecBlock,
 } from '@promptlm/ui';
 import { usePromptDetails } from '@/api/hooks';
+import { useGeneratedApiClient } from '@api-common/generatedClientProvider';
 import { mapPromptSpecToDetailViewModel } from '@api-common/viewModels/promptsV2';
 import { featureFlags } from '@/lib/featureFlags';
+import { useToast } from '@/hooks/use-toast';
+import { toDisplayError } from '@api-common/apiError';
 
 const DETAIL_TOPBAR_HEIGHT = 52;
 
-const TopBar = ({ name, editTo }: { name: string; editTo: string }) => (
+interface TopBarProps {
+  name: string;
+  editTo: string;
+  isRunning: boolean;
+  onRun: () => void;
+}
+
+const TopBar = ({ name, editTo, isRunning, onRun }: TopBarProps) => (
   <header
     style={{
       height: DETAIL_TOPBAR_HEIGHT,
@@ -47,6 +57,22 @@ const TopBar = ({ name, editTo }: { name: string; editTo: string }) => (
       prompts / <span style={{ color: 'var(--pl-ink-800)' }}>{name}</span>
     </Mono>
     <div style={{ flex: 1 }} />
+    <button
+      type="button"
+      onClick={onRun}
+      disabled={isRunning}
+      className="pl-btn pl-btn-ghost"
+      data-testid="prompt-run-action"
+      style={{
+        height: 32,
+        padding: '0 14px',
+        fontSize: 13,
+        cursor: isRunning ? 'wait' : 'pointer',
+      }}
+    >
+      <span style={{ fontFamily: 'var(--pl-mono)', fontSize: 11, marginRight: 6 }}>▷</span>
+      {isRunning ? 'Running…' : 'Run'}
+    </button>
     <Link
       to={editTo}
       className="pl-btn pl-btn-primary"
@@ -65,8 +91,43 @@ const TopBar = ({ name, editTo }: { name: string; editTo: string }) => (
 
 export default function PromptDetail() {
   const { id } = useParams<{ id: string }>();
-  const { data, isLoading, error } = usePromptDetails(id ?? null);
+  const { data, isLoading, error, refresh } = usePromptDetails(id ?? null);
+  const { promptSpecs } = useGeneratedApiClient();
+  const { toast } = useToast();
+  const [isRunning, setIsRunning] = useState(false);
   const view = useMemo(() => (data ? mapPromptSpecToDetailViewModel(data) : null), [data]);
+
+  /**
+   * Detail-page Run CTA — implements the playbook's
+   * `executeStoredPrompt(id)` contract from
+   * `design/handoff/playbook/surfaces/detail.html`. Calls the generated
+   * client, surfaces success / failure via toast, and refreshes the prompt
+   * details so the new execution appears in the metrics strip and recent
+   * runs table without a manual reload.
+   */
+  const handleRun = useCallback(async () => {
+    if (!id || isRunning) {
+      return;
+    }
+    setIsRunning(true);
+    try {
+      await promptSpecs.executeStoredPrompt(id);
+      await refresh();
+      toast({
+        title: 'Prompt executed',
+        description: 'New run appended to recent executions.',
+      });
+    } catch (err) {
+      const display = toDisplayError(err);
+      toast({
+        variant: 'destructive',
+        title: 'Run failed',
+        description: display.message,
+      });
+    } finally {
+      setIsRunning(false);
+    }
+  }, [id, isRunning, promptSpecs, refresh, toast]);
 
   if (!id) {
     return (
@@ -116,7 +177,7 @@ export default function PromptDetail() {
         flexDirection: 'column',
       }}
     >
-      <TopBar name={view.name} editTo={editTo} />
+      <TopBar name={view.name} editTo={editTo} isRunning={isRunning} onRun={handleRun} />
 
       <PromptDetailHeader
         name={view.name}
