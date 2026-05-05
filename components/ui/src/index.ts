@@ -65,5 +65,19 @@ export * from './components/ui/toast';
 export * from './components/ui/toggle-group';
 export * from './components/ui/toggle';
 export * from './components/ui/tooltip';
-export * from './prompt-editor';
+// Editor surface: v2 cards win at the package barrel. The legacy MUI cards
+// remain importable via `@promptlm/ui` only for non-conflicting items
+// (PromptEditorHeader, PromptEditorTabs, shared types). Webapp consumers should
+// import editor cards from the v2 barrel (`./prompts-v2`) — see issues #89/#90.
+export {
+  PromptEditorHeader,
+  PromptEditorTabs,
+} from './prompt-editor';
+export type {
+  PromptEditorHeaderProps,
+  PromptEditorTabsProps,
+  PromptEditorTab,
+  PromptEditorTabDefinition,
+  PromptEditorExecutionOption,
+} from './prompt-editor';
 export * from './prompts-v2';

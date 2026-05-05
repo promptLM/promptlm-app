@@ -18,3 +18,51 @@ export type {
   EditorTopBarMessage,
   EditorMode,
 } from './EditorTopBar';
+
+export {
+  EvaluationPlanCard,
+  EvaluationResultsCard,
+  LastExecutionCard,
+  MessagesCard,
+  MetadataCard,
+  ModelConfigurationCard,
+  PlaceholdersCard,
+  PromptPreviewCard,
+  ToolConfigsCard,
+} from './cards';
+
+export { PromptEditorTabsLayout } from './PromptEditorTabsLayout';
+
+// Re-export the prop types and value types so consumers can import everything
+// they need from `@promptlm/ui` (prompts-v2/editor) without reaching back into
+// `prompt-editor/*`. Behaviour is preserved one-to-one with the legacy cards;
+// only the surrounding chrome shifts to the v2 variant.
+export { DEFAULT_MESSAGE_ROLES } from '../../prompt-editor/PromptEditorSections';
+export type {
+  EvaluationPlanCardProps,
+  EvaluationPlanErrors,
+  EvaluationResultsCardProps,
+  LastExecutionCardProps,
+  MessageContentSelection,
+  MessagesCardProps,
+  MessagesErrors,
+  MetadataCardProps,
+  MetadataErrors,
+  ModelConfigurationCardProps,
+  ModelConfigurationErrors,
+  PlaceholdersCardProps,
+  PlaceholdersErrors,
+  PromptEditorEvaluationPlan,
+  PromptEditorEvaluationResult,
+  PromptEditorExecution,
+  PromptEditorMessage,
+  PromptEditorMessageRole,
+  PromptEditorPlaceholder,
+  PromptEditorPlaceholderConfig,
+  PromptEditorRequestDraft,
+  PromptEditorTabsLayoutProps,
+  PromptEditorToolConfig,
+  PromptPreviewCardProps,
+  ToolConfigsCardProps,
+  ToolConfigsErrors,
+} from '../../prompt-editor/PromptEditorSections';

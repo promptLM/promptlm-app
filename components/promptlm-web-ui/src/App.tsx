@@ -26,6 +26,7 @@ import { AppShellLayout } from "@/components/layout/AppShellLayout";
 import Index from "./pages/Index";
 import Prompts from "./pages/Prompts";
 import PromptDetail from "./pages/PromptDetail";
+import PromptDiff from "./pages/PromptDiff";
 import PromptEdit from "./pages/PromptEdit";
 import NewPrompt from "./pages/NewPrompt";
 import Projects from "./pages/Projects";
@@ -80,6 +81,7 @@ const App = () => (
                     <Route path="/prompts" element={<Prompts />} />
                     <Route path="/prompts/new" element={<NewPrompt />} />
                     <Route path="/prompts/:id" element={<PromptDetail />} />
+                    <Route path="/prompts/:id/diff" element={<PromptDiff />} />
                     <Route path="/prompts/:id/edit" element={<PromptEdit />} />
                     <Route path="/projects" element={<Projects />} />
                     <Route path="*" element={<NotFound />} />
