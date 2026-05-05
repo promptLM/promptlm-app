@@ -24,7 +24,7 @@ export { PlaceholderTable } from './PlaceholderTable';
 export type { PlaceholderTableProps } from './PlaceholderTable';
 export { RevisionHistoryTable } from './RevisionHistoryTable';
 export type { RevisionHistoryTableProps } from './RevisionHistoryTable';
-export { ExecutionsTable } from './ExecutionsTable';
+export { ExecutionsTable, executionRowDomId } from './ExecutionsTable';
 export type { ExecutionsTableProps } from './ExecutionsTable';
 export { PromptDetailHeader } from './PromptDetailHeader';
 export type { PromptDetailHeaderProps } from './PromptDetailHeader';

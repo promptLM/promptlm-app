@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   DetailSection,
   ExecutionsTable,
+  executionRowDomId,
   KV,
   MessageBlock,
   MetricsStrip,
@@ -24,6 +25,7 @@ import {
   PlaceholderTable,
   PromptDetailHeader,
   SpecBlock,
+  ToastAction,
 } from '@promptlm/ui';
 import { usePromptDetails } from '@/api/hooks';
 import { useGeneratedApiClient } from '@api-common/generatedClientProvider';
@@ -31,6 +33,8 @@ import { mapPromptSpecToDetailViewModel } from '@api-common/viewModels/promptsV2
 import { featureFlags } from '@/lib/featureFlags';
 import { useToast } from '@/hooks/use-toast';
 import { toDisplayError } from '@api-common/apiError';
+
+const HIGHLIGHT_MS = 3500;
 
 const DETAIL_TOPBAR_HEIGHT = 52;
 
@@ -95,7 +99,31 @@ export default function PromptDetail() {
   const { promptSpecs } = useGeneratedApiClient();
   const { toast } = useToast();
   const [isRunning, setIsRunning] = useState(false);
+  const [highlightedExecutionId, setHighlightedExecutionId] = useState<string | null>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const view = useMemo(() => (data ? mapPromptSpecToDetailViewModel(data) : null), [data]);
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current);
+      }
+    };
+  }, []);
+
+  const focusExecution = useCallback((executionId: string) => {
+    setHighlightedExecutionId(executionId);
+    if (typeof document !== 'undefined') {
+      const node = document.getElementById(executionRowDomId(executionId));
+      node?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    if (highlightTimerRef.current) {
+      clearTimeout(highlightTimerRef.current);
+    }
+    highlightTimerRef.current = setTimeout(() => {
+      setHighlightedExecutionId((current) => (current === executionId ? null : current));
+    }, HIGHLIGHT_MS);
+  }, []);
 
   /**
    * Detail-page Run CTA — implements the playbook's
@@ -104,6 +132,12 @@ export default function PromptDetail() {
    * client, surfaces success / failure via toast, and refreshes the prompt
    * details so the new execution appears in the metrics strip and recent
    * runs table without a manual reload.
+   *
+   * Per #95's design call (designer comment: "the toast should link to the
+   * new entry in executions[] so the user can drill into the run they just
+   * kicked off without hunting"), the success toast carries a "View
+   * execution" action that scrolls to and briefly highlights the new row
+   * in the executions table.
    */
   const handleRun = useCallback(async () => {
     if (!id || isRunning) {
@@ -111,11 +145,25 @@ export default function PromptDetail() {
     }
     setIsRunning(true);
     try {
-      await promptSpecs.executeStoredPrompt(id);
+      const updated = await promptSpecs.executeStoredPrompt(id);
       await refresh();
+      // executeStoredPrompt returns the full PromptSpec including the newly
+      // appended execution; pluck the most recent one (newest first by
+      // existing convention) so the toast action can scroll to it.
+      const newExecutionId = updated?.executions?.[0]?.id ?? null;
       toast({
         title: 'Prompt executed',
         description: 'New run appended to recent executions.',
+        action: newExecutionId
+          ? (
+              <ToastAction
+                altText="Scroll to the new execution"
+                onClick={() => focusExecution(newExecutionId)}
+              >
+                View execution
+              </ToastAction>
+            )
+          : undefined,
       });
     } catch (err) {
       const display = toDisplayError(err);
@@ -127,7 +175,7 @@ export default function PromptDetail() {
     } finally {
       setIsRunning(false);
     }
-  }, [id, isRunning, promptSpecs, refresh, toast]);
+  }, [focusExecution, id, isRunning, promptSpecs, refresh, toast]);
 
   if (!id) {
     return (
@@ -262,7 +310,10 @@ export default function PromptDetail() {
           >
             Last <Mono color="var(--pl-ink-900)">{view.executions.length}</Mono> recorded runs.
           </p>
-          <ExecutionsTable rows={view.executions} />
+          <ExecutionsTable
+            rows={view.executions}
+            highlightedId={highlightedExecutionId}
+          />
         </DetailSection>
       )}
     </div>

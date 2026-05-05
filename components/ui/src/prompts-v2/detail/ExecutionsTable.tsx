@@ -31,9 +31,18 @@ const HEADERS = [
 
 export interface ExecutionsTableProps {
   rows: readonly PromptDetailExecution[];
+  /**
+   * Optional execution id to highlight briefly — used when a fresh run was
+   * just kicked off from the detail-page Run CTA. Callers (e.g. the Run
+   * toast action) supply the id; the row pulses against the cyan signal
+   * background for ~3 seconds.
+   */
+  highlightedId?: string | null;
 }
 
-export const ExecutionsTable: React.FC<ExecutionsTableProps> = ({ rows }) => (
+export const executionRowDomId = (id: string) => `execution-row-${id}`;
+
+export const ExecutionsTable: React.FC<ExecutionsTableProps> = ({ rows, highlightedId }) => (
   <div
     style={{
       border: '1px solid var(--pl-ink-200)',
@@ -63,9 +72,14 @@ export const ExecutionsTable: React.FC<ExecutionsTableProps> = ({ rows }) => (
         </Mono>
       ))}
     </div>
-    {rows.map((r, i) => (
+    {rows.map((r, i) => {
+      const isHighlighted = highlightedId === r.id;
+      return (
       <div
         key={r.id}
+        id={executionRowDomId(r.id)}
+        data-execution-id={r.id}
+        data-testid={`execution-row-${r.id}`}
         style={{
           display: 'grid',
           gridTemplateColumns: COLUMNS,
@@ -73,6 +87,11 @@ export const ExecutionsTable: React.FC<ExecutionsTableProps> = ({ rows }) => (
           padding: '10px 18px',
           gap: 12,
           borderBottom: i === rows.length - 1 ? 'none' : '1px solid var(--pl-ink-200)',
+          background: isHighlighted
+            ? 'color-mix(in oklch, var(--pl-signal) 12%, var(--pl-paper))'
+            : 'transparent',
+          transition: 'background 600ms ease',
+          scrollMarginTop: 80,
         }}
       >
         <Mono size={11} color="var(--pl-ink-700)">
@@ -122,6 +141,7 @@ export const ExecutionsTable: React.FC<ExecutionsTableProps> = ({ rows }) => (
           </Mono>
         </span>
       </div>
-    ))}
+      );
+    })}
   </div>
 );
