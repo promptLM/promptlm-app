@@ -13,29 +13,16 @@
 // limitations under the License.
 
 import React from 'react';
+import { Mono, Tag } from '../prompts-v2/atoms';
 import {
-  Alert,
-  Badge,
-  Box,
-  Button,
-  Chip,
-  Collapse,
-  Divider,
-  FormControl,
-  FormControlLabel,
-  FormHelperText,
-  Grid,
+  Disclosure,
   IconButton,
-  MenuItem,
-  Paper,
-  Select,
-  Stack,
-  Switch,
+  SelectField,
+  SwitchField,
+  TextArea,
   TextField,
-  Tooltip,
-  Typography,
-} from '@mui/material';
-import { ExpandMore, AddCircleOutline, DeleteOutline } from '@mui/icons-material';
+} from '../prompts-v2/forms';
+import type { SelectOption } from '../prompts-v2/forms';
 import type { PromptEditorTab } from './types';
 import { SectionCard } from '../components/SectionCard/SectionCard';
 import { PromptEditorTabs } from './PromptEditorTabs';
@@ -117,11 +104,14 @@ const MESSAGE_ROLE_LABEL: Record<PromptEditorMessageRole, string> = {
   tool: 'Tool',
 };
 
-const MESSAGE_ROLE_COLORS: Record<PromptEditorMessageRole, 'default' | 'primary' | 'secondary' | 'success'> = {
-  system: 'secondary',
-  user: 'primary',
-  assistant: 'success',
-  tool: 'default',
+const MESSAGE_ROLE_TONES: Record<
+  PromptEditorMessageRole,
+  'neutral' | 'signal' | 'ok' | 'warn'
+> = {
+  system: 'signal',
+  user: 'neutral',
+  assistant: 'ok',
+  tool: 'warn',
 };
 
 export type ModelConfigurationErrors = {
@@ -177,6 +167,137 @@ export type MessagesErrors = {
   }[];
 };
 
+const VENDOR_OPTIONS: SelectOption[] = [
+  { value: 'openai', label: 'OpenAI' },
+  { value: 'anthropic', label: 'Anthropic' },
+  { value: 'google', label: 'Google' },
+];
+
+const MODEL_OPTIONS: SelectOption[] = [
+  { value: 'gpt-4o', label: 'gpt-4o' },
+  { value: 'gpt-4o-mini', label: 'gpt-4o-mini' },
+  { value: 'claude-3-5', label: 'claude-3-5' },
+];
+
+const ROW_GRID_2: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+  gap: 12,
+};
+
+const ROW_GRID_3: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+  gap: 12,
+};
+
+const COL_STACK = (gap = 12): React.CSSProperties => ({
+  display: 'flex',
+  flexDirection: 'column',
+  gap,
+});
+
+const ROW_INLINE = (gap = 8): React.CSSProperties => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap,
+  flexWrap: 'wrap',
+});
+
+const InlineAlert: React.FC<{ message: string; tone?: 'fail' | 'warn' | 'signal' }> = ({
+  message,
+  tone = 'fail',
+}) => {
+  const palette = {
+    fail: {
+      bg: 'color-mix(in oklch, var(--pl-fail) 8%, var(--pl-paper))',
+      bd: 'color-mix(in oklch, var(--pl-fail) 30%, var(--pl-ink-200))',
+      fg: 'oklch(0.42 0.13 25)',
+    },
+    warn: {
+      bg: 'color-mix(in oklch, var(--pl-warn) 14%, var(--pl-paper))',
+      bd: 'color-mix(in oklch, var(--pl-warn) 40%, var(--pl-ink-200))',
+      fg: 'oklch(0.42 0.10 75)',
+    },
+    signal: {
+      bg: 'color-mix(in oklch, var(--pl-signal) 8%, var(--pl-paper))',
+      bd: 'color-mix(in oklch, var(--pl-signal) 30%, var(--pl-ink-200))',
+      fg: 'var(--pl-signal-ink)',
+    },
+  }[tone];
+  return (
+    <div
+      role="alert"
+      style={{
+        padding: '8px 12px',
+        borderRadius: 6,
+        background: palette.bg,
+        border: `1px solid ${palette.bd}`,
+        color: palette.fg,
+        fontSize: 12.5,
+        lineHeight: 1.45,
+      }}
+    >
+      {message}
+    </div>
+  );
+};
+
+const Subrow: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div
+    style={{
+      padding: 12,
+      border: '1px solid var(--pl-ink-200)',
+      background: 'var(--pl-paper)',
+      borderRadius: 6,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 10,
+    }}
+  >
+    {children}
+  </div>
+);
+
+const PrimaryButton: React.FC<{
+  type?: 'button' | 'submit';
+  onClick?: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+  testId?: string;
+}> = ({ type = 'button', onClick, disabled, children, testId }) => (
+  <button
+    type={type}
+    className="pl-btn pl-btn-primary"
+    onClick={onClick}
+    disabled={disabled}
+    data-testid={testId}
+    style={{ height: 30, padding: '0 14px', fontSize: 12.5 }}
+  >
+    {children}
+  </button>
+);
+
+const GhostButton: React.FC<{
+  onClick?: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+  testId?: string;
+}> = ({ onClick, disabled, children, testId }) => (
+  <button
+    type="button"
+    className="pl-btn pl-btn-ghost"
+    onClick={onClick}
+    disabled={disabled}
+    data-testid={testId}
+    style={{ height: 30, padding: '0 12px', fontSize: 12.5 }}
+  >
+    {children}
+  </button>
+);
+
+// ───────────────────────── ModelConfigurationCard ─────────────────────────
+
 export type ModelConfigurationCardProps = {
   request: PromptEditorRequestDraft;
   showAdvancedParameters: boolean;
@@ -202,200 +323,146 @@ export const ModelConfigurationCard: React.FC<ModelConfigurationCardProps> = ({
   onStreamChange,
   errors,
 }) => {
-  const advancedParametersRegionId = 'model-config-advanced-parameters';
-  const advancedParametersToggleId = 'model-config-advanced-parameters-toggle';
-  const temperatureInputRef = React.useRef<HTMLInputElement | null>(null);
-
-  const handleNumericParameterChange = <K extends keyof PromptEditorRequestDraft['parameters']>(field: K) =>
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const rawValue = event.target.value;
-      const parsedValue = rawValue === '' ? undefined : Number(rawValue);
-      onParameterChange(field, parsedValue as PromptEditorRequestDraft['parameters'][K]);
+  const numericChange =
+    <K extends keyof PromptEditorRequestDraft['parameters']>(field: K) =>
+    (raw: string) => {
+      const value =
+        raw === '' ? undefined : (Number(raw) as PromptEditorRequestDraft['parameters'][K]);
+      onParameterChange(field, value);
     };
 
   return (
-    <SectionCard title="Model Config" subtitle="Chat completion vendor, model, and runtime parameters">
-      {errors?.general ? (
-        <Alert severity="error" variant="outlined" sx={{ mb: 2 }}>
-          {errors.general}
-        </Alert>
-      ) : null}
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
-          <TextField
-            select
-            label="Vendor"
+    <SectionCard
+      title="Model Config"
+      subtitle="Chat completion vendor, model, and runtime parameters"
+    >
+      <div style={COL_STACK(14)}>
+        {errors?.general ? <InlineAlert message={errors.general} /> : null}
+
+        <div style={ROW_GRID_2}>
+          <SelectField
+            label="vendor"
             value={request.vendor}
-            onChange={(event) => onRequestChange('vendor', event.target.value)}
-            fullWidth
-            error={Boolean(errors?.vendor)}
-            helperText={errors?.vendor}
-            SelectProps={{
-              SelectDisplayProps: {
-                'data-testid': 'request-vendor-select',
-              } as React.HTMLAttributes<HTMLDivElement>,
-            }}
-          >
-            <MenuItem value="openai">OpenAI</MenuItem>
-            <MenuItem value="anthropic">Anthropic</MenuItem>
-            <MenuItem value="google">Google</MenuItem>
-          </TextField>
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            select
-            label="Model"
+            onChange={(v) => onRequestChange('vendor', v)}
+            options={VENDOR_OPTIONS}
+            error={errors?.vendor}
+            selectAttrs={{ 'data-testid': 'request-vendor-select' }}
+          />
+          <SelectField
+            label="model"
             value={request.model}
-            onChange={(event) => onRequestChange('model', event.target.value)}
-            placeholder="gpt-4.1-mini"
-            fullWidth
+            onChange={(v) => onRequestChange('model', v)}
+            options={MODEL_OPTIONS}
             required
-            error={Boolean(errors?.model)}
-            helperText={errors?.model}
-            SelectProps={{
-              SelectDisplayProps: {
-                'data-testid': 'request-model-select',
-              } as React.HTMLAttributes<HTMLDivElement>,
-            }}
-          >
-            <MenuItem value="gpt-4o">gpt-4o</MenuItem>
-            <MenuItem value="gpt-4o-mini">gpt-4o-mini</MenuItem>
-            <MenuItem value="claude-3-5">claude-3-5</MenuItem>
-          </TextField>
-        </Grid>
-        <Grid item xs={12} md={6}>
+            error={errors?.model}
+            selectAttrs={{ 'data-testid': 'request-model-select' }}
+          />
+        </div>
+
+        <div style={ROW_GRID_2}>
           <TextField
-            label="Model snapshot"
+            label="model snapshot"
             value={request.modelSnapshot ?? ''}
-            onChange={(event) => onRequestChange('modelSnapshot', event.target.value)}
+            onChange={(v) => onRequestChange('modelSnapshot', v)}
             placeholder="2025-02-01"
-            fullWidth
-            error={Boolean(errors?.modelSnapshot)}
-            helperText={errors?.modelSnapshot}
-            inputProps={{ ['data-testid']: 'request-model-snapshot-input' }}
+            error={errors?.modelSnapshot}
+            inputAttrs={{ 'data-testid': 'request-model-snapshot-input' }}
           />
-        </Grid>
-        <Grid item xs={12} md={6}>
           <TextField
-            label="API endpoint"
+            label="api endpoint"
             value={request.url ?? ''}
-            onChange={(event) => onRequestChange('url', event.target.value)}
-            fullWidth
-            error={Boolean(errors?.url)}
-            helperText={errors?.url}
-            inputProps={{ ['data-testid']: 'request-url-input' }}
+            onChange={(v) => onRequestChange('url', v)}
+            error={errors?.url}
+            inputAttrs={{ 'data-testid': 'request-url-input' }}
           />
-        </Grid>
-      </Grid>
-      <Box display="flex" justifyContent="flex-start">
-        <Button
-          id={advancedParametersToggleId}
-          size="small"
-          onClick={onToggleAdvancedParameters}
-          aria-expanded={showAdvancedParameters}
-          aria-controls={advancedParametersRegionId}
-          endIcon={
-            <ExpandMore
-              sx={{ transform: showAdvancedParameters ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}
-            />
-          }
+        </div>
+
+        <Disclosure
+          open={showAdvancedParameters}
+          onToggle={onToggleAdvancedParameters}
+          label="advanced parameters"
+          triggerId="model-config-advanced-parameters-toggle"
+          regionId="model-config-advanced-parameters"
         >
-          {showAdvancedParameters ? 'Hide advanced parameters' : 'Show advanced parameters'}
-        </Button>
-      </Box>
-      <Collapse
-        id={advancedParametersRegionId}
-        role="region"
-        aria-labelledby={advancedParametersToggleId}
-        in={showAdvancedParameters}
-        unmountOnExit
-        onEntered={() => temperatureInputRef.current?.focus()}
-      >
-        <Divider sx={{ my: 1.5 }} />
-        <Grid container spacing={2}>
-          <Grid item xs={6} md={4}>
+          <div style={ROW_GRID_3}>
             <TextField
-              label="Temperature"
+              label="temperature"
               type="number"
-              value={request.parameters.temperature ?? ''}
-              onChange={handleNumericParameterChange('temperature')}
-              inputRef={temperatureInputRef}
-              fullWidth
-              error={Boolean(errors?.parameters?.temperature)}
-              helperText={errors?.parameters?.temperature}
-              inputProps={{ step: 0.1, min: 0, max: 2, ['data-testid']: 'request-temperature-input' }}
-            />
-          </Grid>
-          <Grid item xs={6} md={4}>
-            <TextField
-              label="Top P"
-              type="number"
-              value={request.parameters.topP ?? ''}
-              onChange={handleNumericParameterChange('topP')}
-              fullWidth
-              error={Boolean(errors?.parameters?.topP)}
-              helperText={errors?.parameters?.topP}
-              inputProps={{ step: 0.05, min: 0, max: 1, ['data-testid']: 'request-top-p-input' }}
-            />
-          </Grid>
-          <Grid item xs={6} md={4}>
-            <TextField
-              label="Max tokens"
-              type="number"
-              value={request.parameters.maxTokens ?? ''}
-              onChange={handleNumericParameterChange('maxTokens')}
-              fullWidth
-              error={Boolean(errors?.parameters?.maxTokens)}
-              helperText={errors?.parameters?.maxTokens}
-              inputProps={{ step: 1, min: 1, ['data-testid']: 'request-max-tokens-input' }}
-            />
-          </Grid>
-          <Grid item xs={6} md={4}>
-            <TextField
-              label="Frequency penalty"
-              type="number"
-              value={request.parameters.frequencyPenalty ?? ''}
-              onChange={handleNumericParameterChange('frequencyPenalty')}
-              fullWidth
-              error={Boolean(errors?.parameters?.frequencyPenalty)}
-              helperText={errors?.parameters?.frequencyPenalty}
-              inputProps={{ step: 0.1, min: -2, max: 2, ['data-testid']: 'request-frequency-penalty-input' }}
-            />
-          </Grid>
-          <Grid item xs={6} md={4}>
-            <TextField
-              label="Presence penalty"
-              type="number"
-              value={request.parameters.presencePenalty ?? ''}
-              onChange={handleNumericParameterChange('presencePenalty')}
-              fullWidth
-              error={Boolean(errors?.parameters?.presencePenalty)}
-              helperText={errors?.parameters?.presencePenalty}
-              inputProps={{ step: 0.1, min: -2, max: 2, ['data-testid']: 'request-presence-penalty-input' }}
-            />
-          </Grid>
-          <Grid item xs={6} md={4}>
-            <TextField
-              select
-              label="Stream responses"
-              value={String(Boolean(request.parameters.stream))}
-              onChange={(event) => onStreamChange(event.target.value === 'true')}
-              fullWidth
-              SelectProps={{
-                SelectDisplayProps: {
-                  'data-testid': 'request-stream-select',
-                } as React.HTMLAttributes<HTMLDivElement>,
+              value={request.parameters.temperature?.toString() ?? ''}
+              onChange={numericChange('temperature')}
+              error={errors?.parameters?.temperature}
+              inputAttrs={{
+                step: 0.1,
+                min: 0,
+                max: 2,
+                'data-testid': 'request-temperature-input',
               }}
-            >
-              <MenuItem value="false">false</MenuItem>
-              <MenuItem value="true">true</MenuItem>
-            </TextField>
-          </Grid>
-        </Grid>
-      </Collapse>
+            />
+            <TextField
+              label="top p"
+              type="number"
+              value={request.parameters.topP?.toString() ?? ''}
+              onChange={numericChange('topP')}
+              error={errors?.parameters?.topP}
+              inputAttrs={{
+                step: 0.05,
+                min: 0,
+                max: 1,
+                'data-testid': 'request-top-p-input',
+              }}
+            />
+            <TextField
+              label="max tokens"
+              type="number"
+              value={request.parameters.maxTokens?.toString() ?? ''}
+              onChange={numericChange('maxTokens')}
+              error={errors?.parameters?.maxTokens}
+              inputAttrs={{ step: 1, min: 1, 'data-testid': 'request-max-tokens-input' }}
+            />
+            <TextField
+              label="frequency penalty"
+              type="number"
+              value={request.parameters.frequencyPenalty?.toString() ?? ''}
+              onChange={numericChange('frequencyPenalty')}
+              error={errors?.parameters?.frequencyPenalty}
+              inputAttrs={{
+                step: 0.1,
+                min: -2,
+                max: 2,
+                'data-testid': 'request-frequency-penalty-input',
+              }}
+            />
+            <TextField
+              label="presence penalty"
+              type="number"
+              value={request.parameters.presencePenalty?.toString() ?? ''}
+              onChange={numericChange('presencePenalty')}
+              error={errors?.parameters?.presencePenalty}
+              inputAttrs={{
+                step: 0.1,
+                min: -2,
+                max: 2,
+                'data-testid': 'request-presence-penalty-input',
+              }}
+            />
+            <SelectField
+              label="stream responses"
+              value={String(Boolean(request.parameters.stream))}
+              onChange={(v) => onStreamChange(v === 'true')}
+              options={[
+                { value: 'false', label: 'false' },
+                { value: 'true', label: 'true' },
+              ]}
+              selectAttrs={{ 'data-testid': 'request-stream-select' }}
+            />
+          </div>
+        </Disclosure>
+      </div>
     </SectionCard>
   );
 };
+
+// ───────────────────────── PlaceholdersCard ─────────────────────────
 
 export type PlaceholdersCardProps = {
   placeholders: PromptEditorPlaceholderConfig;
@@ -417,115 +484,80 @@ export const PlaceholdersCard: React.FC<PlaceholdersCardProps> = ({
   onPlaceholderChange,
   onPlaceholderPatternChange,
   errors,
-}) => {
-  const placeholderListRegionId = 'placeholder-list-region';
-  const placeholderListToggleId = 'placeholder-list-toggle';
-  const firstPlaceholderNameInputRef = React.useRef<HTMLInputElement | null>(null);
+}) => (
+  <SectionCard title="Placeholders" subtitle="Template variables injected before execution">
+    <div style={COL_STACK(14)}>
+      {errors?.general ? <InlineAlert message={errors.general} /> : null}
 
-  return (
-    <SectionCard title="Placeholders" subtitle="Template variables injected before execution">
-      {errors?.general ? (
-        <Alert severity="error" variant="outlined" sx={{ mb: 2 }}>
-          {errors.general}
-        </Alert>
-      ) : null}
-      <Grid container spacing={2}>
-        <Grid item xs={6} md={4}>
-          <TextField
-            label="Start pattern"
-            value={placeholders.startPattern ?? ''}
-            onChange={(event) => onPlaceholderPatternChange('startPattern', event.target.value)}
-            fullWidth
-            error={Boolean(errors?.startPattern)}
-            helperText={errors?.startPattern}
-          />
-        </Grid>
-        <Grid item xs={6} md={4}>
-          <TextField
-            label="End pattern"
-            value={placeholders.endPattern ?? ''}
-            onChange={(event) => onPlaceholderPatternChange('endPattern', event.target.value)}
-            fullWidth
-            error={Boolean(errors?.endPattern)}
-            helperText={errors?.endPattern}
-          />
-        </Grid>
-      </Grid>
-      <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mt: 1 }}>
-        <Button size="small" onClick={onAddPlaceholder} startIcon={<AddCircleOutline />}>
-          Add placeholder
-        </Button>
-        <Button
-          id={placeholderListToggleId}
-          size="small"
-          onClick={onTogglePlaceholders}
-          aria-expanded={showPlaceholders}
-          aria-controls={placeholderListRegionId}
-          endIcon={
-            <ExpandMore sx={{ transform: showPlaceholders ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
-          }
-        >
-          {showPlaceholders ? 'Hide placeholder list' : 'Show placeholder list'}
-        </Button>
-      </Stack>
-      <Collapse
-        id={placeholderListRegionId}
-        role="region"
-        aria-labelledby={placeholderListToggleId}
-        in={showPlaceholders}
-        unmountOnExit
-        onEntered={() => firstPlaceholderNameInputRef.current?.focus()}
+      <div style={ROW_GRID_2}>
+        <TextField
+          label="start pattern"
+          value={placeholders.startPattern ?? ''}
+          onChange={(v) => onPlaceholderPatternChange('startPattern', v)}
+          error={errors?.startPattern}
+        />
+        <TextField
+          label="end pattern"
+          value={placeholders.endPattern ?? ''}
+          onChange={(v) => onPlaceholderPatternChange('endPattern', v)}
+          error={errors?.endPattern}
+        />
+      </div>
+
+      <div style={ROW_INLINE(8)}>
+        <GhostButton onClick={onAddPlaceholder}>+ Add placeholder</GhostButton>
+      </div>
+
+      <Disclosure
+        open={showPlaceholders}
+        onToggle={onTogglePlaceholders}
+        label="placeholder list"
+        idPrefix="placeholder-list"
       >
-        <Stack spacing={2}>
-          {placeholders.list.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
-              No placeholders defined yet.
-            </Typography>
-          ) : (
-            <Stack spacing={1.5}>
-              {placeholders.list.map((placeholder, index) => (
-                <Paper key={index} variant="outlined" sx={{ p: 1.5, borderRadius: 2, borderColor: 'divider' }}>
-                  <Grid container spacing={1.5} alignItems="center">
-                    <Grid item xs={5}>
-                      <TextField
-                        label="Name"
-                        value={placeholder.name}
-                        onChange={(event) => onPlaceholderChange(index, 'name', event.target.value)}
-                        inputRef={index === 0 ? firstPlaceholderNameInputRef : undefined}
-                        fullWidth
-                        error={Boolean(errors?.list?.[index]?.name)}
-                        helperText={errors?.list?.[index]?.name}
-                      />
-                    </Grid>
-                    <Grid item xs={6}>
-                      <TextField
-                        label="Default value"
-                        value={placeholder.value}
-                        onChange={(event) => onPlaceholderChange(index, 'value', event.target.value)}
-                        fullWidth
-                        error={Boolean(errors?.list?.[index]?.value)}
-                        helperText={errors?.list?.[index]?.value}
-                      />
-                    </Grid>
-                    <Grid item xs={1} display="flex" justifyContent="flex-end">
-                      <Tooltip title="Remove placeholder">
-                        <span>
-                          <IconButton size="small" onClick={() => onRemovePlaceholder(index)}>
-                            <DeleteOutline fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </Grid>
-                  </Grid>
-                </Paper>
-              ))}
-            </Stack>
-          )}
-        </Stack>
-      </Collapse>
-    </SectionCard>
-  );
-};
+        {placeholders.list.length === 0 ? (
+          <Mono size={12} color="var(--pl-ink-600)">
+            No placeholders defined yet.
+          </Mono>
+        ) : (
+          <div style={COL_STACK(8)}>
+            {placeholders.list.map((placeholder, index) => (
+              <Subrow key={index}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr 28px',
+                    gap: 12,
+                    alignItems: 'end',
+                  }}
+                >
+                  <TextField
+                    label="name"
+                    value={placeholder.name}
+                    onChange={(v) => onPlaceholderChange(index, 'name', v)}
+                    error={errors?.list?.[index]?.name}
+                  />
+                  <TextField
+                    label="default value"
+                    value={placeholder.value}
+                    onChange={(v) => onPlaceholderChange(index, 'value', v)}
+                    error={errors?.list?.[index]?.value}
+                  />
+                  <IconButton
+                    icon="trash"
+                    label="Remove placeholder"
+                    onClick={() => onRemovePlaceholder(index)}
+                  />
+                </div>
+              </Subrow>
+            ))}
+          </div>
+        )}
+      </Disclosure>
+    </div>
+  </SectionCard>
+);
+
+// ───────────────────────── MetadataCard ─────────────────────────
 
 export type MetadataCardProps = {
   group: string;
@@ -562,253 +594,229 @@ export const MetadataCard: React.FC<MetadataCardProps> = ({
   onNameChange,
   onDescriptionChange,
   errors,
-}) => {
-  const metadataDetailsRegionId = 'metadata-details-region';
-  const metadataDetailsToggleId = 'metadata-details-toggle';
-  const metadataDetailsContentRef = React.useRef<HTMLDivElement | null>(null);
+}) => (
+  <SectionCard title="Basic information" subtitle="Describe the prompt and link it to a project">
+    <div style={COL_STACK(14)}>
+      {errors?.general ? <InlineAlert message={errors.general} /> : null}
 
-  return (
-    <SectionCard title="Basic information" subtitle="Describe the prompt and link it to a project">
-      {errors?.general ? (
-        <Alert severity="error" variant="outlined" sx={{ mb: 2 }}>
-          {errors.general}
-        </Alert>
-      ) : null}
-      <Stack spacing={2}>
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Prompt group"
-              value={group}
-              onChange={(event) => onGroupChange(event.target.value)}
-              required
-              error={Boolean(errors?.group)}
-              helperText={
-                errors?.group ? (
-                  <span data-testid="prompt-group-error">{errors.group}</span>
-                ) : (
-                  "Only letters, numbers, '-' and '_' are allowed."
-                )
-              }
-              inputProps={{ inputMode: 'text', ['data-testid']: 'prompt-group-input' }}
-              fullWidth
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Prompt name"
-              value={name}
-              onChange={(event) => onNameChange(event.target.value)}
-              required
-              error={Boolean(errors?.name)}
-              helperText={
-                errors?.name ? (
-                  <span data-testid="prompt-name-error">{errors.name}</span>
-                ) : (
-                  "Only letters, numbers, '-' and '_' are allowed."
-                )
-              }
-              inputProps={{ inputMode: 'text', ['data-testid']: 'prompt-name-input' }}
-              fullWidth
-            />
-          </Grid>
-        </Grid>
+      <div style={ROW_GRID_2}>
         <TextField
-          label="Description"
-          value={description ?? ''}
-          onChange={(event) => onDescriptionChange(event.target.value)}
-          multiline
-          minRows={3}
-          fullWidth
-          inputProps={{ ['data-testid']: 'description-text' }}
-          error={Boolean(errors?.description)}
-          helperText={errors?.description}
+          label="prompt group"
+          value={group}
+          onChange={onGroupChange}
+          required
+          error={
+            errors?.group ? (
+              <span data-testid="prompt-group-error">{errors.group}</span>
+            ) : undefined
+          }
+          helperText="Only letters, numbers, '-' and '_' are allowed."
+          inputAttrs={{ inputMode: 'text', 'data-testid': 'prompt-group-input' }}
         />
-        <Box display="flex" justifyContent="flex-start">
-          <Button
-            id={metadataDetailsToggleId}
-            size="small"
-            onClick={onToggleMetadataDetails}
-            aria-expanded={showMetadataDetails}
-            aria-controls={metadataDetailsRegionId}
-            endIcon={
-              <ExpandMore
-                sx={{ transform: showMetadataDetails ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}
-              />
-            }
-          >
-            {showMetadataDetails ? 'Hide additional metadata' : 'Show additional metadata'}
-          </Button>
-        </Box>
-      </Stack>
-      <Collapse
-        id={metadataDetailsRegionId}
-        role="region"
-        aria-labelledby={metadataDetailsToggleId}
-        in={showMetadataDetails}
-        unmountOnExit
-        onEntered={() => metadataDetailsContentRef.current?.focus()}
+        <TextField
+          label="prompt name"
+          value={name}
+          onChange={onNameChange}
+          required
+          error={
+            errors?.name ? (
+              <span data-testid="prompt-name-error">{errors.name}</span>
+            ) : undefined
+          }
+          helperText="Only letters, numbers, '-' and '_' are allowed."
+          inputAttrs={{ inputMode: 'text', 'data-testid': 'prompt-name-input' }}
+        />
+      </div>
+
+      <TextArea
+        label="description"
+        value={description ?? ''}
+        onChange={onDescriptionChange}
+        rows={3}
+        error={errors?.description}
+        textareaAttrs={{ 'data-testid': 'description-text' }}
+      />
+
+      <Disclosure
+        open={showMetadataDetails}
+        onToggle={onToggleMetadataDetails}
+        label="additional metadata"
+        idPrefix="metadata-details"
       >
-        <Divider sx={{ my: 2 }} />
-        <Stack ref={metadataDetailsContentRef} tabIndex={-1} spacing={2}>
-          <Stack spacing={0.5}>
-            <Typography variant="subtitle2" color="text.secondary">
-              Repository path
-            </Typography>
-            <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+        <div style={COL_STACK(12)} tabIndex={-1}>
+          <div>
+            <Mono
+              size={9.5}
+              color="var(--pl-ink-500)"
+              style={{ letterSpacing: '0.12em', textTransform: 'uppercase' }}
+            >
+              repository path
+            </Mono>
+            <Mono size={12} color="var(--pl-ink-900)" style={{ display: 'block', marginTop: 2 }}>
               {promptPath}
-            </Typography>
-          </Stack>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 1, sm: 3 }}>
-            <Stack spacing={0.25}>
-              <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.6 }}>
-                Version
-              </Typography>
-              <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+            </Mono>
+          </div>
+          <div style={ROW_GRID_2}>
+            <div>
+              <Mono
+                size={9.5}
+                color="var(--pl-ink-500)"
+                style={{ letterSpacing: '0.12em', textTransform: 'uppercase' }}
+              >
+                version
+              </Mono>
+              <Mono size={12} color="var(--pl-ink-900)" style={{ display: 'block', marginTop: 2 }}>
                 {versionLabel ?? '0.1.0-SNAPSHOT'}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
+              </Mono>
+              <Mono size={11} color="var(--pl-ink-500)" style={{ marginTop: 2 }}>
                 Managed during release
-              </Typography>
-            </Stack>
-            <Stack spacing={0.25}>
-              <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.6 }}>
-                Revision
-              </Typography>
-              <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+              </Mono>
+            </div>
+            <div>
+              <Mono
+                size={9.5}
+                color="var(--pl-ink-500)"
+                style={{ letterSpacing: '0.12em', textTransform: 'uppercase' }}
+              >
+                revision
+              </Mono>
+              <Mono size={12} color="var(--pl-ink-900)" style={{ display: 'block', marginTop: 2 }}>
                 {revision ?? 1}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
+              </Mono>
+              <Mono size={11} color="var(--pl-ink-500)" style={{ marginTop: 2 }}>
                 Auto-incremented on save
-              </Typography>
-            </Stack>
-          </Stack>
-          <Stack spacing={0.5}>
-            <Typography variant="subtitle2" color="text.secondary">
-              Authors
-            </Typography>
-            <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{authorsDisplay}</Typography>
-            <Typography variant="caption" color="text.secondary">
+              </Mono>
+            </div>
+          </div>
+          <div>
+            <Mono
+              size={9.5}
+              color="var(--pl-ink-500)"
+              style={{ letterSpacing: '0.12em', textTransform: 'uppercase' }}
+            >
+              authors
+            </Mono>
+            <Mono size={12} color="var(--pl-ink-900)" style={{ display: 'block', marginTop: 2 }}>
+              {authorsDisplay}
+            </Mono>
+            <Mono size={11} color="var(--pl-ink-500)" style={{ marginTop: 2 }}>
               Determined from your Git identity
-            </Typography>
-          </Stack>
-        </Stack>
-      </Collapse>
-    </SectionCard>
-  );
-};
+            </Mono>
+          </div>
+        </div>
+      </Disclosure>
+    </div>
+  </SectionCard>
+);
+
+// ───────────────────────── ToolConfigsCard ─────────────────────────
 
 export type ToolConfigsCardProps = {
   configs: PromptEditorToolConfig[];
   onAddConfig: () => void;
   onRemoveConfig: (id: string) => void;
-  onConfigChange: <K extends keyof PromptEditorToolConfig>(id: string, field: K, value: PromptEditorToolConfig[K]) => void;
+  onConfigChange: <K extends keyof PromptEditorToolConfig>(
+    id: string,
+    field: K,
+    value: PromptEditorToolConfig[K],
+  ) => void;
   errors?: ToolConfigsErrors;
 };
 
-export const ToolConfigsCard: React.FC<ToolConfigsCardProps> = ({ configs, onAddConfig, onRemoveConfig, onConfigChange, errors }) => (
+export const ToolConfigsCard: React.FC<ToolConfigsCardProps> = ({
+  configs,
+  onAddConfig,
+  onRemoveConfig,
+  onConfigChange,
+  errors,
+}) => (
   <SectionCard title="MCP Tools" subtitle="Define mockable tools available to this prompt">
-    {errors?.general ? (
-      <Alert severity="error" variant="outlined" sx={{ mb: 2 }}>
-        {errors.general}
-      </Alert>
-    ) : null}
-    <Stack spacing={2}>
+    <div style={COL_STACK(12)}>
+      {errors?.general ? <InlineAlert message={errors.general} /> : null}
+
       {configs.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">
+        <Mono size={12} color="var(--pl-ink-600)">
           No tools configured yet. Add at least one tool to describe its mock behavior for MCP replay.
-        </Typography>
+        </Mono>
       ) : (
-        <Stack spacing={1.5}>
+        <div style={COL_STACK(10)}>
           {configs.map((config, index) => {
-            const configErrors = errors?.configs?.[index];
+            const e = errors?.configs?.[index];
             return (
-              <Paper key={config.id} variant="outlined" sx={{ p: 1.5, borderRadius: 2, borderColor: 'divider' }}>
-                <Grid container spacing={1.5} alignItems="flex-start">
-                  <Grid item xs={12} md={4}>
-                    <TextField
-                      label="Tool name"
-                      value={config.name}
-                      onChange={(event) => onConfigChange(config.id, 'name', event.target.value)}
-                      placeholder="inventory.search"
-                      fullWidth
-                      required
-                      error={Boolean(configErrors?.name)}
-                      helperText={configErrors?.name}
-                      inputProps={{ ['data-testid']: `tool-name-input-${index}` }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <TextField
-                      label="Tool description"
-                      value={config.notes}
-                      onChange={(event) => onConfigChange(config.id, 'notes', event.target.value)}
-                      placeholder="Search documentation for relevant answers."
-                      helperText={configErrors?.notes}
-                      error={Boolean(configErrors?.notes)}
-                      fullWidth
-                      inputProps={{ ['data-testid']: `tool-description-input-${index}` }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={3}>
-                    <TextField
-                      label="Scenario label"
-                      value={config.scenario}
-                      onChange={(event) => onConfigChange(config.id, 'scenario', event.target.value)}
-                      placeholder="default"
-                      fullWidth
-                      error={Boolean(configErrors?.scenario)}
-                      helperText={configErrors?.scenario ?? 'Matches fixture behavior key'}
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={1} display="flex" justifyContent="flex-end" alignItems="center">
-                    <Tooltip title="Remove tool configuration">
-                      <span>
-                        <IconButton size="small" onClick={() => onRemoveConfig(config.id)}>
-                          <DeleteOutline fontSize="small" />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      label="Mock response preview"
-                      value={config.mockResponse}
-                      onChange={(event) => onConfigChange(config.id, 'mockResponse', event.target.value)}
-                      placeholder={'{ "count": 3, "items": [...] }'}
-                      multiline
-                      minRows={3}
-                      fullWidth
-                      error={Boolean(configErrors?.mockResponse)}
-                      helperText={configErrors?.mockResponse}
-                    />
-                  </Grid>
-                </Grid>
-              </Paper>
+              <Subrow key={config.id}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr)) 28px',
+                    gap: 12,
+                    alignItems: 'end',
+                  }}
+                >
+                  <TextField
+                    label="tool name"
+                    value={config.name}
+                    onChange={(v) => onConfigChange(config.id, 'name', v)}
+                    placeholder="inventory.search"
+                    required
+                    error={e?.name}
+                    inputAttrs={{ 'data-testid': `tool-name-input-${index}` }}
+                  />
+                  <TextField
+                    label="tool description"
+                    value={config.notes}
+                    onChange={(v) => onConfigChange(config.id, 'notes', v)}
+                    placeholder="Search documentation for relevant answers."
+                    error={e?.notes}
+                    inputAttrs={{ 'data-testid': `tool-description-input-${index}` }}
+                  />
+                  <TextField
+                    label="scenario label"
+                    value={config.scenario}
+                    onChange={(v) => onConfigChange(config.id, 'scenario', v)}
+                    placeholder="default"
+                    error={e?.scenario}
+                    helperText={e?.scenario ? undefined : 'Matches fixture behavior key'}
+                  />
+                  <IconButton
+                    icon="trash"
+                    label="Remove tool configuration"
+                    onClick={() => onRemoveConfig(config.id)}
+                  />
+                </div>
+                <TextArea
+                  label="mock response preview"
+                  value={config.mockResponse}
+                  onChange={(v) => onConfigChange(config.id, 'mockResponse', v)}
+                  placeholder='{ "count": 3, "items": [...] }'
+                  rows={3}
+                  error={e?.mockResponse}
+                />
+              </Subrow>
             );
           })}
-        </Stack>
+        </div>
       )}
-      <Stack direction="row" spacing={1.5}>
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={onAddConfig}
-          startIcon={<AddCircleOutline />}
-          data-testid="add-tool-button"
-        >
-          Add tool configuration
-        </Button>
-      </Stack>
-    </Stack>
+
+      <div style={ROW_INLINE(8)}>
+        <GhostButton onClick={onAddConfig} testId="add-tool-button">
+          + Add tool configuration
+        </GhostButton>
+      </div>
+    </div>
   </SectionCard>
 );
+
+// ───────────────────────── EvaluationPlanCard ─────────────────────────
 
 export type EvaluationPlanCardProps = {
   enabled: boolean;
   evaluations: PromptEditorEvaluationPlan[];
   onToggleEnabled: (checked: boolean) => void;
-  onEvaluationChange: (index: number, field: keyof PromptEditorEvaluationPlan, value: string) => void;
+  onEvaluationChange: (
+    index: number,
+    field: keyof PromptEditorEvaluationPlan,
+    value: string,
+  ) => void;
   onAddEvaluation: () => void;
   onRemoveEvaluation: (index: number) => void;
   errors?: EvaluationPlanErrors;
@@ -826,83 +834,80 @@ export const EvaluationPlanCard: React.FC<EvaluationPlanCardProps> = ({
   <SectionCard
     title="Evals"
     subtitle="Define automatic or human checks for responses"
-    action={<FormControlLabel control={<Switch checked={enabled} onChange={(event) => onToggleEnabled(event.target.checked)} />} label="Enable" />}
+    action={<SwitchField checked={enabled} onChange={onToggleEnabled} label="Enable" />}
   >
-    {errors?.general ? (
-      <Alert severity="error" variant="outlined" sx={{ mb: 2 }}>
-        {errors.general}
-      </Alert>
-    ) : null}
-    <Stack spacing={2}>
+    <div style={COL_STACK(12)}>
+      {errors?.general ? <InlineAlert message={errors.general} /> : null}
+
       {enabled && evaluations.length ? (
-        evaluations.map((evaluation, index) => {
-          const evaluationErrors = errors?.evaluations?.[index];
-          return (
-            <Paper key={index} variant="outlined" sx={{ p: 1.5, borderRadius: 2, borderColor: 'divider' }}>
-              <Grid container spacing={1.5} alignItems="center">
-                <Grid item xs={12} sm={4}>
+        <div style={COL_STACK(10)}>
+          {evaluations.map((evaluation, index) => {
+            const e = errors?.evaluations?.[index];
+            return (
+              <Subrow key={index}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr)) 28px',
+                    gap: 12,
+                    alignItems: 'end',
+                  }}
+                >
                   <TextField
-                    label="Evaluator"
+                    label="evaluator"
                     value={evaluation.evaluator}
-                    onChange={(event) => onEvaluationChange(index, 'evaluator', event.target.value)}
-                    fullWidth
-                    error={Boolean(evaluationErrors?.evaluator)}
-                    helperText={evaluationErrors?.evaluator}
-                    inputProps={{ ['data-testid']: `evaluation-evaluator-input-${index}` }}
+                    onChange={(v) => onEvaluationChange(index, 'evaluator', v)}
+                    error={e?.evaluator}
+                    inputAttrs={{ 'data-testid': `evaluation-evaluator-input-${index}` }}
                   />
-                </Grid>
-                <Grid item xs={12} sm={3}>
                   <TextField
-                    label="Type"
+                    label="type"
                     value={evaluation.type}
-                    onChange={(event) => onEvaluationChange(index, 'type', event.target.value)}
-                    fullWidth
-                    error={Boolean(evaluationErrors?.type)}
-                    helperText={evaluationErrors?.type}
-                    inputProps={{ ['data-testid']: `evaluation-type-input-${index}` }}
+                    onChange={(v) => onEvaluationChange(index, 'type', v)}
+                    error={e?.type}
+                    inputAttrs={{ 'data-testid': `evaluation-type-input-${index}` }}
                   />
-                </Grid>
-                <Grid item xs={12} sm={4}>
                   <TextField
-                    label="Description"
+                    label="description"
                     value={evaluation.description ?? ''}
-                    onChange={(event) => onEvaluationChange(index, 'description', event.target.value)}
-                    fullWidth
-                    error={Boolean(evaluationErrors?.description)}
-                    helperText={evaluationErrors?.description}
-                    inputProps={{ ['data-testid']: `evaluation-description-input-${index}` }}
+                    onChange={(v) => onEvaluationChange(index, 'description', v)}
+                    error={e?.description}
+                    inputAttrs={{ 'data-testid': `evaluation-description-input-${index}` }}
                   />
-                </Grid>
-                <Grid item xs={12} sm={1} display="flex" justifyContent="flex-end">
-                  <Tooltip title="Remove evaluator">
-                    <span>
-                      <IconButton size="small" onClick={() => onRemoveEvaluation(index)}>
-                        <DeleteOutline fontSize="small" />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                </Grid>
-              </Grid>
-            </Paper>
-          );
-        })
+                  <IconButton
+                    icon="trash"
+                    label="Remove evaluator"
+                    onClick={() => onRemoveEvaluation(index)}
+                  />
+                </div>
+              </Subrow>
+            );
+          })}
+        </div>
       ) : (
-        <Typography variant="body2" color="text.secondary">
-          {enabled ? 'No evaluators defined yet. Add one to start tracking quality gates.' : 'Evaluations are disabled. Toggle the switch to add quality checks.'}
-        </Typography>
+        <Mono size={12} color="var(--pl-ink-600)">
+          {enabled
+            ? 'No evaluators defined yet. Add one to start tracking quality gates.'
+            : 'Evaluations are disabled. Toggle the switch to add quality checks.'}
+        </Mono>
       )}
-      <Button
-        variant="outlined"
-        size="small"
-        onClick={onAddEvaluation}
-        startIcon={<AddCircleOutline />}
-        data-testid="add-evaluation-button"
-      >
-        Add evaluator
-      </Button>
-    </Stack>
+
+      <div style={ROW_INLINE(8)}>
+        <GhostButton onClick={onAddEvaluation} testId="add-evaluation-button">
+          + Add evaluator
+        </GhostButton>
+      </div>
+    </div>
   </SectionCard>
 );
+
+// ───────────────────────── MessagesCard ─────────────────────────
+
+export type MessageContentSelection = {
+  messageIndex: number;
+  selectionStart: number;
+  selectionEnd: number;
+};
 
 export type MessagesCardProps = {
   messages: PromptEditorMessage[];
@@ -918,12 +923,6 @@ export type MessagesCardProps = {
   hasActiveProject: boolean;
   isActiveProjectLoading: boolean;
   errors?: MessagesErrors;
-};
-
-export type MessageContentSelection = {
-  messageIndex: number;
-  selectionStart: number;
-  selectionEnd: number;
 };
 
 export const MessagesCard: React.FC<MessagesCardProps> = ({
@@ -943,173 +942,164 @@ export const MessagesCard: React.FC<MessagesCardProps> = ({
 }) => {
   const emitSelection = React.useCallback(
     (messageIndex: number, target: HTMLTextAreaElement) => {
-      if (!onContentSelectionChange) {
-        return;
-      }
+      if (!onContentSelectionChange) return;
       const selectionStart = target.selectionStart ?? 0;
       const selectionEnd = target.selectionEnd ?? selectionStart;
-      onContentSelectionChange({
-        messageIndex,
-        selectionStart,
-        selectionEnd,
-      });
+      onContentSelectionChange({ messageIndex, selectionStart, selectionEnd });
     },
     [onContentSelectionChange],
   );
 
   return (
     <SectionCard title="Prompt messages" subtitle="Ordered chat conversation fed to the model">
-      {errors?.general ? (
-        <Alert severity="error" variant="outlined" sx={{ mb: 2 }}>
-          {errors.general}
-        </Alert>
-      ) : null}
-      <Stack direction="row" spacing={1} flexWrap="wrap">
-        {availableRoles.map((role) => (
-          <Button
-            key={role}
-            variant="outlined"
-            size="small"
-            onClick={() => onAddMessage(role)}
-            data-testid={role === 'user' ? 'user-prompt-button' : undefined}
-          >
-            Add {MESSAGE_ROLE_LABEL[role]}
-          </Button>
-        ))}
-      </Stack>
-      <Stack spacing={2} sx={{ mt: 1 }} data-testid="prompt-messages">
-        {messages.map((message, index) => {
-          const messageErrors = errors?.list?.[index];
-          return (
-            <Paper key={message.id} variant="outlined" sx={{ p: 2, borderRadius: 2, borderColor: 'divider' }}>
-              <Stack spacing={1.5}>
-                <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Chip size="small" color={MESSAGE_ROLE_COLORS[message.role]} label={MESSAGE_ROLE_LABEL[message.role]} />
-                    <FormControl sx={{ minWidth: 160 }} size="small" error={Boolean(messageErrors?.role)}>
-                      <Select value={message.role} onChange={(event) => onMessageChange(index, 'role', event.target.value)}>
-                        {DEFAULT_MESSAGE_ROLES.map((role) => (
-                          <MenuItem key={role} value={role}>
-                            {MESSAGE_ROLE_LABEL[role]}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                      {messageErrors?.role ? <FormHelperText>{messageErrors.role}</FormHelperText> : null}
-                    </FormControl>
-                  </Stack>
-                  <Tooltip title="Remove message">
-                    <span>
-                      <IconButton size="small" onClick={() => onRemoveMessage(index)}>
-                        <DeleteOutline fontSize="small" />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                </Stack>
+      <div style={COL_STACK(14)}>
+        {errors?.general ? <InlineAlert message={errors.general} /> : null}
+
+        <div style={ROW_INLINE(8)}>
+          {availableRoles.map((role) => (
+            <GhostButton
+              key={role}
+              onClick={() => onAddMessage(role)}
+              testId={role === 'user' ? 'user-prompt-button' : undefined}
+            >
+              + Add {MESSAGE_ROLE_LABEL[role]}
+            </GhostButton>
+          ))}
+        </div>
+
+        <div style={COL_STACK(10)} data-testid="prompt-messages">
+          {messages.map((message, index) => {
+            const e = errors?.list?.[index];
+            const isLastUser =
+              message.role === 'user' && index === messages.length - 1;
+            return (
+              <Subrow key={message.id}>
+                <div style={{ ...ROW_INLINE(10), justifyContent: 'space-between' }}>
+                  <div style={ROW_INLINE(8)}>
+                    <Tag tone={MESSAGE_ROLE_TONES[message.role]}>
+                      {MESSAGE_ROLE_LABEL[message.role]}
+                    </Tag>
+                    <div style={{ minWidth: 160 }}>
+                      <SelectField
+                        label="role"
+                        unlabeled
+                        value={message.role}
+                        onChange={(v) => onMessageChange(index, 'role', v)}
+                        options={DEFAULT_MESSAGE_ROLES.map((role) => ({
+                          value: role,
+                          label: MESSAGE_ROLE_LABEL[role],
+                        }))}
+                        error={e?.role}
+                      />
+                    </div>
+                  </div>
+                  <IconButton
+                    icon="trash"
+                    label="Remove message"
+                    onClick={() => onRemoveMessage(index)}
+                  />
+                </div>
+
                 {message.role === 'tool' ? (
                   <TextField
-                    label="Tool name"
-                    size="small"
+                    label="tool name"
                     value={message.name ?? ''}
-                    onChange={(event) => onMessageChange(index, 'name', event.target.value)}
-                    fullWidth
-                    error={Boolean(messageErrors?.name)}
-                    helperText={messageErrors?.name}
+                    onChange={(v) => onMessageChange(index, 'name', v)}
+                    error={e?.name}
                   />
                 ) : null}
-                <Stack spacing={0.75}>
-                  <Typography variant="caption" color={messageErrors?.content ? 'error' : 'text.secondary'}>
-                    Content
-                  </Typography>
-                  <Box
-                    component="textarea"
-                    value={message.content}
-                    onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => {
-                      onMessageChange(index, 'content', event.target.value);
-                      emitSelection(index, event.currentTarget);
-                    }}
-                    onFocus={(event: React.FocusEvent<HTMLTextAreaElement>) => emitSelection(index, event.currentTarget)}
-                    onClick={(event: React.MouseEvent<HTMLTextAreaElement>) => emitSelection(index, event.currentTarget)}
-                    onSelect={(event: React.SyntheticEvent<HTMLTextAreaElement>) => emitSelection(index, event.currentTarget)}
-                    onKeyUp={(event: React.KeyboardEvent<HTMLTextAreaElement>) => emitSelection(index, event.currentTarget)}
-                    onBlur={() => onContentSelectionChange?.(null)}
-                    rows={message.role === 'system' ? 3 : 2}
-                    data-testid={message.role === 'user' && index === messages.length - 1 ? 'prompt-text' : undefined}
-                    aria-label={`Message content ${index + 1}`}
-                    sx={{
-                      width: '100%',
-                      resize: 'vertical',
-                      borderRadius: 1,
-                      border: 1,
-                      borderColor: messageErrors?.content ? 'error.main' : 'divider',
-                      px: 1.75,
-                      py: 1.25,
-                      font: 'inherit',
-                      color: 'text.primary',
-                      backgroundColor: 'background.paper',
-                      '&:focus': {
-                        outline: 'none',
-                        borderColor: messageErrors?.content ? 'error.main' : 'primary.main',
-                        boxShadow: (theme) =>
-                          `0 0 0 2px ${messageErrors?.content ? theme.palette.error.light : theme.palette.primary.light}`,
-                      },
-                    }}
-                  />
-                  {messageErrors?.content ? <FormHelperText error>{messageErrors.content}</FormHelperText> : null}
-                </Stack>
-              </Stack>
-            </Paper>
-          );
-        })}
-      </Stack>
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={1.5}
-        alignItems={{ xs: 'stretch', sm: 'center' }}
-        justifyContent="space-between"
-        sx={{ mt: 2 }}
-      >
-        <Button variant="text" onClick={onNavigateBack} disabled={isBusy}>
-          Back to Prompts
-        </Button>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-          <Button variant="outlined" onClick={onTryRun} disabled={isBusy}>
-            Run
-          </Button>
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={isSaving || !hasActiveProject || isActiveProjectLoading}
-            data-testid="save-prompt-button"
-          >
-            Save
-          </Button>
-        </Stack>
-      </Stack>
+
+                <TextArea
+                  label="content"
+                  value={message.content}
+                  onChange={(v) => onMessageChange(index, 'content', v)}
+                  rows={message.role === 'system' ? 3 : 2}
+                  error={e?.content}
+                  textareaAttrs={{
+                    'aria-label': `Message content ${index + 1}`,
+                    'data-testid': isLastUser ? 'prompt-text' : undefined,
+                  }}
+                  onSelect={(event) => emitSelection(index, event.currentTarget)}
+                  onClick={(event) => emitSelection(index, event.currentTarget)}
+                  onKeyUp={(event) => emitSelection(index, event.currentTarget)}
+                  onFocus={(event) => emitSelection(index, event.currentTarget)}
+                  onBlur={() => onContentSelectionChange?.(null)}
+                />
+              </Subrow>
+            );
+          })}
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+        >
+          <GhostButton onClick={onNavigateBack} disabled={isBusy}>
+            Back to Prompts
+          </GhostButton>
+          <div style={ROW_INLINE(8)}>
+            <GhostButton onClick={onTryRun} disabled={isBusy}>
+              Run
+            </GhostButton>
+            <PrimaryButton
+              type="submit"
+              disabled={isSaving || !hasActiveProject || isActiveProjectLoading}
+              testId="save-prompt-button"
+            >
+              Save
+            </PrimaryButton>
+          </div>
+        </div>
+      </div>
     </SectionCard>
   );
 };
+
+// ───────────────────────── PromptPreviewCard ─────────────────────────
 
 export type PromptPreviewCardProps = {
   draftSummary: string;
   execution?: PromptEditorExecution;
 };
 
-export const PromptPreviewCard: React.FC<PromptPreviewCardProps> = ({ draftSummary, execution }) => (
-  <Stack spacing={3} sx={{ mt: 3 }}>
+export const PromptPreviewCard: React.FC<PromptPreviewCardProps> = ({
+  draftSummary,
+  execution,
+}) => (
+  <div style={COL_STACK(16)}>
     <SectionCard title="Prompt summary" subtitle="Current draft state">
-      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+      <pre
+        style={{
+          margin: 0,
+          fontFamily: 'var(--pl-mono)',
+          fontSize: 12,
+          color: 'var(--pl-ink-900)',
+          whiteSpace: 'pre-wrap',
+          lineHeight: 1.5,
+        }}
+      >
         {draftSummary}
-      </Typography>
+      </pre>
     </SectionCard>
     {execution ? (
-      <SectionCard title="Most recent response" subtitle={`Executed ${new Date(execution.timestamp).toLocaleString()}`}>
-        <Typography variant="body2" color="text.secondary">
+      <SectionCard
+        title="Most recent response"
+        subtitle={`Executed ${new Date(execution.timestamp).toLocaleString()}`}
+      >
+        <Mono size={12} color="var(--pl-ink-600)">
           Full output is shown in the response panel below.
-        </Typography>
+        </Mono>
       </SectionCard>
     ) : null}
-  </Stack>
+  </div>
 );
+
+// ───────────────────────── PromptEditorTabsLayout ─────────────────────────
 
 export type PromptEditorTabsLayoutProps = {
   tabs: { value: PromptEditorTab; label: string; badge?: string | number; disabled?: boolean }[];
@@ -1139,63 +1129,81 @@ export const PromptEditorTabsLayout: React.FC<PromptEditorTabsLayoutProps> = ({
   />
 );
 
+// ───────────────────────── LastExecutionCard ─────────────────────────
+
 export type LastExecutionCardProps = {
   lastExecution: PromptEditorExecution;
   executions: PromptEditorExecution[];
   onSelectExecution: (id: string) => void;
 };
 
-export const LastExecutionCard: React.FC<LastExecutionCardProps> = ({ lastExecution, executions, onSelectExecution }) => (
+export const LastExecutionCard: React.FC<LastExecutionCardProps> = ({
+  lastExecution,
+  executions,
+  onSelectExecution,
+}) => (
   <SectionCard
     title="Last execution"
     subtitle={`Run at ${new Date(lastExecution.timestamp).toLocaleString()}`}
     action={
-      <Stack direction="row" spacing={1} alignItems="center">
-        {executions.length > 1 ? (
-          <Stack direction="row" spacing={0.5}>
-            {executions.slice(0, 5).map((execution) => {
+      <div style={ROW_INLINE(8)}>
+        {executions.length > 1
+          ? executions.slice(0, 5).map((execution) => {
               const isActive = execution.id === lastExecution.id;
               return (
-                <Button
+                <button
                   key={execution.id}
-                  size="small"
-                  variant={isActive ? 'contained' : 'outlined'}
+                  type="button"
                   onClick={() => onSelectExecution(execution.id)}
+                  className={isActive ? 'pl-btn pl-btn-primary' : 'pl-btn pl-btn-ghost'}
+                  style={{ height: 26, padding: '0 10px', fontSize: 11.5 }}
                 >
-                  {new Date(execution.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </Button>
+                  {new Date(execution.timestamp).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </button>
               );
-            })}
-          </Stack>
-        ) : null}
-        <Chip
-          label={`${lastExecution.response?.usage?.outputTokens ?? 0} output tokens`}
-          size="small"
-          color="primary"
-          variant="outlined"
-        />
-      </Stack>
+            })
+          : null}
+        <Tag tone="signal">
+          {lastExecution.response?.usage?.outputTokens ?? 0} output tokens
+        </Tag>
+      </div>
     }
   >
-    <Stack spacing={1.5}>
-      <Typography variant="body2" color="text.secondary">
+    <div style={COL_STACK(10)}>
+      <Mono size={11.5} color="var(--pl-ink-600)">
         Response preview:
-      </Typography>
-      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, borderColor: 'divider', bgcolor: 'background.paper' }}>
-        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+      </Mono>
+      <Subrow>
+        <pre
+          style={{
+            margin: 0,
+            fontFamily: 'var(--pl-mono)',
+            fontSize: 12,
+            color: 'var(--pl-ink-900)',
+            whiteSpace: 'pre-wrap',
+            lineHeight: 1.5,
+          }}
+        >
           {lastExecution.response?.content ?? 'No response content captured.'}
-        </Typography>
-      </Paper>
+        </pre>
+      </Subrow>
       {lastExecution.placeholders.length ? (
-        <Stack direction="row" spacing={1} flexWrap="wrap">
+        <div style={ROW_INLINE(6)}>
           {lastExecution.placeholders.map((placeholder) => (
-            <Chip key={placeholder.name} label={`${placeholder.name}: ${placeholder.defaultValue ?? ''}`} size="small" variant="outlined" />
+            <Tag key={placeholder.name}>
+              {placeholder.name}: {placeholder.defaultValue ?? ''}
+            </Tag>
           ))}
-        </Stack>
+        </div>
       ) : null}
-    </Stack>
+    </div>
   </SectionCard>
 );
+
+// ───────────────────────── EvaluationResultsCard ─────────────────────────
 
 export type EvaluationResultsCardProps = {
   results: PromptEditorEvaluationResult[];
@@ -1203,41 +1211,46 @@ export type EvaluationResultsCardProps = {
 
 export const EvaluationResultsCard: React.FC<EvaluationResultsCardProps> = ({ results }) => (
   <SectionCard title="Evaluation results" subtitle="Quality gates from recent runs">
-    <Stack spacing={2}>
+    <div style={COL_STACK(10)}>
       {results.map((evaluation, index) => (
-        <Paper key={index} variant="outlined" sx={{ p: 1.5, borderRadius: 2, borderColor: 'divider' }}>
-          <Grid container spacing={1} alignItems="center">
-            <Grid item xs={12} sm={4}>
-              <Typography variant="subtitle2" color="text.primary">
+        <Subrow key={index}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr auto auto 1fr',
+              gap: 12,
+              alignItems: 'center',
+            }}
+          >
+            <div>
+              <Mono size={12} color="var(--pl-ink-900)" style={{ fontWeight: 500 }}>
                 {evaluation.evaluator || 'Unnamed evaluator'}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
+              </Mono>
+              <Mono size={11} color="var(--pl-ink-500)" style={{ display: 'block', marginTop: 2 }}>
                 {evaluation.type}
-              </Typography>
-            </Grid>
-            <Grid item xs={6} sm={2}>
+              </Mono>
+            </div>
+            <div>
               {evaluation.success !== undefined ? (
-                <Chip size="small" label={evaluation.success ? 'Pass' : 'Fail'} color={evaluation.success ? 'success' : 'error'} />
+                <Tag tone={evaluation.success ? 'ok' : 'fail'}>
+                  {evaluation.success ? 'Pass' : 'Fail'}
+                </Tag>
               ) : null}
-            </Grid>
-            <Grid item xs={6} sm={2}>
-              {evaluation.score !== undefined ? <Chip size="small" label={`Score ${evaluation.score}`} variant="outlined" /> : null}
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              {evaluation.reasoning ? (
-                <Typography variant="body2" color="text.secondary">
-                  {evaluation.reasoning}
-                </Typography>
-              ) : null}
-            </Grid>
-          </Grid>
+            </div>
+            <div>
+              {evaluation.score !== undefined ? <Tag>Score {evaluation.score}</Tag> : null}
+            </div>
+            <Mono size={11.5} color="var(--pl-ink-600)">
+              {evaluation.reasoning ?? ''}
+            </Mono>
+          </div>
           {evaluation.comments ? (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            <Mono size={11.5} color="var(--pl-ink-600)" style={{ marginTop: 6 }}>
               {evaluation.comments}
-            </Typography>
+            </Mono>
           ) : null}
-        </Paper>
+        </Subrow>
       ))}
-    </Stack>
+    </div>
   </SectionCard>
 );
