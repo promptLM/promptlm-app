@@ -109,7 +109,9 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
       >
         <Mono size={11} color="var(--pl-ink-500)" style={{ letterSpacing: '0.06em' }}>
           {lead.length > 0 && <>{lead.join(' · ')} / </>}
-          <span style={{ color: 'var(--pl-ink-800)' }}>{last}</span>
+          <span style={{ color: 'var(--pl-ink-800)' }} data-testid="prompt-editor-heading">
+            {last}
+          </span>
         </Mono>
 
         <div style={{ flex: 1 }} />
@@ -130,6 +132,9 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
           style={{ height: 32, padding: '0 14px', fontSize: 13 }}
           onClick={onSave}
           disabled={isBusy || isSaving}
+          data-testid={
+            mode === 'create' ? 'prompt-editor-create-action' : 'prompt-editor-edit-action'
+          }
         >
           {isSaving ? 'Saving…' : saveLabel}
         </button>
@@ -140,6 +145,7 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
             style={{ height: 32, padding: '0 12px', fontSize: 13 }}
             onClick={onRelease}
             disabled={isBusy || isReleasing}
+            data-testid="prompt-editor-release-action"
           >
             {isReleasing ? 'Releasing…' : releaseLabel}
           </button>

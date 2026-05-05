@@ -123,6 +123,7 @@ export const CatalogTopBar: React.FC<CatalogTopBarProps> = ({
           className="pl-btn pl-btn-primary"
           style={{ height: 32, padding: '0 14px', fontSize: 13 }}
           onClick={onNewPrompt}
+          data-testid="create-prompt-button"
         >
           <span style={{ fontFamily: MONO, fontSize: 14, marginTop: -1 }}>+</span> New prompt
         </button>

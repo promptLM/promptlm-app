@@ -142,10 +142,9 @@ public class HappyPathUserJourneyTest {
         navigateToApplication();
         ensureRepositoryVariablesConfigured();
 
-        // Click on "Add" button to open dropdown menu
-        page.getByTestId("add-button").click();
-
-        // Click on "New Prompt" in the dropdown menu
+        // v2 UX: there is no global "Add" dropdown — the New prompt button lives in
+        // the catalog top bar. Navigate to /prompts and click it directly.
+        navigateToPath("/prompts");
         page.getByTestId("create-prompt-button").click();
 
         // Verify we're in the prompt editor via unique heading test id
@@ -228,7 +227,10 @@ public class HappyPathUserJourneyTest {
         gitea.resetRepositoryActionsState(repositoryOwner, REPO_NAME);
         gitea.logRepositoryActionsDiagnostics(repositoryOwner, REPO_NAME);
 
+        // v2 UX: clicking a catalog row opens the read view; the editor lives at
+        // /prompts/:id/edit. Click "Edit" to reach the editor, then Release.
         page.getByTestId("prompt-card-%s-action".formatted(PROMPT_NAME)).click();
+        page.getByTestId("prompt-edit-action").click();
         page.getByTestId("prompt-editor-release-action").click();
         navigateToPath("/prompts");
         takeScreenshot("here.png");
