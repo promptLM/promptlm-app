@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Release flow · promptLM Playbook</title>
+  <link rel="stylesheet" href="../../shared/tokens.css" />
+  <link rel="stylesheet" href="../shared.css" />
+</head>
+<body>
+  <header class="pb-topbar">
+    <div class="pb-brand"><span class="pb-mark"></span><span>promptLM · Playbook</span></div>
+    <nav>
+      <a href="../index.html">Overview</a>
+      <a href="../schema.html">Schema</a>
+      <a href="../api.html">API</a>
+      <a href="../../webui/index.html">Web UI</a>
+      <a href="../../report/index.html">Report</a>
+    </nav>
+  </header>
+
+  <main class="pb-shell">
+    <div class="pb-with-toc">
+      <div>
+        <span class="pb-eyebrow">Flow · webui · form</span>
+        <h1 class="pb-h1">Release flow <span class="pb-status wip">#95 PR 1</span></h1>
+        <p class="pb-lede">
+          Replaces the old "Save &amp; release" CTA. The Release button lives in the sticky header; clicking it opens a <strong>side rail panel from the right</strong> with the pre-release check (Q2 lock). Gated on at least one Test run against the current request shape.
+        </p>
+
+        <h2 class="pb-h2" id="screen">Screen reference</h2>
+        <a class="pb-screen-ref" href="../../webui/index.html#/prompts/form">Open live mock → /prompts/form (Release button is in the sticky header)</a>
+        <p>Source: <code class="mono">handoff/webui/src/prompt-form.jsx</code> — search for <code class="mono">releaseState</code> and <code class="mono">ReleaseRail</code>.</p>
+
+        <h2 class="pb-h2" id="states">State machine</h2>
+        <table class="pb-table">
+          <thead><tr><th>State</th><th>Trigger in</th><th>UI</th><th>Trigger out</th></tr></thead>
+          <tbody>
+            <tr><td><code class="mono">idle</code></td><td>initial / after toast dismissed</td><td>Release button enabled (if gates pass) or disabled with tooltip</td><td>click Release → <code class="mono">saving</code></td></tr>
+            <tr><td><code class="mono">saving</code></td><td>click Release</td><td>Side rail opens · spinner on "Saving draft"</td><td>save resolves → <code class="mono">running</code> · save fails → <code class="mono">blocked-infra</code></td></tr>
+            <tr><td><code class="mono">running</code></td><td>save resolved</td><td>Side rail · spinner on "Releasing"</td><td>release resolves → <code class="mono">released</code> · release fails → <code class="mono">blocked-prompt</code> or <code class="mono">blocked-infra</code></td></tr>
+            <tr><td><code class="mono">released</code></td><td>release resolved (200)</td><td>Side rail collapses · toast "Released v1.9.0" with <em>View execution</em> action</td><td>auto → <code class="mono">idle</code> after toast dismissed</td></tr>
+            <tr><td><code class="mono">blocked-prompt</code></td><td>4xx from <code class="mono">releasePrompt</code></td><td>Side rail stays open · error block with server message · "Try again" button</td><td>fix &amp; retry → <code class="mono">saving</code></td></tr>
+            <tr><td><code class="mono">blocked-infra</code></td><td>5xx / network from save or release</td><td>Side rail stays open · error block · "Retry" button</td><td>retry → previous step</td></tr>
+          </tbody>
+        </table>
+
+        <h2 class="pb-h2" id="gates">Gate logic</h2>
+        <p>The Release button is <strong>disabled</strong> until all of these hold:</p>
+        <table class="pb-table">
+          <thead><tr><th>Gate</th><th>Source</th><th>Tooltip when blocked</th></tr></thead>
+          <tbody>
+            <tr><td>Form validates clean</td><td><code class="mono">validateDraft(draft).errors.length === 0</code></td><td>"Fix N error(s) before releasing"</td></tr>
+            <tr><td>At least one Test run on current request shape</td><td><code class="mono">executions[]</code> non-empty after most recent request edit</td><td>"Run at least once in the Test tab before releasing"</td></tr>
+            <tr><td>Latest test run succeeded</td><td><code class="mono">executions[0].status === 'ok'</code></td><td>"Last test run failed — re-run before releasing"</td></tr>
+            <tr><td>No unsaved placeholder edits <em>that affect schema</em></td><td>placeholder list shape unchanged since last save</td><td>"Save placeholder schema changes first"</td></tr>
+          </tbody>
+        </table>
+        <p style="color:var(--pl-ink-700);">Note: <em>placeholder values</em> can be unsaved at release — Q3 lock allows new values to flow through Release without saving them as defaults.</p>
+
+        <h2 class="pb-h2" id="rail">Side rail anatomy</h2>
+        <p>Slides in from the right, ~420px wide, semi-modal (form is dimmed but readable behind).</p>
+        <table class="pb-table">
+          <thead><tr><th>Section</th><th>Content</th></tr></thead>
+          <tbody>
+            <tr><td>Header</td><td>"Release v1.8.0 → v1.9.0" · close ✕</td></tr>
+            <tr><td>Pre-release checks</td><td>Checklist mirroring gate logic — each item ✓ / · / ✗</td></tr>
+            <tr><td>Diff summary</td><td>"3 messages changed · 1 placeholder added · model unchanged" — links to <a href="diff.html">Diff</a> for full view</td></tr>
+            <tr><td>Last test run</td><td>Mini run-card: status · duration · tokens · "View in Test tab" link</td></tr>
+            <tr><td>Action</td><td>"Release" primary button · "Cancel" secondary</td></tr>
+            <tr><td>Error block (when blocked)</td><td>Server message · context · "Try again" / "Retry"</td></tr>
+          </tbody>
+        </table>
+
+        <h2 class="pb-h2" id="ops">API operations</h2>
+        <table class="pb-table">
+          <thead><tr><th>State transition</th><th>Method</th><th>Path</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td><code class="mono">saving</code></td><td class="mono">updatePromptSpec(id, body)</td><td class="mono">PUT /api/prompts/{id}</td><td>persists draft incl. unsaved request edits</td></tr>
+            <tr><td><code class="mono">running</code></td><td class="mono">releasePrompt(id)</td><td class="mono">POST /api/prompts/{id}/release</td><td>inspect <code class="mono">X-PromptLM-Release-State</code></td></tr>
+            <tr><td>PR-mode follow-up</td><td class="mono">completeReleasePrompt(id, pr)</td><td class="mono">POST /api/prompts/{id}/release/complete</td><td>only when header was <code class="mono">requested</code> (PR mode)</td></tr>
+          </tbody>
+        </table>
+
+        <h2 class="pb-h2" id="release-modes">Release modes</h2>
+        <p>Two server modes (<code class="mono">direct</code> vs <code class="mono">pr_two_phase</code>) are surfaced via the <code class="mono">X-PromptLM-Release-State</code> response header:</p>
+        <ul style="line-height:1.7;color:var(--pl-ink-800);">
+          <li><code class="mono">released</code> — toast says "Released v1.9.0"; flow ends.</li>
+          <li><code class="mono">requested</code> — toast says "Release pending PR merge" with link out to the PR. The form re-arms a small "Finalize release" affordance that calls <code class="mono">completeReleasePrompt</code> after merge.</li>
+        </ul>
+
+        <h2 class="pb-h2" id="toast">Toast contract</h2>
+        <ul style="line-height:1.7;color:var(--pl-ink-800);">
+          <li><strong>On success:</strong> toast bottom-center, sticky 6s. Body: "Released vX.Y.Z". Action: "View execution" → opens last execution in Test tab Output column.</li>
+          <li><strong>On failure:</strong> no toast — error stays in the side rail so the user can retry without losing context.</li>
+        </ul>
+
+        <h2 class="pb-h2" id="notes">Notes &amp; PR scope</h2>
+        <ul style="line-height:1.7;color:var(--pl-ink-800);">
+          <li><strong>PR 1 ships</strong> the button, the rail, the state machine, gate logic, and the toast — all wired to mock save/release that always succeeds. Easy to flip a flag in the JSX to exercise the blocked states.</li>
+          <li><strong>PR 2 wires</strong> real <code class="mono">updatePromptSpec</code> + <code class="mono">releasePrompt</code> + <code class="mono">completeReleasePrompt</code>, and routes the toast's "View execution" action into the Test tab using real <code class="mono">executions[]</code>.</li>
+          <li><strong>Replaces:</strong> the old "Save &amp; release" CTA documented elsewhere in the playbook is gone in #95. Treat any remaining mention as legacy.</li>
+        </ul>
+      </div>
+
+      <aside class="pb-toc">
+        <h4>On this page</h4>
+        <ul>
+          <li><a href="#screen">Screen</a></li>
+          <li><a href="#states">State machine</a></li>
+          <li><a href="#gates">Gates</a></li>
+          <li><a href="#rail">Side rail</a></li>
+          <li><a href="#ops">API operations</a></li>
+          <li><a href="#release-modes">Release modes</a></li>
+          <li><a href="#toast">Toast</a></li>
+          <li><a href="#notes">Notes</a></li>
+        </ul>
+      </aside>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Form · promptLM Playbook</title>
+  <link rel="stylesheet" href="../../shared/tokens.css" />
+  <link rel="stylesheet" href="../shared.css" />
+</head>
+<body>
+  <header class="pb-topbar">
+    <div class="pb-brand"><span class="pb-mark"></span><span>promptLM · Playbook</span></div>
+    <nav>
+      <a href="../index.html">Overview</a>
+      <a href="../schema.html">Schema</a>
+      <a href="../api.html">API</a>
+      <a href="../../webui/index.html">Web UI</a>
+      <a href="../../report/index.html">Report</a>
+    </nav>
+  </header>
+
+  <main class="pb-shell">
+    <div class="pb-with-toc">
+      <div>
+        <span class="pb-eyebrow">Surface · webui</span>
+        <h1 class="pb-h1">Prompt form (create &amp; edit) <span class="pb-status wip">v2 wip</span></h1>
+        <p class="pb-lede">
+          Single form, two modes — <code class="mono">create</code> and <code class="mono">edit</code>. Two-column layout: messages center, model + parameters + placeholders + tools + eval right rail. Identity (name/group/description) is a thin collapsible above messages.
+        </p>
+
+        <h2 class="pb-h2" id="screen">Screen reference</h2>
+        <a class="pb-screen-ref" href="../../webui/index.html#/prompts/new">Open live mock → /prompts/new (create)</a>
+        <a class="pb-screen-ref" href="../../webui/index.html#/prompts/form">Open live mock → /prompts/form (edit)</a>
+        <p>Source: <code class="mono">handoff/webui/src/prompt-form.jsx</code> (v1 backup at <code class="mono">prompt-form-v1.jsx</code>).</p>
+
+        <h2 class="pb-h2" id="ops">API operations</h2>
+        <table class="pb-table">
+          <thead><tr><th>When</th><th>Method</th><th>Path</th><th>Mode</th></tr></thead>
+          <tbody>
+            <tr><td>On mount (create)</td><td class="mono">getDefaultTemplate()</td><td class="mono">GET /api/prompts/template</td><td>create</td></tr>
+            <tr><td>On mount (edit)</td><td class="mono">getById(id)</td><td class="mono">GET /api/prompts/{id}</td><td>edit</td></tr>
+            <tr><td>On mount</td><td class="mono">getCatalog()</td><td class="mono">GET /api/llm/catalog</td><td>both — vendor/model selects</td></tr>
+            <tr><td>On mount</td><td class="mono">getPromptGroups()</td><td class="mono">GET /api/prompts/groups</td><td>both — group autocomplete</td></tr>
+            <tr><td>"Save draft" (create)</td><td class="mono">createPromptSpec(body)</td><td class="mono">POST /api/prompts</td><td>create</td></tr>
+            <tr><td>"Save draft" (edit)</td><td class="mono">updatePromptSpec(id, body)</td><td class="mono">PUT /api/prompts/{id}</td><td>edit</td></tr>
+            <tr><td>"Release" button (#95)</td><td class="mono">updatePromptSpec()</td><td class="mono">+ releasePrompt()</td><td>both — sequential, gated on Test run. See <a href="release-flow.html">Release flow</a>.</td></tr>
+            <tr><td>"Test" tab (unsaved)</td><td class="mono">executePrompt(body)</td><td class="mono">POST /api/prompts/execute</td><td>both. See <a href="test-tab.html">Test tab</a>.</td></tr>
+            <tr><td>"Test" tab (saved)</td><td class="mono">executeStoredPrompt(id)</td><td class="mono">POST /api/prompts/{id}/execute</td><td>edit</td></tr>
+          </tbody>
+        </table>
+
+        <h2 class="pb-h2" id="bindings">Schema bindings (PromptSpecCreationRequest)</h2>
+        <table class="pb-table">
+          <thead><tr><th>Section</th><th>UI field</th><th>Schema</th><th>Required</th></tr></thead>
+          <tbody>
+            <tr><td>Identity</td><td>Name</td><td class="mono">name</td><td>✓</td></tr>
+            <tr><td>Identity</td><td>Group (autocomplete)</td><td class="mono">group</td><td>✓</td></tr>
+            <tr><td>Identity</td><td>Description</td><td class="mono">description</td><td></td></tr>
+            <tr><td>Sticky header (read-only)</td><td>Version + revision</td><td class="mono">version, revision</td><td>resolved</td></tr>
+            <tr><td>Sticky header (read-only)</td><td>Repo url</td><td class="mono">repositoryUrl</td><td>resolved</td></tr>
+            <tr><td>Model</td><td>Vendor select</td><td class="mono">request.vendor</td><td>✓</td></tr>
+            <tr><td>Model</td><td>Model select</td><td class="mono">request.model</td><td>✓</td></tr>
+            <tr><td>Model</td><td>Snapshot</td><td class="mono">request.model_snapshot</td><td></td></tr>
+            <tr><td>Parameters</td><td>Temperature slider</td><td class="mono">request.parameters.temperature</td><td></td></tr>
+            <tr><td>Parameters</td><td>Top-p slider</td><td class="mono">request.parameters.topP</td><td></td></tr>
+            <tr><td>Parameters</td><td>Max tokens</td><td class="mono">request.parameters.maxTokens</td><td></td></tr>
+            <tr><td>Parameters</td><td>Frequency penalty</td><td class="mono">request.parameters.frequencyPenalty</td><td></td></tr>
+            <tr><td>Parameters</td><td>Presence penalty</td><td class="mono">request.parameters.presencePenalty</td><td></td></tr>
+            <tr><td>Placeholders</td><td>Delimiters</td><td class="mono">placeholderStartPattern, placeholderEndPattern</td><td></td></tr>
+            <tr><td>Placeholders</td><td>List + defaults</td><td class="mono">placeholder (Record)</td><td></td></tr>
+            <tr><td>Placeholders strip</td><td>Glanceable chips above messages</td><td class="mono">placeholders.list[].name</td><td></td></tr>
+            <tr><td>Messages</td><td>Role + content + name</td><td class="mono">messages[].role, .content, .name</td><td>✓ on tool role: <code class="mono">name</code></td></tr>
+            <tr><td>Tools (MCP mocks)</td><td>Name / scenario / response</td><td class="mono">extensions['x-promptlm.tools']</td><td>optional · stored as extension</td></tr>
+            <tr><td>Eval</td><td>Plan rows</td><td class="mono">evaluationSpec.evaluations[]</td><td>locked · runner WIP</td></tr>
+          </tbody>
+        </table>
+
+        <h2 class="pb-h2" id="validation">Validation</h2>
+        <table class="pb-table">
+          <thead><tr><th>Rule</th><th>Field</th><th>Source</th></tr></thead>
+          <tbody>
+            <tr><td><code class="mono">/^[A-Za-z0-9_-]+$/</code></td><td><code class="mono">name</code></td><td><code class="mono">prompt-form.jsx::validateDraft</code></td></tr>
+            <tr><td>required</td><td><code class="mono">name, group</code></td><td>same</td></tr>
+            <tr><td>at least one message</td><td><code class="mono">messages[]</code></td><td>same</td></tr>
+            <tr><td>tool messages must have <code class="mono">name</code></td><td><code class="mono">messages[i].name</code> when role=tool</td><td>same</td></tr>
+            <tr><td>placeholder names match delimiters</td><td><code class="mono">placeholders.list[].name</code></td><td>same</td></tr>
+          </tbody>
+        </table>
+
+        <h2 class="pb-h2" id="notes">Notes &amp; known issues</h2>
+        <ul style="line-height:1.7;color:var(--pl-ink-800);">
+          <li><strong>Stripped from form UI:</strong> <code class="mono">version</code>, <code class="mono">revision</code>, <code class="mono">repositoryUrl</code>, <code class="mono">request.url</code>. Kept in payload but never rendered as inputs — surface in the sticky header context strip.</li>
+          <li><strong>Mode differences are minimal:</strong> empty draft vs loaded; CTA label "Create" vs "Save"; Identity collapsed by default in edit, expanded in create.</li>
+          <li><strong>Error count badges</strong> on each collapsible — auto-expand the section if errors exist on save attempt.</li>
+          <li><strong>Eval section</strong> renders disabled with a "Available with promptLM Pro" lock until <code class="mono">Evaluation</code> type has a real shape.</li>
+          <li><strong>Tools section</strong> persists into <code class="mono">extensions['x-promptlm.tools']</code> — not a first-class field on <code class="mono">PromptSpecCreationRequest</code> yet.</li>
+          <li><strong>Open bugs:</strong> vendor select shows "— select —" even with value set; create-mode name placeholder reads like a real value. See HANDOVER §5.</li>
+          <li><strong>Editor / Test tab strip (#95)</strong> sits below the sticky header. The Editor tab is everything documented above; the Test tab has its own playbook page — see <a href="test-tab.html">Test tab</a>. Release flow (button + side rail + state machine + gates) is documented in <a href="release-flow.html">Release flow</a>.</li>
+        </ul>
+      </div>
+
+      <aside class="pb-toc">
+        <h4>On this page</h4>
+        <ul>
+          <li><a href="#screen">Screen</a></li>
+          <li><a href="#ops">API operations</a></li>
+          <li><a href="#bindings">Schema bindings</a></li>
+          <li><a href="#validation">Validation</a></li>
+          <li><a href="#notes">Notes</a></li>
+        </ul>
+      </aside>
+    </div>
+  </main>
+</body>
+</html>

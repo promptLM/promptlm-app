@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Schema reference · promptLM Playbook</title>
+  <link rel="stylesheet" href="../shared/tokens.css" />
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <header class="pb-topbar">
+    <div class="pb-brand"><span class="pb-mark"></span><span>promptLM · Playbook</span></div>
+    <nav>
+      <a href="index.html">Overview</a>
+      <a href="schema.html" class="active">Schema</a>
+      <a href="api.html">API</a>
+      <a href="../webui/index.html">Web UI</a>
+      <a href="../report/index.html">Report</a>
+    </nav>
+  </header>
+
+  <main class="pb-shell">
+    <span class="pb-eyebrow">Generated · @promptlm/api-client/models</span>
+    <h1 class="pb-h1">Schema reference</h1>
+    <p class="pb-lede">
+      The exact shapes the UI binds to. Lifted verbatim from
+      <code class="mono">handoff/api-client/promptlm-api-client/src/generated/client/models/</code>.
+    </p>
+
+    <h2 class="pb-h2" id="prompt-spec">PromptSpec</h2>
+    <p>The persisted prompt. Returned by <code class="mono">getById</code>, <code class="mono">listPromptSpecs</code>, every mutation.</p>
+    <table class="pb-table">
+      <thead><tr><th>Field</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">id</td><td class="mono">string</td><td>Unique identifier. Read-only — server-assigned.</td></tr>
+        <tr><td class="mono">uuid</td><td class="mono">string</td><td>Stable UUID. Read-only.</td></tr>
+        <tr><td class="mono">name</td><td class="mono">string</td><td>Slug, <code class="mono">/^[A-Za-z0-9_-]+$/</code>. <strong>Required at create.</strong></td></tr>
+        <tr><td class="mono">group</td><td class="mono">string</td><td>Grouping label. <strong>Required at create.</strong> Pulled from <code class="mono">getPromptGroups()</code>.</td></tr>
+        <tr><td class="mono">description</td><td class="mono">string</td><td>Free text.</td></tr>
+        <tr><td class="mono">version</td><td class="mono">string</td><td>SemVer. <em>Resolved from git context — not editable.</em></td></tr>
+        <tr><td class="mono">revision</td><td class="mono">number</td><td>Draft revision. <em>Resolved — not editable.</em></td></tr>
+        <tr><td class="mono">repositoryUrl</td><td class="mono">string</td><td><em>Resolved from git context — not editable.</em></td></tr>
+        <tr><td class="mono">status</td><td class="mono">'ACTIVE' | 'RETIRED'</td><td>Set by server via <code class="mono">retirePrompt()</code>.</td></tr>
+        <tr><td class="mono">authors</td><td class="mono">string[]</td><td>Resolved from commit history.</td></tr>
+        <tr><td class="mono">purpose</td><td class="mono">string</td><td>Business intent.</td></tr>
+        <tr><td class="mono">createdAt / updatedAt / retiredAt</td><td class="mono">string (ISO)</td><td>Server timestamps.</td></tr>
+        <tr><td class="mono">retiredReason</td><td class="mono">string</td><td>Set when retiring.</td></tr>
+        <tr><td class="mono">request</td><td class="mono">ChatCompletionRequest | ImagesGenerationsRequest | AudioSpeechRequest</td><td>LLM payload (model, params, messages). See below.</td></tr>
+        <tr><td class="mono">placeholders</td><td class="mono">Placeholders</td><td>Delimiters + list. See below.</td></tr>
+        <tr><td class="mono">response</td><td class="mono">ChatCompletionResponse</td><td>Latest captured response.</td></tr>
+        <tr><td class="mono">evaluationSpec</td><td class="mono">EvaluationSpec</td><td>Future · runner unimplemented.</td></tr>
+        <tr><td class="mono">evaluationResults</td><td class="mono">EvaluationResults</td><td>Future.</td></tr>
+        <tr><td class="mono">executions</td><td class="mono">Execution[]</td><td>Recent runs. Currently mocked in detail view.</td></tr>
+        <tr><td class="mono">extensions</td><td class="mono">Record&lt;string, JsonNode&gt;</td><td>Custom <code class="mono">x-*</code> payloads.</td></tr>
+        <tr><td class="mono">semanticHash</td><td class="mono">string</td><td>Stable hash across semantic fields. Used by Diff to skip cosmetic changes.</td></tr>
+      </tbody>
+    </table>
+
+    <h2 class="pb-h2" id="creation-request">PromptSpecCreationRequest</h2>
+    <p>What the form posts. Required fields are marked.</p>
+    <table class="pb-table">
+      <thead><tr><th>Field</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">name<span class="req">required</span></td><td class="mono">string</td><td>Slug.</td></tr>
+        <tr><td class="mono">group<span class="req">required</span></td><td class="mono">string</td><td></td></tr>
+        <tr><td class="mono">description</td><td class="mono">string</td><td></td></tr>
+        <tr><td class="mono">id</td><td class="mono">string</td><td>Set on update only.</td></tr>
+        <tr><td class="mono">type</td><td class="mono">string</td><td>e.g. <code class="mono">chat/completion</code>.</td></tr>
+        <tr><td class="mono">vendorAndModel</td><td class="mono">VendorAndModel</td><td>Vendor + model pair.</td></tr>
+        <tr><td class="mono">request</td><td class="mono">PromptSpecRequest</td><td>Full request shape (vendor, model, parameters, messages, model_snapshot, url).</td></tr>
+        <tr><td class="mono">messages</td><td class="mono">Message[]</td><td>Mirrors <code class="mono">request.messages</code>.</td></tr>
+        <tr><td class="mono">userMessage</td><td class="mono">string</td><td>Convenience field for the primary user template.</td></tr>
+        <tr><td class="mono">placeholder</td><td class="mono">Record&lt;string, any&gt;</td><td>Default values map.</td></tr>
+        <tr><td class="mono">placeholderStartPattern</td><td class="mono">string</td><td>Default <code class="mono">{{</code>.</td></tr>
+        <tr><td class="mono">placeholderEndPattern</td><td class="mono">string</td><td>Default <code class="mono">}}</code>.</td></tr>
+        <tr><td class="mono">version</td><td class="mono">string</td><td>Resolved — pass through, do not render input.</td></tr>
+        <tr><td class="mono">repositoryUrl</td><td class="mono">string</td><td>Resolved — pass through.</td></tr>
+        <tr><td class="mono">extensions</td><td class="mono">Record&lt;string, any&gt;</td><td></td></tr>
+      </tbody>
+    </table>
+
+    <h2 class="pb-h2" id="request">PromptSpecRequest &amp; parameters</h2>
+    <table class="pb-table">
+      <thead><tr><th>Field</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">type</td><td class="mono">string</td><td>Discriminator (e.g. <code class="mono">chat/completion</code>).</td></tr>
+        <tr><td class="mono">vendor</td><td class="mono">string</td><td>From LLM catalog.</td></tr>
+        <tr><td class="mono">model</td><td class="mono">string</td><td>From LLM catalog.</td></tr>
+        <tr><td class="mono">model_snapshot</td><td class="mono">string</td><td>Optional snapshot pin.</td></tr>
+        <tr><td class="mono">url</td><td class="mono">string</td><td>Optional vendor endpoint override. <em>Resolved — not editable in form v2.</em></td></tr>
+        <tr><td class="mono">messages</td><td class="mono">Message[]</td><td><code class="mono">{ role, content, name? }</code></td></tr>
+        <tr><td class="mono">parameters.temperature</td><td class="mono">number</td><td>Sampling.</td></tr>
+        <tr><td class="mono">parameters.topP</td><td class="mono">number</td><td>Nucleus sampling.</td></tr>
+        <tr><td class="mono">parameters.maxTokens</td><td class="mono">number</td><td></td></tr>
+        <tr><td class="mono">parameters.frequencyPenalty</td><td class="mono">number</td><td></td></tr>
+        <tr><td class="mono">parameters.presencePenalty</td><td class="mono">number</td><td></td></tr>
+        <tr><td class="mono">parameters.stream</td><td class="mono">boolean</td><td></td></tr>
+      </tbody>
+    </table>
+
+    <h2 class="pb-h2" id="placeholders">Placeholders</h2>
+    <table class="pb-table">
+      <thead><tr><th>Field</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">startPattern</td><td class="mono">string</td><td>Default <code class="mono">{{</code>.</td></tr>
+        <tr><td class="mono">endPattern</td><td class="mono">string</td><td>Default <code class="mono">}}</code>.</td></tr>
+        <tr><td class="mono">list</td><td class="mono">Placeholder[]</td><td><code class="mono">{ name, defaultValue }</code></td></tr>
+        <tr><td class="mono">defaults</td><td class="mono">Record&lt;string, string&gt;</td><td>Quick-lookup map.</td></tr>
+      </tbody>
+    </table>
+
+    <h2 class="pb-h2" id="message">Message</h2>
+    <table class="pb-table">
+      <thead><tr><th>Field</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">role</td><td class="mono">string</td><td><code class="mono">'system' | 'user' | 'assistant' | 'tool'</code> (server-validated, not enum-typed yet).</td></tr>
+        <tr><td class="mono">content</td><td class="mono">string</td><td>Template body — supports placeholders.</td></tr>
+        <tr><td class="mono">name</td><td class="mono">string</td><td>Required only on tool role.</td></tr>
+      </tbody>
+    </table>
+
+    <h2 class="pb-h2" id="execution">Execution &amp; PromptStats</h2>
+    <table class="pb-table">
+      <thead><tr><th>Type</th><th>Field</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">Execution</td><td class="mono">id, timestamp, response, placeholders, evaluations</td><td>Used by Detail history. Capture pipeline still WIP — see HANDOVER §4.</td></tr>
+        <tr><td class="mono">PromptStats</td><td class="mono">totalPrompts, activePrompts, retiredPrompts, countByGroup, activeProjects, lastUpdated</td><td>Drives Report overview cards.</td></tr>
+      </tbody>
+    </table>
+
+    <h2 class="pb-h2" id="evaluation">EvaluationSpec / Evaluation</h2>
+    <p>Currently <code class="mono">Evaluation</code> is an empty type. Treat the form's eval section as preview-only and disable the runner CTA until the server contract lands.</p>
+  </main>
+</body>
+</html>

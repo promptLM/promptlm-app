@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Diff · promptLM Playbook</title>
+  <link rel="stylesheet" href="../../shared/tokens.css" />
+  <link rel="stylesheet" href="../shared.css" />
+</head>
+<body>
+  <header class="pb-topbar">
+    <div class="pb-brand"><span class="pb-mark"></span><span>promptLM · Playbook</span></div>
+    <nav>
+      <a href="../index.html">Overview</a>
+      <a href="../schema.html">Schema</a>
+      <a href="../api.html">API</a>
+      <a href="../../webui/index.html">Web UI</a>
+      <a href="../../report/index.html">Report</a>
+    </nav>
+  </header>
+
+  <main class="pb-shell">
+    <div class="pb-with-toc">
+      <div>
+        <span class="pb-eyebrow">Surface · webui &amp; report</span>
+        <h1 class="pb-h1">Prompt diff <span class="pb-status">stable</span></h1>
+        <p class="pb-lede">Two pickers + a structural diff of two <code class="mono">PromptSpec</code> values. Diff is computed client-side over the semantic fields; <code class="mono">semanticHash</code> identity should short-circuit a no-op render.</p>
+
+        <h2 class="pb-h2" id="screen">Screen reference</h2>
+        <a class="pb-screen-ref" href="../../webui/index.html#/diff">Open live mock → /diff</a>
+        <p>Source: <code class="mono">handoff/webui/src/prompt-diff.jsx</code> (mirrored at <code class="mono">handoff/report/src/prompt-diff.jsx</code>).</p>
+
+        <h2 class="pb-h2" id="ops">API operations</h2>
+        <table class="pb-table">
+          <thead><tr><th>When</th><th>Method</th><th>Path</th><th>Use</th></tr></thead>
+          <tbody>
+            <tr><td>Picker open</td><td class="mono">listPromptSpecs()</td><td class="mono">GET /api/prompts</td><td>Populate dropdowns.</td></tr>
+            <tr><td>A or B selected</td><td class="mono">getById(id)</td><td class="mono">GET /api/prompts/{id}</td><td>Fetch full spec for diff.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 class="pb-h2" id="bindings">Diffed fields</h2>
+        <p>Compare these — ignore everything else (timestamps, server-resolved metadata, file paths).</p>
+        <table class="pb-table">
+          <thead><tr><th>Section</th><th>Field path</th><th>Render</th></tr></thead>
+          <tbody>
+            <tr><td>Identity</td><td class="mono">name, group, description, purpose</td><td>Inline text diff</td></tr>
+            <tr><td>Model</td><td class="mono">request.vendor, .model, .model_snapshot</td><td>Inline value diff</td></tr>
+            <tr><td>Parameters</td><td class="mono">request.parameters.*</td><td>Number-aware diff (highlight delta)</td></tr>
+            <tr><td>Placeholders</td><td class="mono">placeholders.list[]</td><td>Added / removed / renamed (by <code class="mono">name</code>)</td></tr>
+            <tr><td>Messages</td><td class="mono">request.messages[]</td><td>Role-aware line diff</td></tr>
+          </tbody>
+        </table>
+
+        <h2 class="pb-h2" id="notes">Notes</h2>
+        <ul style="line-height:1.7;color:var(--pl-ink-800);">
+          <li><strong>Identity check:</strong> if <code class="mono">A.semanticHash === B.semanticHash</code>, render a "No semantic changes" empty state.</li>
+          <li><strong>Default B</strong>: when arriving from Detail, pre-select previous version (sort siblings in same group by <code class="mono">updatedAt</code>).</li>
+          <li><strong>Permalink</strong>: <code class="mono">#/diff?a={id}&amp;b={id}</code>.</li>
+        </ul>
+      </div>
+
+      <aside class="pb-toc">
+        <h4>On this page</h4>
+        <ul>
+          <li><a href="#screen">Screen</a></li>
+          <li><a href="#ops">API operations</a></li>
+          <li><a href="#bindings">Diffed fields</a></li>
+          <li><a href="#notes">Notes</a></li>
+        </ul>
+      </aside>
+    </div>
+  </main>
+</body>
+</html>

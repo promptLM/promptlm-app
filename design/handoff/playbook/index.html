@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>promptLM · Design Playbook</title>
+  <link rel="stylesheet" href="../shared/tokens.css" />
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <header class="pb-topbar">
+    <div class="pb-brand"><span class="pb-mark"></span><span>promptLM · Playbook</span></div>
+    <nav>
+      <a href="index.html" class="active">Overview</a>
+      <a href="schema.html">Schema</a>
+      <a href="api.html">API</a>
+      <a href="../webui/index.html">Web UI</a>
+      <a href="../report/index.html">Report</a>
+    </nav>
+  </header>
+
+  <main class="pb-shell">
+    <span class="pb-eyebrow">Design ↔ Schema ↔ API</span>
+    <h1 class="pb-h1">Design playbook</h1>
+    <p class="pb-lede">
+      One page per UI surface, mapped to its <code class="mono">PromptSpec</code>
+      schema fields and the operations on
+      <code class="mono">@promptlm/api-client</code>. Source of truth is the
+      generated client under <code class="mono">handoff/api-client/</code>.
+    </p>
+
+    <h2 class="pb-h2">Surfaces</h2>
+    <div class="pb-grid cols-2">
+      <a class="pb-card linkable" href="surfaces/catalog.html">
+        <div class="pb-card-meta">#/prompts · webui</div>
+        <div class="pb-card-title">Prompt catalog</div>
+        <p>Faceted left rail, list of prompts. Reads <code class="mono">listPromptSpecs()</code> + <code class="mono">getPromptStats()</code>.</p>
+      </a>
+      <a class="pb-card linkable" href="surfaces/detail.html">
+        <div class="pb-card-meta">#/prompts/detail · webui &amp; report</div>
+        <div class="pb-card-title">Prompt detail</div>
+        <p>Read-only spec view + history. Reads <code class="mono">getById()</code>.</p>
+      </a>
+      <a class="pb-card linkable" href="surfaces/form.html">
+        <div class="pb-card-meta">#/prompts/form, /new · webui</div>
+        <div class="pb-card-title">Prompt form (create/edit)</div>
+        <p>Two-column form against <code class="mono">PromptSpecCreationRequest</code>. Calls <code class="mono">createPromptSpec()</code> / <code class="mono">updatePromptSpec()</code>.</p>
+      </a>
+      <a class="pb-card linkable" href="surfaces/test-tab.html">
+        <div class="pb-card-meta">#/prompts/form → Test · webui</div>
+        <div class="pb-card-title">Test tab <span class="pb-status wip">#95 PR 1</span></div>
+        <p>Three-region pre-release execution surface inside the form. Calls <code class="mono">executePrompt()</code> / <code class="mono">executeStoredPrompt()</code>; reads <code class="mono">executions[]</code>.</p>
+      </a>
+      <a class="pb-card linkable" href="surfaces/release-flow.html">
+        <div class="pb-card-meta">form sticky header · webui</div>
+        <div class="pb-card-title">Release flow <span class="pb-status wip">#95 PR 1</span></div>
+        <p>Release button + side rail + state machine. Replaces "Save &amp; release". Calls <code class="mono">updatePromptSpec()</code> + <code class="mono">releasePrompt()</code>.</p>
+      </a>
+      <a class="pb-card linkable" href="surfaces/diff.html">
+        <div class="pb-card-meta">#/diff · webui &amp; report</div>
+        <div class="pb-card-title">Prompt diff</div>
+        <p>Two pickers + spec diff. Reads two <code class="mono">getById()</code> calls.</p>
+      </a>
+      <a class="pb-card linkable" href="surfaces/report.html">
+        <div class="pb-card-meta">#/ · report</div>
+        <div class="pb-card-title">Corpus report</div>
+        <p>Static overview of the prompt corpus. Reads <code class="mono">getPromptStats()</code> + <code class="mono">listPromptSpecs()</code>.</p>
+      </a>
+    </div>
+
+    <h2 class="pb-h2">Cross-cuts</h2>
+    <div class="pb-grid cols-2">
+      <a class="pb-card linkable" href="schema.html">
+        <div class="pb-card-meta">model</div>
+        <div class="pb-card-title">Schema reference</div>
+        <p><code class="mono">PromptSpec</code>, <code class="mono">PromptSpecCreationRequest</code>, and the nested types every form field maps onto.</p>
+      </a>
+      <a class="pb-card linkable" href="api.html">
+        <div class="pb-card-meta">openapi · @promptlm/api-client</div>
+        <div class="pb-card-title">API operations</div>
+        <p>All ops on <code class="mono">PromptSpecificationsService</code>, <code class="mono">PromptStoreService</code>, <code class="mono">CapabilitiesService</code>, <code class="mono">LlmCatalogService</code>.</p>
+      </a>
+    </div>
+
+    <h2 class="pb-h2">How to read a surface page</h2>
+    <p>Each surface page has four sections in this order:</p>
+    <ol style="line-height:1.8;color:var(--pl-ink-800);">
+      <li><strong>Screen reference</strong> — link to the live mock in <code class="mono">handoff/webui/</code> or <code class="mono">handoff/report/</code>, plus a one-paragraph design intent.</li>
+      <li><strong>API operations</strong> — what the screen calls on load, save, action.</li>
+      <li><strong>Schema bindings</strong> — every visible UI field, its source schema property, type, and required-ness.</li>
+      <li><strong>Notes</strong> — validation rules, error states, what's mocked vs real.</li>
+    </ol>
+
+    <div class="pb-callout warn">
+      <strong>Caveats carried from HANDOVER.md.</strong>
+      Production observability (p95, success rate, cost) is fake on the report
+      and detail pages — feature-flag in production. The
+      <code class="mono">executions[]</code> table assumes a future
+      <code class="mono">promptlm run</code> capture pipeline. Evaluations are
+      design-only — runner doesn't exist yet.
+    </div>
+  </main>
+</body>
+</html>
