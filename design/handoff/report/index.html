@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>promptLM · Repository Report</title>
+  <link rel="stylesheet" href="shared/tokens.css" />
+  <style>
+    html, body { margin: 0; padding: 0; background: var(--pl-canvas); font-family: var(--pl-display); color: var(--pl-ink-900); }
+    #app { min-height: 100vh; }
+    .route-bar {
+      position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 4px; padding: 6px;
+      background: var(--pl-paper); border: 1px solid var(--pl-ink-200);
+      border-radius: 999px; box-shadow: 0 4px 16px rgba(0,0,0,.06);
+      font-family: var(--pl-mono); font-size: 11px;
+      z-index: 100;
+    }
+    .route-bar a {
+      padding: 5px 12px; border-radius: 999px;
+      color: var(--pl-ink-600); text-decoration: none;
+    }
+    .route-bar a.active { background: var(--pl-ink-900); color: var(--pl-paper); }
+    .route-bar a:hover:not(.active) { background: var(--pl-ink-100); }
+  </style>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="app"></div>
+
+  <!-- The Mono atom is defined in prompt-detail.jsx's lexical neighbourhood.
+       In the design project it lived in product.jsx; here we inline a small
+       stub so the report files are truly standalone. -->
+  <script type="text/babel">
+    // ─── shared atom: Mono ─────────────────────────────────────
+    // Inlined here so the report has no dependency on the webui bundle.
+    window.Mono = ({ children, style, size = 12, color = 'var(--pl-ink-700)' }) => (
+      <span style={{
+        fontFamily: 'var(--pl-mono)',
+        fontSize: size, color,
+        letterSpacing: '-0.005em',
+        ...style,
+      }}>{children}</span>
+    );
+    // Make it global for the JSX files (which expect it as a free identifier)
+    window.__defineMonoGlobal = () => { window.Mono = Mono; };
+  </script>
+
+  <script type="text/babel" src="src/report.jsx"></script>
+  <script type="text/babel" src="src/prompt-detail.jsx"></script>
+  <script type="text/babel" src="src/prompt-diff.jsx"></script>
+
+  <script type="text/babel">
+    // ─── routes ────────────────────────────────────────────────
+    //
+    //   #/                       → repo overview (the main report)
+    //   #/prompts/:name          → per-prompt detail with revision history
+    //   #/diff                   → interactive diff
+    //
+    const ROUTES = [
+      { path: '/',                label: 'Overview', component: () => <ProductReport /> },
+      { path: '/prompts/detail',  label: 'Prompt detail', component: () => <PromptDetailPage /> },
+      { path: '/diff',            label: 'Diff', component: () => <PromptDiffPage /> },
+    ];
+
+    function getRoute() {
+      const h = (location.hash || '').replace(/^#/, '') || '/';
+      return ROUTES.find(r => r.path === h) || ROUTES[0];
+    }
+
+    function App() {
+      const [route, setRoute] = React.useState(getRoute());
+      React.useEffect(() => {
+        const onHash = () => setRoute(getRoute());
+        window.addEventListener('hashchange', onHash);
+        return () => window.removeEventListener('hashchange', onHash);
+      }, []);
+      return (
+        <>
+          {route.component()}
+          <nav className="route-bar">
+            {ROUTES.map(r => (
+              <a key={r.path}
+                 href={`#${r.path}`}
+                 className={r.path === route.path ? 'active' : ''}>
+                {r.label}
+              </a>
+            ))}
+          </nav>
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('app')).render(<App />);
+  </script>
+</body>
+</html>

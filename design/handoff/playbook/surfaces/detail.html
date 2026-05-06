@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Detail · promptLM Playbook</title>
+  <link rel="stylesheet" href="../../shared/tokens.css" />
+  <link rel="stylesheet" href="../shared.css" />
+</head>
+<body>
+  <header class="pb-topbar">
+    <div class="pb-brand"><span class="pb-mark"></span><span>promptLM · Playbook</span></div>
+    <nav>
+      <a href="../index.html">Overview</a>
+      <a href="../schema.html">Schema</a>
+      <a href="../api.html">API</a>
+      <a href="../../webui/index.html">Web UI</a>
+      <a href="../../report/index.html">Report</a>
+    </nav>
+  </header>
+
+  <main class="pb-shell">
+    <div class="pb-with-toc">
+      <div>
+        <span class="pb-eyebrow">Surface · webui &amp; report</span>
+        <h1 class="pb-h1">Prompt detail <span class="pb-status">stable</span></h1>
+        <p class="pb-lede">
+          Read-only view of one prompt. Two variants: <code class="mono">PromptDetail</code> (display-first) and <code class="mono">PromptDetailV2</code> (sticky header, edit-oriented). Report uses <code class="mono">PromptDetailPage</code>.
+        </p>
+
+        <h2 class="pb-h2" id="screen">Screen reference</h2>
+        <a class="pb-screen-ref" href="../../webui/index.html#/prompts/detail">Open live mock → /prompts/detail</a>
+        <p>Sources: <code class="mono">handoff/webui/src/catalog-and-detail.jsx</code>, <code class="mono">handoff/webui/src/detail-v2.jsx</code>, <code class="mono">handoff/webui/src/prompt-detail.jsx</code>.</p>
+
+        <h2 class="pb-h2" id="ops">API operations</h2>
+        <table class="pb-table">
+          <thead><tr><th>When</th><th>Method</th><th>Path</th><th>Use</th></tr></thead>
+          <tbody>
+            <tr><td>On mount</td><td class="mono">getById(id)</td><td class="mono">GET /api/prompts/{id}</td><td>Fetch the spec.</td></tr>
+            <tr><td>"Edit" CTA</td><td>—</td><td>—</td><td>Route to <code class="mono">#/prompts/form?id={id}</code>.</td></tr>
+            <tr><td>"Run" CTA</td><td class="mono">executeStoredPrompt(id)</td><td class="mono">POST /api/prompts/{id}/execute</td><td>Append to executions.</td></tr>
+            <tr><td>"Retire" action</td><td class="mono">retirePrompt(id, reason?)</td><td class="mono">PUT /api/prompts/{id}/retire</td><td>Sets <code class="mono">status='RETIRED'</code>.</td></tr>
+            <tr><td>"Diff against…" CTA</td><td>—</td><td>—</td><td>Route to <code class="mono">#/diff?a={id}&amp;b=…</code>.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 class="pb-h2" id="bindings">Schema bindings</h2>
+        <table class="pb-table">
+          <thead><tr><th>Section</th><th>UI</th><th>PromptSpec field</th></tr></thead>
+          <tbody>
+            <tr><td>Header</td><td>Title</td><td class="mono">name</td></tr>
+            <tr><td>Header</td><td>Group chip</td><td class="mono">group</td></tr>
+            <tr><td>Header</td><td>Version + revision</td><td class="mono">version, revision</td></tr>
+            <tr><td>Header</td><td>Status pill</td><td class="mono">status</td></tr>
+            <tr><td>Header</td><td>Repo link</td><td class="mono">repositoryUrl</td></tr>
+            <tr><td>Header</td><td>Updated meta</td><td class="mono">updatedAt, authors</td></tr>
+            <tr><td>Identity</td><td>Description</td><td class="mono">description</td></tr>
+            <tr><td>Identity</td><td>Purpose</td><td class="mono">purpose</td></tr>
+            <tr><td>Model</td><td>Vendor / model / snapshot</td><td class="mono">request.vendor, .model, .model_snapshot</td></tr>
+            <tr><td>Model</td><td>Parameters block</td><td class="mono">request.parameters.*</td></tr>
+            <tr><td>Placeholders</td><td>Delimiters + list</td><td class="mono">placeholders.startPattern, .endPattern, .list[]</td></tr>
+            <tr><td>Messages</td><td>Role + content cards</td><td class="mono">request.messages[]</td></tr>
+            <tr><td>Last response</td><td>Output snippet</td><td class="mono">response</td></tr>
+            <tr><td>History</td><td>Executions table</td><td class="mono">executions[]</td></tr>
+          </tbody>
+        </table>
+
+        <h2 class="pb-h2" id="notes">Notes</h2>
+        <ul style="line-height:1.7;color:var(--pl-ink-800);">
+          <li><strong>Executions table is currently mocked.</strong> Until the <code class="mono">promptlm run</code> capture pipeline lands, hide the section when <code class="mono">spec.executions</code> is empty/undefined — don't render synthetic rows.</li>
+          <li><strong>Retired status</strong> should disable the Edit and Run CTAs. Show <code class="mono">retiredReason</code> in the header subline.</li>
+          <li><strong>Diff link</strong> needs a "compare against…" picker; default <code class="mono">b</code> to the previous version (sort by <code class="mono">updatedAt</code>).</li>
+          <li><strong>Observability strip</strong> (p95, success, cost) seen in older mocks is illustrative only — feature-flag.</li>
+        </ul>
+      </div>
+
+      <aside class="pb-toc">
+        <h4>On this page</h4>
+        <ul>
+          <li><a href="#screen">Screen</a></li>
+          <li><a href="#ops">API operations</a></li>
+          <li><a href="#bindings">Schema bindings</a></li>
+          <li><a href="#notes">Notes</a></li>
+        </ul>
+      </aside>
+    </div>
+  </main>
+</body>
+</html>
