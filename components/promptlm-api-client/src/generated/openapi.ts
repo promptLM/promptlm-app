@@ -812,6 +812,7 @@ export interface components {
             reasoning?: string;
             comments?: string;
         };
+        /** @description Single recorded execution of a PromptSpec */
         Execution: {
             id?: string;
             /** Format: date-time */
@@ -819,6 +820,51 @@ export interface components {
             response?: components["schemas"]["ChatCompletionResponse"];
             placeholders?: components["schemas"]["Placeholder"][];
             evaluations?: components["schemas"]["EvaluationResult"][];
+            /**
+             * Format: int64
+             * @description Wall time of the run in milliseconds
+             * @example 842
+             */
+            latencyMs?: number;
+            /**
+             * Format: int32
+             * @description Rendered prompt token count
+             * @example 512
+             */
+            tokensIn?: number;
+            /**
+             * Format: int32
+             * @description Response token count
+             * @example 256
+             */
+            tokensOut?: number;
+            /**
+             * @description Path to the input fixture file used for the run
+             * @example fixtures/welcome.json
+             */
+            fixturePath?: string;
+            /**
+             * @description Free-form context label for the run
+             * @example CI · pre-merge
+             */
+            context?: string;
+            /**
+             * @description Revision of the spec that produced this run
+             * @example r3
+             */
+            revision?: string;
+            /**
+             * @description Git committer or CLI invoker
+             * @example ada
+             */
+            author?: string;
+            /**
+             * @description Outcome of the run; true when the run succeeded
+             * @example true
+             */
+            ok?: boolean;
+            /** @description Failure message captured when ok is false */
+            error?: string;
         };
         Response: {
             content?: string;

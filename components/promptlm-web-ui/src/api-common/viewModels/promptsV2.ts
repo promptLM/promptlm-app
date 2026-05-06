@@ -16,13 +16,14 @@
  * View-model mappers from the OpenAPI-generated `PromptSpec` to the prop
  * shapes consumed by `@promptlm/ui`'s prompts-v2 blocks. Centralizing these
  * here keeps presentation components free of generated-client specifics and
- * gives us one place to update when the API schema changes (issue #77).
+ * gives us one place to update when the API schema changes.
  *
- * Several PromptSpec.executions[] fields the v2 design depends on (latency,
- * tokens, success flag, fixture path, revision, author, context) are not yet
- * in the OpenAPI schema. We derive what we can from the captured response
- * (duration_ms, usage.input_tokens, usage.output_tokens) and stub the rest
- * with safe defaults so the UI degrades gracefully.
+ * The Execution schema carries dev-run telemetry (latencyMs / tokensIn /
+ * tokensOut / ok plus optional fixturePath / context / revision / author /
+ * error). We prefer those fields when present and fall back to values derived
+ * from the captured response (duration_ms, usage.input_tokens,
+ * usage.output_tokens) for executions recorded before the telemetry fields
+ * existed.
  */
 
 import { formatDistanceToNow } from 'date-fns';
@@ -72,14 +73,19 @@ const requestRef = (spec: PromptSpec): {
   };
 };
 
+const isExecutionOk = (execution: Execution): boolean => {
+  // `ok` is the authoritative success flag. Older executions captured before
+  // the telemetry fields landed may omit it — fall back to the presence of a
+  // captured response, which historically implied success.
+  if (typeof execution.ok === 'boolean') return execution.ok;
+  return execution.response !== undefined;
+};
+
 const successSeriesFromExecutions = (
   executions: readonly Execution[] | undefined,
   bucketCount = 12,
 ): number[] | undefined => {
   if (!executions || executions.length === 0) return undefined;
-  // Until issue #77 lands, every captured execution implies a successful
-  // response (we have no `ok` flag yet); we still emit a non-trivial series
-  // so the catalog sparkline shows something other than a flat line.
   const ordered = [...executions]
     .sort(
       (left, right) =>
@@ -87,12 +93,27 @@ const successSeriesFromExecutions = (
         new Date(right.timestamp ?? 0).getTime(),
     )
     .slice(-bucketCount);
-  return ordered.map((execution) => {
-    const tokens = execution.response?.usage?.output_tokens ?? 0;
-    // Map token throughput to a value in [0.9, 1.0] so spark stays in the OK
-    // band. The series is illustrative until backend exposes ok/fail.
-    return 0.95 + Math.min(0.05, (tokens % 200) / 4000);
-  });
+  return ordered.map((execution) => (isExecutionOk(execution) ? 1 : 0));
+};
+
+const latencyMsFor = (execution: Execution): number | null => {
+  if (typeof execution.latencyMs === 'number') return execution.latencyMs;
+  if (typeof execution.response?.duration_ms === 'number') {
+    return execution.response.duration_ms;
+  }
+  return null;
+};
+
+const tokensInFor = (execution: Execution): number | null => {
+  if (typeof execution.tokensIn === 'number') return execution.tokensIn;
+  const fallback = execution.response?.usage?.input_tokens;
+  return typeof fallback === 'number' ? fallback : null;
+};
+
+const tokensOutFor = (execution: Execution): number | null => {
+  if (typeof execution.tokensOut === 'number') return execution.tokensOut;
+  const fallback = execution.response?.usage?.output_tokens;
+  return typeof fallback === 'number' ? fallback : null;
 };
 
 const computeLatencyAggregates = (
@@ -100,7 +121,7 @@ const computeLatencyAggregates = (
 ): { avg?: number; p95?: number } => {
   if (!executions || executions.length === 0) return {};
   const samples = executions
-    .map((execution) => execution.response?.duration_ms ?? null)
+    .map(latencyMsFor)
     .filter((value): value is number => typeof value === 'number');
   if (samples.length === 0) return {};
   const avg = Math.round(samples.reduce((sum, n) => sum + n, 0) / samples.length);
@@ -117,9 +138,9 @@ const computeTokenAverages = (
   let toutSum = 0;
   let count = 0;
   for (const execution of executions) {
-    const tin = execution.response?.usage?.input_tokens;
-    const tout = execution.response?.usage?.output_tokens;
-    if (typeof tin === 'number' || typeof tout === 'number') {
+    const tin = tokensInFor(execution);
+    const tout = tokensOutFor(execution);
+    if (tin !== null || tout !== null) {
       tinSum += tin ?? 0;
       toutSum += tout ?? 0;
       count += 1;
@@ -132,6 +153,17 @@ const computeTokenAverages = (
     tinTotal: tinSum,
     toutTotal: toutSum,
   };
+};
+
+const computeSuccessRate = (
+  executions: readonly Execution[] | undefined,
+): number | undefined => {
+  if (!executions || executions.length === 0) return undefined;
+  const okCount = executions.reduce(
+    (sum, execution) => sum + (isExecutionOk(execution) ? 1 : 0),
+    0,
+  );
+  return okCount / executions.length;
 };
 
 export const mapPromptSpecToCatalogRowItem = (spec: PromptSpec): CatalogRowItem => {
@@ -153,7 +185,7 @@ export const mapPromptSpecToCatalogRowItem = (spec: PromptSpec): CatalogRowItem 
     updatedAt: formatRelative(spec.updatedAt ?? spec.createdAt),
     tags: [],
     executions: spec.executions?.length,
-    successRate: spec.executions && spec.executions.length > 0 ? 1 : undefined,
+    successRate: computeSuccessRate(spec.executions),
     successSeries: successSeriesFromExecutions(spec.executions),
     avgLatencyMs: latency.avg,
     p95LatencyMs: latency.p95,
@@ -231,14 +263,15 @@ const mapExecutions = (spec: PromptSpec): PromptDetailExecution[] => {
   return list.map((execution) => ({
     id: execution.id ?? `exec-${execution.timestamp ?? 'unknown'}`,
     when: formatRelative(execution.timestamp),
-    rev: '—',
-    author: '—',
-    context: 'capture',
-    fixture: '—',
-    ms: execution.response?.duration_ms ?? 0,
-    tin: execution.response?.usage?.input_tokens ?? 0,
-    tout: execution.response?.usage?.output_tokens ?? 0,
-    ok: true,
+    rev: execution.revision ?? '—',
+    author: execution.author ?? '—',
+    context: execution.context ?? 'capture',
+    fixture: execution.fixturePath ?? '—',
+    ms: latencyMsFor(execution) ?? 0,
+    tin: tokensInFor(execution) ?? 0,
+    tout: tokensOutFor(execution) ?? 0,
+    ok: isExecutionOk(execution),
+    error: execution.error,
   }));
 };
 
@@ -263,6 +296,9 @@ const computeMetrics = (
     tokensOutAvg: tokens.toutAvg ?? 0,
     tokensInTotal: tokens.tinTotal,
     tokensOutTotal: tokens.toutTotal,
+    successRate: computeSuccessRate(executions),
+    lastRunSha: lastExecution?.revision ?? undefined,
+    lastRunContext: lastExecution?.context ?? undefined,
   };
 };
 

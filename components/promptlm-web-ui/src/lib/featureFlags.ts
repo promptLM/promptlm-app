@@ -47,9 +47,8 @@ export const featureFlags = {
 
   /**
    * Dev-execution metrics (catalog sparklines, detail metrics strip,
-   * recent-runs table). View-models stub missing Execution fields until
-   * the OpenAPI schema lands — issue #77. Default ON; UI degrades to em-dash
-   * placeholders when no execution data is present.
+   * recent-runs table). Default ON; UI degrades to em-dash placeholders
+   * when no execution data is present.
    */
   executionMetrics: import.meta.env.VITE_FEATURE_EXEC_METRICS !== 'false',
 
