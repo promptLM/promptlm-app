@@ -19,11 +19,50 @@
 import type { ChatCompletionResponse } from './ChatCompletionResponse';
 import type { EvaluationResult } from './EvaluationResult';
 import type { Placeholder } from './Placeholder';
+/**
+ * Single recorded execution of a PromptSpec
+ */
 export type Execution = {
     id?: string;
     timestamp?: string;
     response?: ChatCompletionResponse;
     placeholders?: Array<Placeholder>;
     evaluations?: Array<EvaluationResult>;
+    /**
+     * Wall time of the run in milliseconds
+     */
+    latencyMs?: number;
+    /**
+     * Rendered prompt token count
+     */
+    tokensIn?: number;
+    /**
+     * Response token count
+     */
+    tokensOut?: number;
+    /**
+     * Path to the input fixture file used for the run
+     */
+    fixturePath?: string;
+    /**
+     * Free-form context label for the run
+     */
+    context?: string;
+    /**
+     * Revision of the spec that produced this run
+     */
+    revision?: string;
+    /**
+     * Git committer or CLI invoker
+     */
+    author?: string;
+    /**
+     * Outcome of the run; true when the run succeeded
+     */
+    ok?: boolean;
+    /**
+     * Failure message captured when ok is false
+     */
+    error?: string;
 };
 

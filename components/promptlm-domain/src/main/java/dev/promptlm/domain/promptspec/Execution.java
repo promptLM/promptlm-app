@@ -18,14 +18,25 @@ package dev.promptlm.domain.promptspec;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
  * Records a single execution of a {@link PromptSpec} against an LLM, capturing the timestamp,
  * the concrete response, the placeholder values used, and any evaluation outcomes.
+ *
+ * <p>Telemetry fields ({@code latencyMs}, {@code tokensIn}, {@code tokensOut}, {@code ok},
+ * and the optional {@code fixturePath} / {@code context} / {@code revision} / {@code author} /
+ * {@code error}) capture local dev-run metadata produced by the CLI / CI. They are never
+ * transmitted off-box; they exist so the UI can render meaningful per-run rows. Older serialized
+ * executions that pre-date these fields read back as {@code latencyMs == 0}, {@code tokensIn == 0},
+ * {@code tokensOut == 0}, {@code ok == true}, and {@code null} for the optional fields.
  */
+@Schema(description = "Single recorded execution of a PromptSpec")
 public class Execution {
     private String id;
 
@@ -38,13 +49,68 @@ public class Execution {
 
     private List<EvaluationResult> evaluations;
 
+    @Schema(description = "Wall time of the run in milliseconds", example = "842")
+    private Long latencyMs;
+
+    @Schema(description = "Rendered prompt token count", example = "512")
+    private Integer tokensIn;
+
+    @Schema(description = "Response token count", example = "256")
+    private Integer tokensOut;
+
+    @Schema(description = "Path to the input fixture file used for the run", example = "fixtures/welcome.json")
+    private String fixturePath;
+
+    @Schema(description = "Free-form context label for the run", example = "CI · pre-merge")
+    private String context;
+
+    @Schema(description = "Revision of the spec that produced this run", example = "r3")
+    private String revision;
+
+    @Schema(description = "Git committer or CLI invoker", example = "ada")
+    private String author;
+
+    @Schema(description = "Outcome of the run; true when the run succeeded", example = "true")
+    private Boolean ok;
+
+    @Schema(description = "Failure message captured when ok is false")
+    private String error;
+
     public Execution(String id, Instant timestamp, Response response, List<Placeholder> placeholders, List<EvaluationResult> evaluations) {
+
+        this(id, timestamp, response, placeholders, evaluations, null, null, null, null, null, null, null, null, null);
+    }
+
+    public Execution(
+            String id,
+            Instant timestamp,
+            Response response,
+            List<Placeholder> placeholders,
+            List<EvaluationResult> evaluations,
+            Long latencyMs,
+            Integer tokensIn,
+            Integer tokensOut,
+            String fixturePath,
+            String context,
+            String revision,
+            String author,
+            Boolean ok,
+            String error) {
 
         this.id = id;
         this.timestamp = timestamp;
         this.response = response;
         this.placeholders = placeholders;
         this.evaluations = evaluations;
+        this.latencyMs = latencyMs;
+        this.tokensIn = tokensIn;
+        this.tokensOut = tokensOut;
+        this.fixturePath = fixturePath;
+        this.context = context;
+        this.revision = revision;
+        this.author = author;
+        this.ok = ok;
+        this.error = error;
     }
 
     public Execution() {
@@ -76,6 +142,85 @@ public class Execution {
         return this.evaluations;
     }
 
+    /**
+     * Wall time of the run in milliseconds. Nullable for backwards compatibility with older
+     * serialized executions; callers wanting a default should use {@link #latencyMsOrZero()}.
+     */
+    public Long getLatencyMs() {
+
+        return this.latencyMs;
+    }
+
+    /** Returns {@link #getLatencyMs()} or {@code 0} when null. */
+    public long latencyMsOrZero() {
+
+        return this.latencyMs != null ? this.latencyMs : 0L;
+    }
+
+    public Integer getTokensIn() {
+
+        return this.tokensIn;
+    }
+
+    /** Returns {@link #getTokensIn()} or {@code 0} when null. */
+    public int tokensInOrZero() {
+
+        return this.tokensIn != null ? this.tokensIn : 0;
+    }
+
+    public Integer getTokensOut() {
+
+        return this.tokensOut;
+    }
+
+    /** Returns {@link #getTokensOut()} or {@code 0} when null. */
+    public int tokensOutOrZero() {
+
+        return this.tokensOut != null ? this.tokensOut : 0;
+    }
+
+    public String getFixturePath() {
+
+        return this.fixturePath;
+    }
+
+    public String getContext() {
+
+        return this.context;
+    }
+
+    public String getRevision() {
+
+        return this.revision;
+    }
+
+    public String getAuthor() {
+
+        return this.author;
+    }
+
+    public Boolean getOk() {
+
+        return this.ok;
+    }
+
+    /**
+     * Outcome of the run. Defaults to {@code true} when the underlying field is {@code null}
+     * (older captured executions implied a successful response). Renamed away from
+     * {@code isOk()} so Jackson / springdoc do not see two competing getters for the
+     * {@code ok} JSON property.
+     */
+    @JsonIgnore
+    public boolean okOrDefault() {
+
+        return this.ok == null || this.ok;
+    }
+
+    public String getError() {
+
+        return this.error;
+    }
+
     public void setId(String id) {
 
         this.id = id;
@@ -102,6 +247,51 @@ public class Execution {
         this.evaluations = evaluations;
     }
 
+    public void setLatencyMs(Long latencyMs) {
+
+        this.latencyMs = latencyMs;
+    }
+
+    public void setTokensIn(Integer tokensIn) {
+
+        this.tokensIn = tokensIn;
+    }
+
+    public void setTokensOut(Integer tokensOut) {
+
+        this.tokensOut = tokensOut;
+    }
+
+    public void setFixturePath(String fixturePath) {
+
+        this.fixturePath = fixturePath;
+    }
+
+    public void setContext(String context) {
+
+        this.context = context;
+    }
+
+    public void setRevision(String revision) {
+
+        this.revision = revision;
+    }
+
+    public void setAuthor(String author) {
+
+        this.author = author;
+    }
+
+    public void setOk(Boolean ok) {
+
+        this.ok = ok;
+    }
+
+    public void setError(String error) {
+
+        this.error = error;
+    }
+
     public boolean equals(final Object o) {
 
         if (o == this)
@@ -111,25 +301,33 @@ public class Execution {
         final Execution other = (Execution) o;
         if (!other.canEqual((Object) this))
             return false;
-        final Object this$id = this.getId();
-        final Object other$id = other.getId();
-        if (this$id == null ? other$id != null : !this$id.equals(other$id))
+        if (!Objects.equals(this.getId(), other.getId()))
             return false;
-        final Object this$timestamp = this.getTimestamp();
-        final Object other$timestamp = other.getTimestamp();
-        if (this$timestamp == null ? other$timestamp != null : !this$timestamp.equals(other$timestamp))
+        if (!Objects.equals(this.getTimestamp(), other.getTimestamp()))
             return false;
-        final Object this$response = this.getResponse();
-        final Object other$response = other.getResponse();
-        if (this$response == null ? other$response != null : !this$response.equals(other$response))
+        if (!Objects.equals(this.getResponse(), other.getResponse()))
             return false;
-        final Object this$placeholders = this.getPlaceholders();
-        final Object other$placeholders = other.getPlaceholders();
-        if (this$placeholders == null ? other$placeholders != null : !this$placeholders.equals(other$placeholders))
+        if (!Objects.equals(this.getPlaceholders(), other.getPlaceholders()))
             return false;
-        final Object this$evaluations = this.getEvaluations();
-        final Object other$evaluations = other.getEvaluations();
-        if (this$evaluations == null ? other$evaluations != null : !this$evaluations.equals(other$evaluations))
+        if (!Objects.equals(this.getEvaluations(), other.getEvaluations()))
+            return false;
+        if (!Objects.equals(this.latencyMs, other.latencyMs))
+            return false;
+        if (!Objects.equals(this.tokensIn, other.tokensIn))
+            return false;
+        if (!Objects.equals(this.tokensOut, other.tokensOut))
+            return false;
+        if (!Objects.equals(this.fixturePath, other.fixturePath))
+            return false;
+        if (!Objects.equals(this.context, other.context))
+            return false;
+        if (!Objects.equals(this.revision, other.revision))
+            return false;
+        if (!Objects.equals(this.author, other.author))
+            return false;
+        if (!Objects.equals(this.ok, other.ok))
+            return false;
+        if (!Objects.equals(this.error, other.error))
             return false;
         return true;
     }
@@ -141,24 +339,40 @@ public class Execution {
 
     public int hashCode() {
 
-        final int PRIME = 59;
-        int result = 1;
-        final Object $id = this.getId();
-        result = result * PRIME + ($id == null ? 43 : $id.hashCode());
-        final Object $timestamp = this.getTimestamp();
-        result = result * PRIME + ($timestamp == null ? 43 : $timestamp.hashCode());
-        final Object $response = this.getResponse();
-        result = result * PRIME + ($response == null ? 43 : $response.hashCode());
-        final Object $placeholders = this.getPlaceholders();
-        result = result * PRIME + ($placeholders == null ? 43 : $placeholders.hashCode());
-        final Object $evaluations = this.getEvaluations();
-        result = result * PRIME + ($evaluations == null ? 43 : $evaluations.hashCode());
-        return result;
+        return Objects.hash(
+                id,
+                timestamp,
+                response,
+                placeholders,
+                evaluations,
+                latencyMs,
+                tokensIn,
+                tokensOut,
+                fixturePath,
+                context,
+                revision,
+                author,
+                ok,
+                error);
     }
 
     public String toString() {
 
-        return "Execution(id=" + this.getId() + ", timestamp=" + this.getTimestamp() + ", response=" + this.getResponse() + ", placeholders=" + this.getPlaceholders() + ", evaluations=" + this.getEvaluations() + ")";
+        return "Execution(id=" + this.getId()
+                + ", timestamp=" + this.getTimestamp()
+                + ", response=" + this.getResponse()
+                + ", placeholders=" + this.getPlaceholders()
+                + ", evaluations=" + this.getEvaluations()
+                + ", latencyMs=" + this.latencyMs
+                + ", tokensIn=" + this.tokensIn
+                + ", tokensOut=" + this.tokensOut
+                + ", fixturePath=" + this.fixturePath
+                + ", context=" + this.context
+                + ", revision=" + this.revision
+                + ", author=" + this.author
+                + ", ok=" + this.ok
+                + ", error=" + this.error
+                + ")";
     }
 
     public static class Placeholder {

@@ -114,6 +114,10 @@ export const buildActivityFeed = (
     const executions: readonly Execution[] = spec.executions ?? [];
     for (const [index, run] of executions.entries()) {
       const ts = run.timestamp ? new Date(run.timestamp).getTime() : 0;
+      // Prefer the explicit `ok` telemetry flag; fall back to the presence of
+      // a captured response for executions recorded before the field existed.
+      const ok =
+        typeof run.ok === 'boolean' ? run.ok : run.response !== undefined;
       items.push({
         key: `${promptId}:run:${run.id ?? run.timestamp ?? index}`,
         kind: 'run',
@@ -122,10 +126,8 @@ export const buildActivityFeed = (
         prompt: promptName,
         promptId,
         group,
-        // Until #77 ships an `ok` flag on Execution we treat the presence of
-        // a captured response as success and missing response as failure.
-        status: run.response ? 'ok' : 'fail',
-        summary: 'execution recorded',
+        status: ok ? 'ok' : 'fail',
+        summary: run.error ?? 'execution recorded',
       });
     }
   }
