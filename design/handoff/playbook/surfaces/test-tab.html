@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Test tab · promptLM Playbook</title>
+  <link rel="stylesheet" href="../../shared/tokens.css" />
+  <link rel="stylesheet" href="../shared.css" />
+</head>
+<body>
+  <header class="pb-topbar">
+    <div class="pb-brand"><span class="pb-mark"></span><span>promptLM · Playbook</span></div>
+    <nav>
+      <a href="../index.html">Overview</a>
+      <a href="../schema.html">Schema</a>
+      <a href="../api.html">API</a>
+      <a href="../../webui/index.html">Web UI</a>
+      <a href="../../report/index.html">Report</a>
+    </nav>
+  </header>
+
+  <main class="pb-shell">
+    <div class="pb-with-toc">
+      <div>
+        <span class="pb-eyebrow">Surface · webui · form</span>
+        <h1 class="pb-h1">Test tab <span class="pb-status wip">#95 PR 1</span></h1>
+        <p class="pb-lede">
+          Second tab inside the prompt form. Three regions: <strong>Placeholders</strong> (left, ~280px) · <strong>Rendered prompt + Run controls</strong> (center, flex) · <strong>Output</strong> (right, ~360px), with a <strong>Run history strip</strong> spanning the bottom.
+        </p>
+
+        <h2 class="pb-h2" id="screen">Screen reference</h2>
+        <a class="pb-screen-ref" href="../../webui/index.html#/prompts/form">Open live mock → /prompts/form (click "Test" tab)</a>
+        <p>Source: <code class="mono">handoff/webui/src/prompt-form-test-tab.jsx</code> (~840 lines). Mounted by <code class="mono">prompt-form.jsx</code> via <code class="mono">window.PromptFormTestTab</code>.</p>
+
+        <h2 class="pb-h2" id="anatomy">Region anatomy (Q4 lock)</h2>
+        <table class="pb-table">
+          <thead><tr><th>Region</th><th>Width</th><th>Purpose</th><th>Editable?</th></tr></thead>
+          <tbody>
+            <tr><td>Run controls bar</td><td>full-width</td><td>Model + snapshot label · ▶ Run · ⟲ Re-run last · "using spec defaults" status</td><td>read-only labels; buttons trigger run</td></tr>
+            <tr><td>Placeholders (left)</td><td>~280px, drag-resizable</td><td>Edit values for the spec's placeholder map. Required vs optional badge, type hint, description.</td><td>✓ live edits feed Run; <strong>no auto-save</strong> (Q3)</td></tr>
+            <tr><td>Rendered prompt (center)</td><td>flex</td><td>Live-substituted system + user messages — what will be sent to the model on Run.</td><td>read-only preview</td></tr>
+            <tr><td>Output (right)</td><td>~360px, drag-resizable</td><td>Last run's assistant output, tool calls, duration + token counts.</td><td>read-only</td></tr>
+            <tr><td>Run history strip (bottom)</td><td>full-width</td><td>Live <code class="mono">executions[]</code> for the current request shape. Resets on request change. "View full history" opens repo-history flyover.</td><td>click chip to load that run into Output</td></tr>
+          </tbody>
+        </table>
+
+        <h2 class="pb-h2" id="ops">API operations</h2>
+        <table class="pb-table">
+          <thead><tr><th>When</th><th>Method</th><th>Path</th><th>PR</th></tr></thead>
+          <tbody>
+            <tr><td>▶ Run (unsaved request)</td><td class="mono">executePrompt(body)</td><td class="mono">POST /api/prompts/execute</td><td>PR 2</td></tr>
+            <tr><td>▶ Run (saved spec)</td><td class="mono">executeStoredPrompt(id)</td><td class="mono">POST /api/prompts/{id}/execute</td><td>PR 2</td></tr>
+            <tr><td>Each run</td><td class="mono">— write-back into executions[]</td><td>server-side</td><td>PR 2</td></tr>
+            <tr><td>"View full history"</td><td class="mono">getRepoHistory(name)</td><td>TBD — repo-history endpoint</td><td>PR 2 (contract pending)</td></tr>
+          </tbody>
+        </table>
+        <p style="color:var(--pl-ink-700);">PR 1 ships the UI shell with mock data hardcoded inside the JSX. Wiring is PR 2's scope.</p>
+
+        <h2 class="pb-h2" id="bindings">Schema bindings</h2>
+        <table class="pb-table">
+          <thead><tr><th>UI region</th><th>Field</th><th>Schema path</th></tr></thead>
+          <tbody>
+            <tr><td>Placeholders column</td><td>Per-placeholder input</td><td class="mono">placeholders.list[i].name</td></tr>
+            <tr><td>Placeholders column</td><td>Current values map</td><td class="mono">placeholders.defaults</td></tr>
+            <tr><td>Run controls</td><td>Model · snapshot label</td><td class="mono">request.vendor / .model / .model_snapshot</td></tr>
+            <tr><td>Rendered prompt</td><td>Live-substituted body</td><td>derived from <code class="mono">request.messages[]</code> + current placeholder map</td></tr>
+            <tr><td>Output</td><td>Assistant text + tools</td><td class="mono">executions[i].response</td></tr>
+            <tr><td>Output</td><td>Duration + tokens</td><td class="mono">executions[i].durationMs / tokensIn / tokensOut</td></tr>
+            <tr><td>Run history strip</td><td>Live runs (current request)</td><td class="mono">executions[]</td></tr>
+            <tr><td>History flyover</td><td>Past commits</td><td>TBD repo-history endpoint</td></tr>
+          </tbody>
+        </table>
+
+        <h2 class="pb-h2" id="state">Local state &amp; reset semantics (Q5 lock)</h2>
+        <ul style="line-height:1.7;color:var(--pl-ink-800);">
+          <li><strong><code class="mono">executions[]</code> resets on any change to <code class="mono">request</code>.</strong> Triggers: model, snapshot, parameters, messages content, placeholder list shape (renames / adds / removes — <em>not</em> value edits).</li>
+          <li><strong>Placeholder value edits do not reset history</strong> — they're inputs, not part of the request shape. Each run snapshot still carries the values used.</li>
+          <li><strong>Request-changed banner</strong> appears in the history strip when the user has edited the request shape since the last run; clicking "Clear" purges <code class="mono">executions[]</code> explicitly.</li>
+          <li><strong>Persistence:</strong> placeholder edits live in component state until the user clicks "Save placeholders" (Q3 — explicit save, no auto-save). Run results are written back to <code class="mono">executions[]</code> by the server on every Run.</li>
+        </ul>
+
+        <h2 class="pb-h2" id="notes">Notes</h2>
+        <ul style="line-height:1.7;color:var(--pl-ink-800);">
+          <li><strong>Mocked data in PR 1.</strong> <code class="mono">SAMPLE_EXECUTIONS</code> at the top of the file fakes a few run chips. Replace with real <code class="mono">executions[]</code> off the spec in PR 2.</li>
+          <li><strong>"DEMO: SIMULATE REQUEST CHANGE"</strong> button in the run-controls bar is a dev affordance — strip before shipping (search the file for <code class="mono">DEMO:</code>).</li>
+          <li><strong>v2 (issue #99)</strong> introduces multiple named scenarios. The placeholder column gains a chip strip header and the history strip groups by scenario. See <code class="mono">handoff/issue-comments/99-multi-scenario-placeholders.md</code>.</li>
+        </ul>
+      </div>
+
+      <aside class="pb-toc">
+        <h4>On this page</h4>
+        <ul>
+          <li><a href="#screen">Screen</a></li>
+          <li><a href="#anatomy">Anatomy</a></li>
+          <li><a href="#ops">API operations</a></li>
+          <li><a href="#bindings">Schema bindings</a></li>
+          <li><a href="#state">State &amp; reset</a></li>
+          <li><a href="#notes">Notes</a></li>
+        </ul>
+      </aside>
+    </div>
+  </main>
+</body>
+</html>

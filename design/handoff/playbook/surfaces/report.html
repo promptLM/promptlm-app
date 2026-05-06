@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Report · promptLM Playbook</title>
+  <link rel="stylesheet" href="../../shared/tokens.css" />
+  <link rel="stylesheet" href="../shared.css" />
+</head>
+<body>
+  <header class="pb-topbar">
+    <div class="pb-brand"><span class="pb-mark"></span><span>promptLM · Playbook</span></div>
+    <nav>
+      <a href="../index.html">Overview</a>
+      <a href="../schema.html">Schema</a>
+      <a href="../api.html">API</a>
+      <a href="../../webui/index.html">Web UI</a>
+      <a href="../../report/index.html">Report</a>
+    </nav>
+  </header>
+
+  <main class="pb-shell">
+    <div class="pb-with-toc">
+      <div>
+        <span class="pb-eyebrow">Surface · static report</span>
+        <h1 class="pb-h1">Corpus report <span class="pb-status">stable</span></h1>
+        <p class="pb-lede">A static, build-time-rendered overview of the prompt corpus. Three routes: overview, prompt detail, diff. Designed to be exported to HTML for sharing.</p>
+
+        <h2 class="pb-h2" id="screen">Screen reference</h2>
+        <a class="pb-screen-ref" href="../../report/index.html#/">Open live mock → /</a>
+        <p>Sources: <code class="mono">handoff/report/src/report.jsx</code>, <code class="mono">prompt-detail.jsx</code>, <code class="mono">prompt-diff.jsx</code>.</p>
+
+        <h2 class="pb-h2" id="ops">Data sources</h2>
+        <p>The report is static, so all data is fetched once at build time and inlined. At runtime no API calls happen.</p>
+        <table class="pb-table">
+          <thead><tr><th>Section</th><th>Method</th><th>Path</th></tr></thead>
+          <tbody>
+            <tr><td>Overview cards</td><td class="mono">getPromptStats()</td><td class="mono">GET /api/prompts/stats</td></tr>
+            <tr><td>Group breakdown</td><td class="mono">getPromptGroups(true)</td><td class="mono">GET /api/prompts/groups?includeRetired=true</td></tr>
+            <tr><td>Prompt list / detail / diff</td><td class="mono">listPromptSpecs()</td><td class="mono">GET /api/prompts</td></tr>
+          </tbody>
+        </table>
+
+        <h2 class="pb-h2" id="bindings">Schema bindings — overview</h2>
+        <table class="pb-table">
+          <thead><tr><th>UI</th><th>PromptStats field</th></tr></thead>
+          <tbody>
+            <tr><td>Total card</td><td class="mono">totalPrompts</td></tr>
+            <tr><td>Active card</td><td class="mono">activePrompts</td></tr>
+            <tr><td>Retired card</td><td class="mono">retiredPrompts</td></tr>
+            <tr><td>Projects card</td><td class="mono">activeProjects</td></tr>
+            <tr><td>Updated meta</td><td class="mono">lastUpdated</td></tr>
+            <tr><td>Group bar chart</td><td class="mono">countByGroup</td></tr>
+          </tbody>
+        </table>
+
+        <h2 class="pb-h2" id="notes">Notes</h2>
+        <ul style="line-height:1.7;color:var(--pl-ink-800);">
+          <li><strong>Quality / cost / latency cards</strong> in current mocks are illustrative — there is no source for these on <code class="mono">PromptStats</code>. Strip or keep behind a "demo" feature flag.</li>
+          <li><strong>Per-prompt page</strong> reuses the webui Detail bindings — same <code class="mono">PromptSpec</code> mapping.</li>
+          <li><strong>Static export</strong>: server can pre-render via <code class="mono">react-dom/server</code> and inline a JSON blob keyed by prompt id for client-side navigation.</li>
+        </ul>
+      </div>
+
+      <aside class="pb-toc">
+        <h4>On this page</h4>
+        <ul>
+          <li><a href="#screen">Screen</a></li>
+          <li><a href="#ops">Data sources</a></li>
+          <li><a href="#bindings">Schema bindings</a></li>
+          <li><a href="#notes">Notes</a></li>
+        </ul>
+      </aside>
+    </div>
+  </main>
+</body>
+</html>

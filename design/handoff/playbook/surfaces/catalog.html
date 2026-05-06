@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Catalog · promptLM Playbook</title>
+  <link rel="stylesheet" href="../../shared/tokens.css" />
+  <link rel="stylesheet" href="../shared.css" />
+</head>
+<body>
+  <header class="pb-topbar">
+    <div class="pb-brand"><span class="pb-mark"></span><span>promptLM · Playbook</span></div>
+    <nav>
+      <a href="../index.html">Overview</a>
+      <a href="../schema.html">Schema</a>
+      <a href="../api.html">API</a>
+      <a href="../../webui/index.html">Web UI</a>
+      <a href="../../report/index.html">Report</a>
+    </nav>
+  </header>
+
+  <main class="pb-shell">
+    <div class="pb-with-toc">
+      <div>
+        <span class="pb-eyebrow">Surface · webui</span>
+        <h1 class="pb-h1">Prompt catalog <span class="pb-status">stable</span></h1>
+        <p class="pb-lede">
+          Faceted browse of every prompt in the active project. Left rail of group + status facets, list of cards on the right. Single primary action: open detail.
+        </p>
+
+        <h2 class="pb-h2" id="screen">Screen reference</h2>
+        <a class="pb-screen-ref" href="../../webui/index.html#/prompts">Open live mock → /prompts</a>
+        <p>Source: <code class="mono">handoff/webui/src/catalog-and-detail.jsx</code> (<code class="mono">PromptCatalog</code>).</p>
+
+        <h2 class="pb-h2" id="ops">API operations</h2>
+        <table class="pb-table">
+          <thead><tr><th>When</th><th>Method</th><th>Path</th><th>Use</th></tr></thead>
+          <tbody>
+            <tr><td>On mount</td><td class="mono">listPromptSpecs()</td><td class="mono">GET /api/prompts</td><td>Populate the list.</td></tr>
+            <tr><td>On mount</td><td class="mono">getPromptGroups()</td><td class="mono">GET /api/prompts/groups</td><td>Group facet values.</td></tr>
+            <tr><td>On mount (optional)</td><td class="mono">getPromptStats()</td><td class="mono">GET /api/prompts/stats</td><td>Header counts (total / active / retired).</td></tr>
+            <tr><td>Card click</td><td>—</td><td>—</td><td>Route to <code class="mono">#/prompts/detail?id={id}</code>.</td></tr>
+            <tr><td>"New" CTA</td><td>—</td><td>—</td><td>Route to <code class="mono">#/prompts/new</code>.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 class="pb-h2" id="bindings">Schema bindings</h2>
+        <table class="pb-table">
+          <thead><tr><th>UI element</th><th>PromptSpec field</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td>Card title</td><td class="mono">name</td><td>Slug, monospace.</td></tr>
+            <tr><td>Card group chip</td><td class="mono">group</td><td>Cyan when filter active.</td></tr>
+            <tr><td>Card description</td><td class="mono">description</td><td>2-line clamp.</td></tr>
+            <tr><td>Status pill</td><td class="mono">status</td><td><code class="mono">ACTIVE</code> / <code class="mono">RETIRED</code>.</td></tr>
+            <tr><td>Version line</td><td class="mono">version</td><td>SemVer · monospace.</td></tr>
+            <tr><td>Updated meta</td><td class="mono">updatedAt</td><td>Relative format (e.g. "2d ago").</td></tr>
+            <tr><td>Group facet</td><td class="mono">group</td><td>Multi-select. From <code class="mono">getPromptGroups()</code>.</td></tr>
+            <tr><td>Status facet</td><td class="mono">status</td><td>Toggle Active / Retired.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 class="pb-h2" id="notes">Notes</h2>
+        <ul style="line-height:1.7;color:var(--pl-ink-800);">
+          <li>Empty state when <code class="mono">listPromptSpecs()</code> returns <code class="mono">[]</code>: prompt the user to clone a store or create their first prompt.</li>
+          <li>Pagination is not yet on the server — list all and client-filter for now.</li>
+          <li>Search box is local-only; full-text search isn't an API operation yet.</li>
+        </ul>
+      </div>
+
+      <aside class="pb-toc">
+        <h4>On this page</h4>
+        <ul>
+          <li><a href="#screen">Screen</a></li>
+          <li><a href="#ops">API operations</a></li>
+          <li><a href="#bindings">Schema bindings</a></li>
+          <li><a href="#notes">Notes</a></li>
+        </ul>
+      </aside>
+    </div>
+  </main>
+</body>
+</html>
