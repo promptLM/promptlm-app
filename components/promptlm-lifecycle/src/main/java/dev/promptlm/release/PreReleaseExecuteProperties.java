@@ -16,15 +16,23 @@
 
 package dev.promptlm.release;
 
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
 /**
- * Checked exception thrown when a prompt cannot be released.
+ * Toggles the pre-release-execute gate that runs the spec defaults server-side before
+ * promotion. Default {@code true} for v1; ops can disable to fall back to the legacy
+ * direct-release behavior.
  */
-public class PromptReleaseException extends RuntimeException {
-    public PromptReleaseException(String message) {
-        super(message);
+@ConfigurationProperties(prefix = "promptlm.release.pre-execute")
+public class PreReleaseExecuteProperties {
+
+    private boolean enabled = true;
+
+    public boolean isEnabled() {
+        return enabled;
     }
 
-    public PromptReleaseException(String message, Throwable cause) {
-        super(message, cause);
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
     }
 }

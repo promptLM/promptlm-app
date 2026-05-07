@@ -18,6 +18,7 @@ package dev.promptlm.lifecycle.application;
 
 import dev.promptlm.domain.promptspec.ChatCompletionRequest;
 import dev.promptlm.domain.promptspec.PromptSpec;
+import dev.promptlm.release.OnInfraFailure;
 import tools.jackson.databind.JsonNode;
 
 import java.util.List;
@@ -43,6 +44,15 @@ public interface PromptLifecycleService {
     PromptSpec updatePrompt(String promptSpecId, PromptSpec updatingSpec);
 
     PromptSpec releasePrompt(String promptSpecId);
+
+    /**
+     * Release variant that lets the caller override what happens on a pre-release-execute
+     * infrastructure failure (vendor 5xx / network timeout / outage). Default behavior of
+     * {@link #releasePrompt(String)} is {@link OnInfraFailure#REJECT}.
+     */
+    default PromptSpec releasePrompt(String promptSpecId, OnInfraFailure onInfraFailure) {
+        return releasePrompt(promptSpecId);
+    }
 
     PromptSpec completeReleasePrompt(String promptSpecId, String pullRequestReference);
 

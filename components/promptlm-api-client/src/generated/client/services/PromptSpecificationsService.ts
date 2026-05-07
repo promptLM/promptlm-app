@@ -130,13 +130,15 @@ export class PromptSpecificationsService {
     }
     /**
      * Release a new version of a prompt
-     * Requests release for a prompt specification. In direct mode the response state is released. In pr_two_phase mode the response state is requested until /release/complete is called.
+     * Requests release for a prompt specification. In direct mode the response state is released. In pr_two_phase mode the response state is requested until /release/complete is called. The pre-release-execute gate runs the spec defaults server-side before promotion; failures yield 422 (PRE_RELEASE_PROMPT_FAILURE) or 503 (PRE_RELEASE_INFRA_FAILURE) unless onInfraFailure=record is supplied.
      * @param promptSpecId The unique identifier of the prompt specification to release.
+     * @param onInfraFailure Behaviour when the pre-release-execute gate hits an infrastructure-class failure. 'reject' (default) soft-blocks the release; 'record' records the failed execution and proceeds.
      * @returns PromptSpec Release operation response as prompt specification. Header X-PromptLM-Release-State mirrors extensions.x-promptlm.release.state (requested|released).
      * @throws ApiError
      */
     public static releasePrompt(
         promptSpecId: string,
+        onInfraFailure?: 'reject' | 'record',
     ): CancelablePromise<PromptSpec> {
         return __request(OpenAPI, {
             method: 'POST',
@@ -144,8 +146,13 @@ export class PromptSpecificationsService {
             path: {
                 'promptSpecId': promptSpecId,
             },
+            query: {
+                'onInfraFailure': onInfraFailure,
+            },
             errors: {
                 404: `Prompt specification with the given ID not found.`,
+                422: `Pre-release execution failed for prompt-class reasons (PRE_RELEASE_PROMPT_FAILURE).`,
+                503: `Pre-release execution failed for infrastructure-class reasons (PRE_RELEASE_INFRA_FAILURE). Retry, or repeat the request with onInfraFailure=record to release with the failure recorded.`,
             },
         });
     }

@@ -165,7 +165,7 @@ export interface paths {
         put?: never;
         /**
          * Release a new version of a prompt
-         * @description Requests release for a prompt specification. In direct mode the response state is released. In pr_two_phase mode the response state is requested until /release/complete is called.
+         * @description Requests release for a prompt specification. In direct mode the response state is released. In pr_two_phase mode the response state is requested until /release/complete is called. The pre-release-execute gate runs the spec defaults server-side before promotion; failures yield 422 (PRE_RELEASE_PROMPT_FAILURE) or 503 (PRE_RELEASE_INFRA_FAILURE) unless onInfraFailure=record is supplied.
          */
         post: operations["releasePrompt"];
         delete?: never;
@@ -389,20 +389,16 @@ export interface components {
             name?: string;
         };
         JsonNode: {
-            pojo?: boolean;
-            int?: boolean;
-            long?: boolean;
-            float?: boolean;
-            null?: boolean;
-            array?: boolean;
-            empty?: boolean;
-            number?: boolean;
-            missingNode?: boolean;
             valueNode?: boolean;
             object?: boolean;
             /** @enum {string} */
             nodeType?: "ARRAY" | "BINARY" | "BOOLEAN" | "MISSING" | "NULL" | "NUMBER" | "OBJECT" | "POJO" | "STRING";
+            pojo?: boolean;
+            integralNumber?: boolean;
+            floatingPointNumber?: boolean;
             short?: boolean;
+            int?: boolean;
+            long?: boolean;
             double?: boolean;
             bigDecimal?: boolean;
             bigInteger?: boolean;
@@ -410,10 +406,14 @@ export interface components {
             textual?: boolean;
             boolean?: boolean;
             binary?: boolean;
-            integralNumber?: boolean;
-            floatingPointNumber?: boolean;
-            container?: boolean;
             string?: boolean;
+            missingNode?: boolean;
+            number?: boolean;
+            container?: boolean;
+            array?: boolean;
+            empty?: boolean;
+            null?: boolean;
+            float?: boolean;
             embeddedValue?: boolean;
         };
         /** @description Request payload for creating or updating a prompt specification */
@@ -684,9 +684,9 @@ export interface components {
             semanticHash?: string;
         };
         Request: {
-            url?: string;
-            model?: string;
             vendor?: string;
+            model?: string;
+            url?: string;
             type: string;
         };
         Placeholder: {
@@ -761,6 +761,16 @@ export interface components {
             ok?: boolean;
             /** @description Failure message captured when ok is false */
             error?: string;
+            /**
+             * @description Origin of this execution; null reads as MANUAL for back-compat
+             * @enum {string}
+             */
+            kind?: "MANUAL" | "PRE_RELEASE";
+            /**
+             * @description Failure classification; null when ok is true
+             * @enum {string}
+             */
+            failureClass?: "PROMPT" | "INFRASTRUCTURE";
         };
         Response: {
             content?: string;
@@ -1220,7 +1230,10 @@ export interface operations {
     };
     releasePrompt: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Behaviour when the pre-release-execute gate hits an infrastructure-class failure. 'reject' (default) soft-blocks the release; 'record' records the failed execution and proceeds. */
+                onInfraFailure?: "reject" | "record";
+            };
             header?: never;
             path: {
                 /** @description The unique identifier of the prompt specification to release. */
@@ -1241,6 +1254,24 @@ export interface operations {
             };
             /** @description Prompt specification with the given ID not found. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PromptSpec"];
+                };
+            };
+            /** @description Pre-release execution failed for prompt-class reasons (PRE_RELEASE_PROMPT_FAILURE). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PromptSpec"];
+                };
+            };
+            /** @description Pre-release execution failed for infrastructure-class reasons (PRE_RELEASE_INFRA_FAILURE). Retry, or repeat the request with onInfraFailure=record to release with the failure recorded. */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

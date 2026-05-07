@@ -64,5 +64,29 @@ export type Execution = {
      * Failure message captured when ok is false
      */
     error?: string;
+    /**
+     * Origin of this execution; null reads as MANUAL for back-compat
+     */
+    kind?: Execution.kind;
+    /**
+     * Failure classification; null when ok is true
+     */
+    failureClass?: Execution.failureClass;
 };
+export namespace Execution {
+    /**
+     * Origin of this execution; null reads as MANUAL for back-compat
+     */
+    export enum kind {
+        MANUAL = 'MANUAL',
+        PRE_RELEASE = 'PRE_RELEASE',
+    }
+    /**
+     * Failure classification; null when ok is true
+     */
+    export enum failureClass {
+        PROMPT = 'PROMPT',
+        INFRASTRUCTURE = 'INFRASTRUCTURE',
+    }
+}
 

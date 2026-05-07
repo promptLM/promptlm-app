@@ -33,7 +33,7 @@ export type { EvaluationResult } from './models/EvaluationResult';
 export { EvaluationResults } from './models/EvaluationResults';
 export type { EvaluationSpec } from './models/EvaluationSpec';
 export type { ExecutePromptRequest } from './models/ExecutePromptRequest';
-export type { Execution } from './models/Execution';
+export { Execution } from './models/Execution';
 export { ImagesGenerationsRequest } from './models/ImagesGenerationsRequest';
 export { JsonNode } from './models/JsonNode';
 export type { Message } from './models/Message';

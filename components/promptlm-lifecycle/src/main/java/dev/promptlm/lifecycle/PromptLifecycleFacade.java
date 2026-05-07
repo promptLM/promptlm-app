@@ -19,6 +19,7 @@ package dev.promptlm.lifecycle;
 import dev.promptlm.lifecycle.application.PromptLifecycleService;
 import dev.promptlm.domain.promptspec.ChatCompletionRequest;
 import dev.promptlm.domain.promptspec.PromptSpec;
+import dev.promptlm.release.OnInfraFailure;
 import tools.jackson.databind.JsonNode;
 import org.springframework.stereotype.Service;
 
@@ -61,6 +62,10 @@ public class PromptLifecycleFacade {
 
     public PromptSpec release(String id) {
         return lifecycleService.releasePrompt(id);
+    }
+
+    public PromptSpec release(String id, OnInfraFailure onInfraFailure) {
+        return lifecycleService.releasePrompt(id, onInfraFailure);
     }
 
     public PromptSpec completeRelease(String id, String pullRequestReference) {

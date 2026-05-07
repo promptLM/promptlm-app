@@ -25,6 +25,7 @@ import dev.promptlm.domain.promptspec.PromptSpec;
 import dev.promptlm.domain.promptspec.ReleaseMetadata;
 import dev.promptlm.domain.promptspec.Request;
 import dev.promptlm.lifecycle.application.PromptSpecAlreadyExistsException;
+import dev.promptlm.release.OnInfraFailure;
 import dev.promptlm.store.api.PromptStore;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -420,7 +421,7 @@ public class PromptSpecController {
      */
     @Operation(
             summary = "Release a new version of a prompt",
-            description = "Requests release for a prompt specification. In direct mode the response state is released. In pr_two_phase mode the response state is requested until /release/complete is called.",
+            description = "Requests release for a prompt specification. In direct mode the response state is released. In pr_two_phase mode the response state is requested until /release/complete is called. The pre-release-execute gate runs the spec defaults server-side before promotion; failures yield 422 (PRE_RELEASE_PROMPT_FAILURE) or 503 (PRE_RELEASE_INFRA_FAILURE) unless onInfraFailure=record is supplied.",
             responses = {
                     @ApiResponse(
                             responseCode = "200",
@@ -430,19 +431,31 @@ public class PromptSpecController {
                     @ApiResponse(
                             responseCode = "404",
                             description = "Prompt specification with the given ID not found."
+                    ),
+                    @ApiResponse(
+                            responseCode = "422",
+                            description = "Pre-release execution failed for prompt-class reasons (PRE_RELEASE_PROMPT_FAILURE)."
+                    ),
+                    @ApiResponse(
+                            responseCode = "503",
+                            description = "Pre-release execution failed for infrastructure-class reasons (PRE_RELEASE_INFRA_FAILURE). Retry, or repeat the request with onInfraFailure=record to release with the failure recorded."
                     )
             }
     )
     @PostMapping("/{promptSpecId}/release")
     public ResponseEntity<PromptSpec> releasePrompt(
             @Parameter(description = "The unique identifier of the prompt specification to release.")
-            @PathVariable("promptSpecId") String promptSpecId) {
+            @PathVariable("promptSpecId") String promptSpecId,
+            @Parameter(description = "Behaviour when the pre-release-execute gate hits an infrastructure-class failure. 'reject' (default) soft-blocks the release; 'record' records the failed execution and proceeds.",
+                    schema = @Schema(allowableValues = {"reject", "record"}))
+            @RequestParam(value = "onInfraFailure", required = false) String onInfraFailure) {
         Optional<PromptSpec> latestVersion = promptStore.getLatestVersion(promptSpecId);
         if (latestVersion.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
 
-        PromptSpec releaseResponse = promptLifecycleFacade.release(promptSpecId);
+        OnInfraFailure parsed = parseOnInfraFailure(onInfraFailure);
+        PromptSpec releaseResponse = promptLifecycleFacade.release(promptSpecId, parsed);
         return releaseResponse(releaseResponse);
     }
 
@@ -450,8 +463,21 @@ public class PromptSpecController {
     @PostMapping("/{group}/{name}/release")
     public ResponseEntity<PromptSpec> releasePromptByGroupAndName(
             @PathVariable("group") String group,
-            @PathVariable("name") String name) {
-        return releasePrompt(group + "/" + name);
+            @PathVariable("name") String name,
+            @RequestParam(value = "onInfraFailure", required = false) String onInfraFailure) {
+        return releasePrompt(group + "/" + name, onInfraFailure);
+    }
+
+    private static OnInfraFailure parseOnInfraFailure(String value) {
+        if (value == null || value.isBlank()) {
+            return OnInfraFailure.REJECT;
+        }
+        try {
+            return OnInfraFailure.valueOf(value.toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Unsupported onInfraFailure value '%s'. Allowed: reject, record.".formatted(value));
+        }
     }
 
     @Operation(

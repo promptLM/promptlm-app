@@ -14,17 +14,12 @@
  * limitations under the License.
  */
 
-package dev.promptlm.release;
+package dev.promptlm.domain.promptspec;
 
-/**
- * Checked exception thrown when a prompt cannot be released.
- */
-public class PromptReleaseException extends RuntimeException {
-    public PromptReleaseException(String message) {
-        super(message);
-    }
+import io.swagger.v3.oas.annotations.media.Schema;
 
-    public PromptReleaseException(String message, Throwable cause) {
-        super(message, cause);
-    }
+@Schema(description = "Origin of an Execution. MANUAL is a user/CLI-triggered run; PRE_RELEASE is the gating run captured by the pre-release-execute strategy.")
+public enum ExecutionKind {
+    MANUAL,
+    PRE_RELEASE
 }
