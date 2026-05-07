@@ -409,11 +409,12 @@ export interface components {
             name?: string;
         };
         JsonNode: {
+            missingNode?: boolean;
             valueNode?: boolean;
+            pojo?: boolean;
             object?: boolean;
             /** @enum {string} */
             nodeType?: "ARRAY" | "BINARY" | "BOOLEAN" | "MISSING" | "NULL" | "NUMBER" | "OBJECT" | "POJO" | "STRING";
-            pojo?: boolean;
             integralNumber?: boolean;
             floatingPointNumber?: boolean;
             short?: boolean;
@@ -426,7 +427,6 @@ export interface components {
             textual?: boolean;
             boolean?: boolean;
             binary?: boolean;
-            missingNode?: boolean;
             container?: boolean;
             string?: boolean;
             number?: boolean;
@@ -704,8 +704,8 @@ export interface components {
             semanticHash?: string;
         };
         Request: {
-            model?: string;
             vendor?: string;
+            model?: string;
             url?: string;
             type: string;
         };
@@ -847,15 +847,15 @@ export interface components {
              */
             promptCount?: number;
             /**
-             * @description Local filesystem path where the repository is checked out
-             * @example /Users/me/repos/my-repo
-             */
-            localPath?: string;
-            /**
              * @description Remote repository URL
              * @example https://github.com/my-org/my-repo
              */
             repositoryUrl?: string;
+            /**
+             * @description Local filesystem path where the repository is checked out
+             * @example /Users/me/repos/my-repo
+             */
+            localPath?: string;
         };
         ConnectRepositoryRequest: {
             /** @description Absolute path to the repository on disk */
@@ -1556,7 +1556,7 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description Include groups that only contain retired prompts */
-                includeRetired?: string;
+                includeRetired?: boolean;
             };
             header?: never;
             path?: never;
