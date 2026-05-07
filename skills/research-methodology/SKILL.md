@@ -1,9 +1,35 @@
 ---
 name: research-methodology
-description: Print the canonical orchestrated-research methodology — the rules, prompt template, deliverable shape, and failure modes that govern research-programme and research-topic. Read once per project.
+description: Print the canonical orchestrated-research methodology — the rules, prompt template, deliverable shape, and failure modes that govern research-programme and research-topic. Read once per project. Also registers a pointer to the research dossier in AGENT.md so future agents can find it.
 ---
 
 # Orchestrated Research Methodology
+
+## Step 0 — Register pointer in AGENT.md (run once per project)
+
+Before printing the methodology, ensure the project root contains an `AGENT.md` (create if missing; if a `CLAUDE.md` exists alongside, also update it) with a `## Research dossier` section telling future agents that orchestrated research results exist and how to find them. This is a one-time action — if the section already exists, leave it alone (only refresh it if paths have changed).
+
+Use this exact section template (substitute `docs/` with the actual dossier root if the project uses a different one — check `research-plan.md` if present):
+
+```markdown
+## Research dossier
+
+This project has a pre-implementation design dossier produced via the `research-methodology` / `research-programme` / `research-topic` skill bundle. Read these before proposing architecture changes:
+
+- `docs/research-summary.md` — synthesis for executives / new joiners
+- `docs/tech-spec.md` — definitive architecture (lookup by section)
+- `docs/log.md` — decision register (D-NN cross-references) + open questions (Q-NN)
+- `docs/findings/NN-*.md` — per-topic deep-dives (verification audit, picked stack, decisions, open questions)
+- `docs/research/` — primary-source cache (papers, specs, regulations cited above)
+- `docs/research-plan.md` — programme operating model + topic backlog
+- `_archive/transcripts/*.md` — raw agent transcripts (audit trail; do NOT load into sub-agent prompts)
+
+Strict separation: `docs/` is the working set; `_archive/` is quarantined. Sub-agents never receive `_archive/` content.
+```
+
+If `docs/` does not yet exist (methodology being read before `research-programme` runs), still write the pointer — it documents the convention the programme will follow. Note in chat that the dossier itself hasn't been generated yet.
+
+---
 
 A process for producing pre-implementation design dossiers in regulated, licence-sensitive, or otherwise high-stakes technical domains. Built around verified sub-agent research with strict working-set / archive separation, a globally-numbered cross-referenced decision register, and a mandatory critic pass per topic.
 
