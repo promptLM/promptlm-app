@@ -48,6 +48,7 @@ export type { PromptSpecCreationRequest } from './models/PromptSpecCreationReque
 export type { PromptSpecRequest } from './models/PromptSpecRequest';
 export type { PromptSpecRequestParameters } from './models/PromptSpecRequestParameters';
 export type { PromptStats } from './models/PromptStats';
+export type { RepoHistoryPage } from './models/RepoHistoryPage';
 export { RepositoryOwner } from './models/RepositoryOwner';
 export type { Request } from './models/Request';
 export type { Response } from './models/Response';

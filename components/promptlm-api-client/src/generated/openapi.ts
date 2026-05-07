@@ -274,6 +274,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/prompts/{promptSpecId}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get older executions for a prompt
+         * @description Returns executions captured against earlier revisions of the prompt (those not in the current latest version's executions list). Sorted newest first. Filters: revision, status (ok|fail). Paginated.
+         */
+        get: operations["getRepoHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/prompts/template": {
         parameters: {
             query?: never;
@@ -389,6 +409,8 @@ export interface components {
             name?: string;
         };
         JsonNode: {
+            missingNode?: boolean;
+            number?: boolean;
             valueNode?: boolean;
             object?: boolean;
             /** @enum {string} */
@@ -406,10 +428,8 @@ export interface components {
             textual?: boolean;
             boolean?: boolean;
             binary?: boolean;
-            string?: boolean;
-            missingNode?: boolean;
-            number?: boolean;
             container?: boolean;
+            string?: boolean;
             array?: boolean;
             empty?: boolean;
             null?: boolean;
@@ -860,6 +880,34 @@ export interface components {
             displayName?: string;
             /** @enum {string} */
             type?: "USER" | "ORGANIZATION";
+        };
+        /** @description Page of historic executions returned by the repo-history endpoint */
+        RepoHistoryPage: {
+            /** @description Executions on the current page, newest first */
+            items?: components["schemas"]["Execution"][];
+            /**
+             * Format: int32
+             * @description 1-indexed page number
+             * @example 1
+             */
+            page?: number;
+            /**
+             * Format: int32
+             * @description Number of items requested per page
+             * @example 50
+             */
+            pageSize?: number;
+            /**
+             * Format: int32
+             * @description Total number of items matching the filter across all pages
+             * @example 127
+             */
+            total?: number;
+            /**
+             * @description True when at least one further page is available
+             * @example true
+             */
+            hasMore?: boolean;
         };
         PromptStats: {
             /** Format: int32 */
@@ -1445,6 +1493,56 @@ export interface operations {
             };
         };
     };
+    getRepoHistory: {
+        parameters: {
+            query?: {
+                /** @description Filter to executions with this revision identifier */
+                revision?: string;
+                /** @description Filter by outcome: 'ok' or 'fail' */
+                status?: string;
+                /** @description 1-indexed page number; values < 1 are clamped to 1 */
+                page?: string;
+                /** @description Page size; clamped to [1, 200]; non-positive values yield the default of 50 */
+                pageSize?: string;
+            };
+            header?: never;
+            path: {
+                /** @description ID of the prompt specification (group/name composite) */
+                promptSpecId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page of historic executions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepoHistoryPage"];
+                };
+            };
+            /** @description Invalid query parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["RepoHistoryPage"];
+                };
+            };
+            /** @description Prompt specification not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["RepoHistoryPage"];
+                };
+            };
+        };
+    };
     getDefaultTemplate: {
         parameters: {
             query?: never;
@@ -1489,7 +1587,7 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description Include groups that only contain retired prompts */
-                includeRetired?: string;
+                includeRetired?: boolean;
             };
             header?: never;
             path?: never;

@@ -17,6 +17,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type JsonNode = {
+    missingNode?: boolean;
+    number?: boolean;
     valueNode?: boolean;
     object?: boolean;
     nodeType?: JsonNode.nodeType;
@@ -35,10 +37,8 @@ export type JsonNode = {
     textual?: boolean;
     boolean?: boolean;
     binary?: boolean;
-    string?: boolean;
-    missingNode?: boolean;
-    number?: boolean;
     container?: boolean;
+    string?: boolean;
     array?: boolean;
     empty?: boolean;
     null?: boolean;

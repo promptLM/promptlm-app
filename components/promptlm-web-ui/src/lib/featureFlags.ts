@@ -57,6 +57,13 @@ export const featureFlags = {
    * Deferred — issue #79.
    */
   testRunner: import.meta.env.VITE_FEATURE_TEST_RUNNER === 'true',
+
+  /**
+   * Release-flow side rail + Tab strip + Test tab inside the prompt editor.
+   * PR 1 (UI shell, mocked) lives behind this flag; PR 2 (real backend
+   * wiring) flips the default once #96 + #100 land — issue #98.
+   */
+  releaseFlow: import.meta.env.VITE_FEATURE_RELEASE_FLOW === 'true',
 } as const;
 
 export type FeatureFlag = keyof typeof featureFlags;
