@@ -22,15 +22,16 @@ import dev.promptlm.execution.util.PromptSpecUtils;
 import dev.promptlm.domain.promptspec.ChatCompletionRequest;
 import dev.promptlm.domain.promptspec.ChatCompletionResponse;
 import dev.promptlm.domain.promptspec.PromptSpec;
+import com.openai.models.ChatModel;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.OpenAiChatModel;
-import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.stereotype.Component;
 
-import java.util.Arrays;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Locale;
@@ -40,7 +41,7 @@ import java.util.stream.Stream;
 
 /**
  * OpenAI vendor integration backed by Spring AI, supporting all models enumerated in
- * {@link OpenAiApi.ChatModel} plus a set of additional well-known aliases.
+ * {@link com.openai.models.ChatModel} plus a set of additional well-known aliases.
  */
 @Component
 public class OpenAiVendorClient implements SpringAiVendorClient {
@@ -76,25 +77,29 @@ public class OpenAiVendorClient implements SpringAiVendorClient {
     private static final Set<String> SUPPORTED_MODEL_ALIASES;
 
     static {
-        LinkedHashSet<String> catalog = Arrays.stream(OpenAiApi.ChatModel.values())
-                .map(OpenAiApi.ChatModel::getValue)
-                .map(String::trim)
-                .filter(value -> !value.isEmpty())
-                .collect(Collectors.toCollection(LinkedHashSet::new));
+        LinkedHashSet<String> catalog = new LinkedHashSet<>();
+        LinkedHashSet<String> aliases = new LinkedHashSet<>();
+        for (Field field : ChatModel.class.getDeclaredFields()) {
+            if (Modifier.isStatic(field.getModifiers())
+                    && ChatModel.class.isAssignableFrom(field.getType())) {
+                try {
+                    ChatModel model = (ChatModel) field.get(null);
+                    String modelId = model.asString();
+                    if (modelId != null && !modelId.isBlank()) {
+                        catalog.add(modelId.trim());
+                        aliases.add(normalizeModel(modelId));
+                        aliases.add(normalizeModel(field.getName()));
+                        aliases.add(normalizeModel(field.getName().replace('_', '-')));
+                    }
+                } catch (IllegalAccessException ignored) {
+                }
+            }
+        }
         catalog.addAll(ADDITIONAL_CATALOG_MODELS);
         CATALOG_MODELS = Collections.unmodifiableSet(catalog);
 
-        LinkedHashSet<String> aliases = Stream.concat(
-                        Arrays.stream(OpenAiApi.ChatModel.values())
-                                .flatMap(model -> Stream.of(
-                                        model.getValue(),
-                                        model.getName(),
-                                        model.name(),
-                                        model.name().replace('_', '-'))
-                                        .map(OpenAiVendorClient::normalizeModel)),
-                        ADDITIONAL_MODEL_ALIASES.stream())
-                .filter(alias -> !alias.isEmpty())
-                .collect(Collectors.toCollection(LinkedHashSet::new));
+        aliases.addAll(ADDITIONAL_MODEL_ALIASES);
+        aliases.removeIf(String::isEmpty);
         SUPPORTED_MODEL_ALIASES = Collections.unmodifiableSet(aliases);
     }
 
