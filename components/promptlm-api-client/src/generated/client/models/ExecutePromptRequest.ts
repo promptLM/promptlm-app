@@ -17,9 +17,6 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { PromptSpec } from './PromptSpec';
-/**
- * Prompt specification to execute
- */
 export type ExecutePromptRequest = {
     promptSpec?: PromptSpec;
 };

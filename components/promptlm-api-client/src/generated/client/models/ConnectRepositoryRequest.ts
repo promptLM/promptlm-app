@@ -16,9 +16,6 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-/**
- * Repository path
- */
 export type ConnectRepositoryRequest = {
     /**
      * Absolute path to the repository on disk

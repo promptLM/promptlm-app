@@ -53,7 +53,7 @@ public class PromptSpec {
     /**
      * Unique identifier of this prompt
      */
-    @Schema(description = "Unique identifier of this prompt", example = "support_welcome")
+    @Schema(description = "Unique identifier of this prompt", example = "support_welcome", requiredMode = Schema.RequiredMode.REQUIRED)
     private final String id;
 
     /**
@@ -62,14 +62,14 @@ public class PromptSpec {
      * Special characters and non-ASCII characters are prohibited.
      */
     @Pattern(regexp = "^[a-zA-Z0-9\\-_]+$", message = "Name must contain only alphanumeric characters (A-Z, a-z, 0-9). Special characters and spaces are not allowed.")
-    @Schema(description = "Prompt name", example = "support_welcome")
+    @Schema(description = "Prompt name", example = "support_welcome", requiredMode = Schema.RequiredMode.REQUIRED)
     private final String name;
 
     /**
      * Group of prompts. Default group when null.
      */
     @Pattern(regexp = "^[a-zA-Z0-9\\-_]+$", message = "Name must contain only alphanumeric characters (A-Z, a-z, 0-9). Special characters and spaces are not allowed.")
-    @Schema(description = "Prompt group", example = "support")
+    @Schema(description = "Prompt group", example = "support", requiredMode = Schema.RequiredMode.REQUIRED)
     private final String group;
 
 
@@ -152,7 +152,7 @@ public class PromptSpec {
 
     @JsonProperty("path")
     @JsonSerialize(using = PathToStringSerializer.class)
-    @Schema(description = "Filesystem path where the prompt is persisted", example = "prompts/support/welcome.yaml")
+    @Schema(description = "Filesystem path where the prompt is persisted", example = "prompts/support/welcome.yaml", type = "string", implementation = String.class)
     private final Path path;
 
     @ArraySchema(schema = @Schema(implementation = Execution.class), arraySchema = @Schema(description = "Recent executions of the prompt"))

@@ -30,6 +30,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -105,8 +106,10 @@ public class PromptStoreController {
     })
     @PostMapping
     public ResponseEntity<ProjectSpec> createStore(
-            @Parameter(description = "Create store request details", required = true) 
-            @Validated @RequestBody CreateStoreRequest request) throws RemoteRepositoryAlreadyExistsException {
+            @RequestBody(description = "Create store request details", required = true,
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = CreateStoreRequest.class)))
+            @Validated @org.springframework.web.bind.annotation.RequestBody CreateStoreRequest request) throws RemoteRepositoryAlreadyExistsException {
         try {
             Path repoDir = Path.of(request.getRepoDir());
             ProjectSpec projectSpec = projectService.newProject(repoDir, request.getRepoGroup(), request.getRepoName());
@@ -130,8 +133,10 @@ public class PromptStoreController {
     })
     @PutMapping
     public ResponseEntity<String> cloneStore(
-            @Parameter(description = "Clone store request details", required = true) 
-            @RequestBody CloneStoreRepoRequest request) {
+            @RequestBody(description = "Clone store request details", required = true,
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = CloneStoreRepoRequest.class)))
+            @org.springframework.web.bind.annotation.RequestBody CloneStoreRepoRequest request) {
         String operationId = normalizeOperationId(request.getOperationId());
         String emitterKey = buildEmitterKey(operationId);
         Map<String, Object> baseDetails = buildStoreEventDetails(request, operationId);
@@ -175,8 +180,10 @@ public class PromptStoreController {
     })
     @PostMapping("/connection")
     public ResponseEntity<ProjectSpec> connectRepository(
-            @Parameter(description = "Repository path", required = true) 
-            @RequestBody ConnectRepositoryRequest request) {
+            @RequestBody(description = "Repository path", required = true,
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ConnectRepositoryRequest.class)))
+            @org.springframework.web.bind.annotation.RequestBody ConnectRepositoryRequest request) {
         try {
             ProjectSpec p = projectService.connectProject(request.getRepoPath());
             if (StringUtils.hasText(request.getDisplayName())) {

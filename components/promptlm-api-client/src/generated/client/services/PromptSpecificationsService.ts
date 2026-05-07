@@ -49,7 +49,7 @@ export class PromptSpecificationsService {
      * Update an existing prompt specification
      * Updates an existing prompt specification with the provided details
      * @param promptSpecId ID of the prompt specification to update
-     * @param requestBody
+     * @param requestBody Updated prompt specification details
      * @returns PromptSpec Prompt specification updated successfully
      * @throws ApiError
      */
@@ -111,7 +111,7 @@ export class PromptSpecificationsService {
     /**
      * Create a new prompt specification
      * Creates a new prompt specification with the provided details
-     * @param requestBody
+     * @param requestBody Prompt specification creation request details
      * @returns PromptSpec Prompt specification created successfully
      * @throws ApiError
      */
@@ -179,7 +179,7 @@ export class PromptSpecificationsService {
      * Execute a stored prompt specification
      * Loads the stored prompt specification by ID, executes it, and returns the result
      * @param promptSpecId ID of the prompt specification to execute
-     * @param requestBody
+     * @param requestBody Prompt specification to execute
      * @returns PromptSpec Prompt executed successfully
      * @throws ApiError
      */
@@ -204,7 +204,7 @@ export class PromptSpecificationsService {
     /**
      * Execute a prompt specification
      * Executes the given prompt specification with the configured LLM and returns the result
-     * @param requestBody
+     * @param requestBody Prompt specification to execute
      * @returns PromptSpec Prompt executed successfully
      * @throws ApiError
      */
@@ -254,7 +254,7 @@ export class PromptSpecificationsService {
      * @throws ApiError
      */
     public static getPromptGroups(
-        includeRetired: boolean = false,
+        includeRetired?: string,
     ): CancelablePromise<string> {
         return __request(OpenAPI, {
             method: 'GET',

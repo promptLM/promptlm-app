@@ -17,9 +17,6 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { Message } from './Message';
-/**
- * Create store request details
- */
 export type CreateStoreRequest = {
     repoDir: string;
     repoName: string;

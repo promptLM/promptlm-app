@@ -20,7 +20,7 @@ import type { Message } from './Message';
 import type { PromptSpecRequest } from './PromptSpecRequest';
 import type { VendorAndModel } from './VendorAndModel';
 /**
- * Prompt specification creation request details
+ * Request payload for creating or updating a prompt specification
  */
 export type PromptSpecCreationRequest = {
     /**

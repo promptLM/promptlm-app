@@ -43,7 +43,7 @@ export class PromptStoreService {
     /**
      * Clone existing store
      * Clones an existing prompt store repository from a remote URL
-     * @param requestBody
+     * @param requestBody Clone store request details
      * @returns string Store cloned successfully, returns the result message
      * @throws ApiError
      */
@@ -60,7 +60,7 @@ export class PromptStoreService {
     /**
      * Create new store
      * Creates a new prompt store repository in the specified directory
-     * @param requestBody
+     * @param requestBody Create store request details
      * @returns ProjectSpec Store created successfully
      * @throws ApiError
      */
@@ -98,7 +98,7 @@ export class PromptStoreService {
     /**
      * Connect to existing repository
      * Connects to an existing prompt store repository at the specified path
-     * @param requestBody
+     * @param requestBody Repository path
      * @returns ProjectSpec Connected to repository successfully
      * @throws ApiError
      */
