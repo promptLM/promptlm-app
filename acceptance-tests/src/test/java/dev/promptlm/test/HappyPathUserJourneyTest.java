@@ -180,7 +180,27 @@ public class HappyPathUserJourneyTest {
         // Click the save button
         page.getByTestId("save-prompt-button").click();
 
-        page.waitForSelector("text=Prompt created");
+        // After a successful create, the v2 shell navigates from /prompts/new to
+        // the new detail page (/prompts/:id). Wait for that URL transition rather
+        // than the transient "Prompt created" toast, which the navigation can
+        // unmount before Playwright sees it. We must explicitly exclude
+        // /prompts/new (the starting URL) — a generic /prompts/<token> regex
+        // matches it and would return immediately.
+        page.waitForURL(
+                url -> {
+                    if (url == null) return false;
+                    int promptsIdx = url.indexOf("/prompts/");
+                    if (promptsIdx < 0) return false;
+                    String tail = url.substring(promptsIdx + "/prompts/".length());
+                    int slash = tail.indexOf('/');
+                    String segment = slash < 0 ? tail : tail.substring(0, slash);
+                    int q = segment.indexOf('?');
+                    if (q >= 0) segment = segment.substring(0, q);
+                    int h = segment.indexOf('#');
+                    if (h >= 0) segment = segment.substring(0, h);
+                    return !segment.isEmpty() && !"new".equals(segment);
+                },
+                new Page.WaitForURLOptions().setTimeout(60_000));
         navigateToPath("/prompts");
         page.waitForSelector("text=" + PROMPT_NAME);
 
@@ -231,7 +251,16 @@ public class HappyPathUserJourneyTest {
         // /prompts/:id/edit. Click "Edit" to reach the editor, then Release.
         page.getByTestId("prompt-card-%s-action".formatted(PROMPT_NAME)).click();
         page.getByTestId("prompt-edit-action").click();
-        page.getByTestId("prompt-editor-release-action").click();
+
+        // The v2 edit-mode submit fires save (PUT) and THEN release (POST) in
+        // a single async handler. If we navigate away (hard nav via
+        // page.navigate) before the closure reaches the release POST, the
+        // browser tears down JS and the release never fires. Wait for the
+        // release HTTP response first.
+        page.waitForResponse(
+                response -> response.url().contains("/release")
+                        && "POST".equalsIgnoreCase(response.request().method()),
+                () -> page.getByTestId("prompt-editor-release-action").click());
         navigateToPath("/prompts");
         takeScreenshot("here.png");
         verifyPromptVersion("development", expectedNextDevelopmentVersion);
@@ -314,15 +343,29 @@ public class HappyPathUserJourneyTest {
         // Navigate to new prompt page directly
         navigateToPath("/prompts/new");
 
+        // Clear required fields. The v2 form revalidates live and disables the
+        // submit button while errors are present, so we don't try to click it —
+        // we just assert the inline error indicators surface.
         page.getByTestId("prompt-name-input").fill("");
         page.getByTestId("prompt-group-input").fill("");
+        // Move focus off the cleared fields so the form's error-count derivation
+        // catches up before we assert visibility.
+        page.keyboard().press("Tab");
 
-        // Try to submit the form without required fields
-        page.getByTestId("save-prompt-button").click();
+        // Wait for the validation errors to be rendered alongside the required
+        // fields. Both indicators are written via `data-testid` in
+        // sections.tsx → IdentityBlock.
+        page.waitForSelector("[data-testid='prompt-name-error']",
+                new Page.WaitForSelectorOptions().setState(WaitForSelectorState.VISIBLE));
+        page.waitForSelector("[data-testid='prompt-group-error']",
+                new Page.WaitForSelectorOptions().setState(WaitForSelectorState.VISIBLE));
 
-        // Check for validation error messages
         assertThat(page.isVisible("[data-testid='prompt-name-error']")).isTrue();
         assertThat(page.isVisible("[data-testid='prompt-group-error']")).isTrue();
+
+        // The submit button should be disabled while the form is invalid — sanity
+        // check that the live-validation contract still holds.
+        assertThat(page.getByTestId("save-prompt-button").isDisabled()).isTrue();
 
         // Take screenshot of validation errors
         takeScreenshot("validation-errors.png");
@@ -342,43 +385,27 @@ public class HappyPathUserJourneyTest {
     }
 
     private void configureCustomPlaceholderDelimiters(String openSequence, String closeSequence) {
-        Locator placeholderInput = page.getByPlaceholder("placeholder_name");
-        if (!placeholderInput.first().isVisible()) {
-            page.getByText("Placeholders").first().click(new Locator.ClickOptions().setForce(true));
-            placeholderInput.first().waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
-        }
-
-        Locator settingsButton = page.getByTestId("placeholder-config-button");
-        if (settingsButton.count() == 0) {
-            settingsButton = page.locator("p:has-text('syntax')")
-                    .locator("xpath=following-sibling::*[1]//button")
-                    .first();
-        }
-        settingsButton.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
-        for (int attempt = 0; attempt < 3; attempt++) {
-            settingsButton.click(new Locator.ClickOptions().setForce(true));
-            if (page.getByPlaceholder("{{").first().isVisible() || page.getByTestId("placeholder-open-sequence-input").count() > 0) {
-                break;
-            }
-            page.waitForTimeout(200);
-        }
+        // v2 rail surfaces the start/end inputs directly — no popover.
         Locator openInput = page.getByTestId("placeholder-open-sequence-input");
         Locator closeInput = page.getByTestId("placeholder-close-sequence-input");
-        if (openInput.count() == 0 || closeInput.count() == 0) {
-            openInput = page.getByPlaceholder("{{");
-            closeInput = page.getByPlaceholder("}}");
-        }
         openInput.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
         closeInput.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
         openInput.fill(openSequence);
         closeInput.fill(closeSequence);
-        page.keyboard().press("Escape");
     }
 
     private void addPlaceholder(String name) {
-        Locator placeholderInput = page.getByPlaceholder("placeholder_name");
-        placeholderInput.fill(name);
-        placeholderInput.press("Enter");
+        // v2 RailPlaceholders adds an empty row on '+ Add'; we then fill the name input
+        // of the freshly added (last) row.
+        Locator addButton = page.getByTestId("placeholder-add-button");
+        addButton.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
+        addButton.click();
+        Locator nameInput = page.locator("[data-testid^='placeholder-name-input-']").last();
+        nameInput.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
+        nameInput.fill(name);
+        // Move focus off the name field so React commits the row's name into state
+        // and the row's test id (placeholder-row-${name}) becomes resolvable.
+        nameInput.press("Tab");
     }
 
     private void setPlaceholderValue(String placeholderToken, String value) {
@@ -386,25 +413,21 @@ public class HappyPathUserJourneyTest {
         assertThat(placeholderNameMatcher.find()).isTrue();
         String placeholderName = placeholderNameMatcher.group();
 
-        Locator placeholderRow = page.getByTestId("placeholder-row-" + placeholderName);
-        placeholderRow.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
-        placeholderRow.hover();
-
-        Locator editButton = page.getByTestId("placeholder-edit-" + placeholderName);
-        editButton.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
-        editButton.click();
-
+        // In v2 the placeholder default value is the row's description input — the
+        // shell maps `description` into `defaults` on persist.
         Locator valueEditor = page.getByTestId("placeholder-value-textarea-" + placeholderName + "-0");
         valueEditor.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
         valueEditor.fill(value);
-        page.keyboard().press("Escape");
+        valueEditor.press("Tab");
     }
 
     private void insertPlaceholderToken(String placeholderName) {
-        Locator placeholderRow = page.getByTestId("placeholder-row-" + placeholderName);
-        placeholderRow.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
-        Locator placeholderToken = placeholderRow.locator("code").first();
-        placeholderToken.click();
+        // v2 placeholders rail does not expose click-to-insert tokens — the test
+        // types the literal placeholder spelled with the configured delimiters.
+        Locator promptTextarea = page.getByTestId("prompt-messages").locator("textarea").last();
+        promptTextarea.click();
+        page.keyboard().press("End");
+        page.keyboard().type("[[" + placeholderName + "]]");
     }
 
     // TODO: do only once

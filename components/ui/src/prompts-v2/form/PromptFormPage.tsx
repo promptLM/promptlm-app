@@ -142,9 +142,28 @@ const StickyHeader: React.FC<{
         boxSizing: 'border-box',
       }}
     >
-      <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+      <span
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          minWidth: 0,
+          flex: 1,
+          overflow: 'hidden',
+        }}
+      >
         <HeaderMark />
-        <FormMono size={11} color="var(--pl-ink-500)" style={{ whiteSpace: 'nowrap' }}>
+        <FormMono
+          size={11}
+          color="var(--pl-ink-500)"
+          style={{
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            minWidth: 0,
+            flex: '1 1 auto',
+          }}
+        >
           <span data-testid="prompt-editor-heading-repo">{context.repositoryUrl}</span>
           {'  /  prompts'}
           {draft.group ? (
@@ -165,7 +184,11 @@ const StickyHeader: React.FC<{
 
       <ModeBadge mode={mode} />
 
-      <FormMono size={10.5} color="var(--pl-ink-500)" style={{ whiteSpace: 'nowrap' }}>
+      <FormMono
+        size={10.5}
+        color="var(--pl-ink-500)"
+        style={{ whiteSpace: 'nowrap', flex: '0 0 auto' }}
+      >
         {isCreate ? (
           <>
             v<span style={{ color: 'var(--pl-ink-700)' }}>{context.version}</span> ·{' '}
@@ -177,8 +200,6 @@ const StickyHeader: React.FC<{
           </>
         )}
       </FormMono>
-
-      <div style={{ flex: 1 }} />
 
       <FormMono
         size={11}
@@ -195,7 +216,7 @@ const StickyHeader: React.FC<{
       <PrimaryButton
         onClick={onSubmit}
         disabled={errors.hasErrors || isBusy || isSaving}
-        testId={isCreate ? 'prompt-editor-create-action' : 'save-prompt-button'}
+        testId={isCreate ? 'save-prompt-button' : 'prompt-editor-release-action'}
       >
         {isSaving ? 'Saving…' : isCreate ? 'Create' : 'Save & release'}
       </PrimaryButton>

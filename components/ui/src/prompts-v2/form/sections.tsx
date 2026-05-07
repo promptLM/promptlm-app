@@ -575,7 +575,7 @@ export const RailPlaceholders: React.FC<RailPlaceholdersProps> = ({
       dense
       idPrefix="placeholder-list"
       action={
-        <GhostButton mini onClick={add}>
+        <GhostButton mini onClick={add} testId="placeholder-add-button">
           + Add
         </GhostButton>
       }
@@ -589,6 +589,7 @@ export const RailPlaceholders: React.FC<RailPlaceholdersProps> = ({
             value={placeholders.startPattern}
             onChange={(value) => onChange({ startPattern: value })}
             error={errors.startPattern}
+            testId="placeholder-open-sequence-input"
           />
         </div>
         <div style={{ flex: 1 }}>
@@ -599,6 +600,7 @@ export const RailPlaceholders: React.FC<RailPlaceholdersProps> = ({
             value={placeholders.endPattern}
             onChange={(value) => onChange({ endPattern: value })}
             error={errors.endPattern}
+            testId="placeholder-close-sequence-input"
           />
         </div>
       </div>
@@ -620,9 +622,16 @@ export const RailPlaceholders: React.FC<RailPlaceholdersProps> = ({
         <div style={{ display: 'grid', gap: 6 }}>
           {list.map((ph, i) => {
             const e = itemErrors[i] ?? {};
+            const rowTestId = ph.name
+              ? `placeholder-row-${ph.name}`
+              : `placeholder-row-index-${i}`;
+            const valueTestId = ph.name
+              ? `placeholder-value-textarea-${ph.name}-0`
+              : `placeholder-value-textarea-index-${i}`;
             return (
               <div
                 key={i}
+                data-testid={rowTestId}
                 style={{
                   border: '1px solid var(--pl-ink-200)',
                   borderRadius: 4,
@@ -645,6 +654,7 @@ export const RailPlaceholders: React.FC<RailPlaceholdersProps> = ({
                     onChange={(value) => update(i, { name: value })}
                     error={e.name}
                     placeholder="name"
+                    testId={`placeholder-name-input-${i}`}
                   />
                   <Select
                     compact
@@ -667,6 +677,7 @@ export const RailPlaceholders: React.FC<RailPlaceholdersProps> = ({
                   value={ph.description}
                   onChange={(value) => update(i, { description: value })}
                   placeholder="description"
+                  testId={valueTestId}
                 />
                 {e.name ? (
                   <FormMono
