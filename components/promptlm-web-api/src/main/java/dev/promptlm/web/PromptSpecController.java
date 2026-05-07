@@ -576,6 +576,81 @@ public class PromptSpecController {
         }
     }
 
+    /**
+     * Repo-history endpoint backing the Test tab's "View history →" flyover.
+     *
+     * <p>Returns executions captured against revisions of the prompt other than the current
+     * latest, paginated and filterable by revision and outcome. Same-revision-but-shape-divergent
+     * executions on the latest version are intentionally not returned: per issue #100, the live
+     * executions strip applies request-shape diffing client-side.
+     */
+    @Operation(summary = "Get older executions for a prompt",
+               description = "Returns executions captured against earlier revisions of the prompt "
+                       + "(those not in the current latest version's executions list). Sorted newest "
+                       + "first. Filters: revision, status (ok|fail). Paginated.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Page of historic executions",
+                    content = @Content(mediaType = "application/json",
+                                      schema = @Schema(implementation = RepoHistoryPage.class))),
+        @ApiResponse(responseCode = "400", description = "Invalid query parameters"),
+        @ApiResponse(responseCode = "404", description = "Prompt specification not found")
+    })
+    @GetMapping("/{promptSpecId}/history")
+    public ResponseEntity<RepoHistoryPage> getRepoHistory(
+            @Parameter(description = "ID of the prompt specification (group/name composite)")
+            @PathVariable("promptSpecId") String promptSpecId,
+            @Parameter(description = "Filter to executions with this revision identifier")
+            @RequestParam(value = "revision", required = false) String revision,
+            @Parameter(description = "Filter by outcome: 'ok' or 'fail'")
+            @RequestParam(value = "status", required = false) String status,
+            @Parameter(description = "1-indexed page number; values < 1 are clamped to 1")
+            @RequestParam(value = "page", required = false, defaultValue = "1") int page,
+            @Parameter(description = "Page size; clamped to [1, 200]; non-positive values yield the default of 50")
+            @RequestParam(value = "pageSize", required = false, defaultValue = "50") int pageSize) {
+
+        Optional<PromptSpec> latestVersion = promptStore.getLatestVersion(promptSpecId);
+        if (latestVersion.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        RepoHistoryFilter filter = parseHistoryFilter(revision, status);
+        List<PromptSpec> versions = promptStore.listVersions(promptSpecId);
+        RepoHistoryPage historyPage = RepoHistoryAssembler.assemble(
+                latestVersion.get(), versions, filter, page, pageSize);
+        return ResponseEntity.ok(historyPage);
+    }
+
+    @Hidden
+    @GetMapping("/{group}/{name}/history")
+    public ResponseEntity<RepoHistoryPage> getRepoHistoryByGroupAndName(
+            @PathVariable("group") String group,
+            @PathVariable("name") String name,
+            @RequestParam(value = "revision", required = false) String revision,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "page", required = false, defaultValue = "1") int page,
+            @RequestParam(value = "pageSize", required = false, defaultValue = "50") int pageSize) {
+        return getRepoHistory(group + "/" + name, revision, status, page, pageSize);
+    }
+
+    private static RepoHistoryFilter parseHistoryFilter(String revision, String status) {
+        Optional<String> revisionFilter = StringUtils.hasText(revision)
+                ? Optional.of(revision)
+                : Optional.empty();
+        Optional<Boolean> statusFilter;
+        if (!StringUtils.hasText(status)) {
+            statusFilter = Optional.empty();
+        } else {
+            String normalised = status.trim().toLowerCase(java.util.Locale.ROOT);
+            switch (normalised) {
+                case "ok" -> statusFilter = Optional.of(Boolean.TRUE);
+                case "fail" -> statusFilter = Optional.of(Boolean.FALSE);
+                default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "status must be 'ok' or 'fail'");
+            }
+        }
+        return new RepoHistoryFilter(revisionFilter, statusFilter);
+    }
+
     private Instant resolveActiveProjectLastUpdatedFromGitMetadata(ProjectSpec activeProject) {
         Path normalizedRepoDir = activeProject.getRepoDir().toAbsolutePath().normalize();
 
