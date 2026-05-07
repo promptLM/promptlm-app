@@ -58,3 +58,5 @@ docker/data/
 ### Misc ###
 .git.bck
 .playwright-cli/
+.tmp/
+.claude/worktrees/
