@@ -20,6 +20,7 @@ import type { ExecutePromptRequest } from '../models/ExecutePromptRequest';
 import type { PromptSpec } from '../models/PromptSpec';
 import type { PromptSpecCreationRequest } from '../models/PromptSpecCreationRequest';
 import type { PromptStats } from '../models/PromptStats';
+import type { RepoHistoryPage } from '../models/RepoHistoryPage';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
@@ -219,6 +220,42 @@ export class PromptSpecificationsService {
             errors: {
                 400: `Invalid prompt specification`,
                 500: `Error executing the prompt`,
+            },
+        });
+    }
+    /**
+     * Get older executions for a prompt
+     * Returns executions captured against earlier revisions of the prompt (those not in the current latest version's executions list). Sorted newest first. Filters: revision, status (ok|fail). Paginated.
+     * @param promptSpecId ID of the prompt specification (group/name composite)
+     * @param revision Filter to executions with this revision identifier
+     * @param status Filter by outcome: 'ok' or 'fail'
+     * @param page 1-indexed page number; values < 1 are clamped to 1
+     * @param pageSize Page size; clamped to [1, 200]; non-positive values yield the default of 50
+     * @returns RepoHistoryPage Page of historic executions
+     * @throws ApiError
+     */
+    public static getRepoHistory(
+        promptSpecId: string,
+        revision?: string,
+        status?: string,
+        page?: string,
+        pageSize?: string,
+    ): CancelablePromise<RepoHistoryPage> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/prompts/{promptSpecId}/history',
+            path: {
+                'promptSpecId': promptSpecId,
+            },
+            query: {
+                'revision': revision,
+                'status': status,
+                'page': page,
+                'pageSize': pageSize,
+            },
+            errors: {
+                400: `Invalid query parameters`,
+                404: `Prompt specification not found`,
             },
         });
     }

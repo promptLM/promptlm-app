@@ -23,6 +23,7 @@ import dev.promptlm.domain.AppContext;
 import dev.promptlm.domain.projectspec.ProjectSpec;
 import dev.promptlm.domain.promptspec.ChatCompletionRequest;
 import dev.promptlm.domain.promptspec.ChatCompletionResponse;
+import dev.promptlm.domain.promptspec.Execution;
 import dev.promptlm.domain.promptspec.PromptEvaluationDefinition;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import dev.promptlm.domain.promptspec.ReleaseMetadata;
@@ -677,6 +678,203 @@ class PromptSpecControllerWebMvcTest {
                 .andExpect(status().isConflict());
 
         verify(promptLifecycleFacade, times(2)).createPromptSpec(any(PromptSpec.class));
+    }
+
+    @Test
+    void getRepoHistoryReturnsOlderRevisionExecutionsSortedNewestFirst() throws Exception {
+        String promptId = "support/welcome";
+        Execution older1 = newExecution("old-1", "r1", true, Instant.parse("2026-04-01T00:00:00Z"));
+        Execution older2 = newExecution("old-2", "r1", true, Instant.parse("2026-04-02T00:00:00Z"));
+        Execution latestRun = newExecution("latest-1", "r2", true, Instant.parse("2026-04-10T00:00:00Z"));
+        PromptSpec olderVersion = repoHistoryFixture(promptId, "0.1.0", 1, List.of(older1, older2));
+        PromptSpec latestVersion = repoHistoryFixture(promptId, "0.2.0", 2, List.of(latestRun));
+
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(latestVersion));
+        when(promptStore.listVersions(promptId)).thenReturn(List.of(olderVersion, latestVersion));
+
+        mockMvc.perform(get("/api/prompts/{promptSpecId}/history", promptId))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.items.length()").value(2))
+                .andExpect(jsonPath("$.items[0].id").value("old-2"))
+                .andExpect(jsonPath("$.items[1].id").value("old-1"))
+                .andExpect(jsonPath("$.total").value(2))
+                .andExpect(jsonPath("$.page").value(1))
+                .andExpect(jsonPath("$.pageSize").value(50))
+                .andExpect(jsonPath("$.hasMore").value(false));
+    }
+
+    @Test
+    void getRepoHistoryReturnsEmptyEnvelopeForSingleVersionPrompt() throws Exception {
+        String promptId = "support/welcome";
+        PromptSpec onlyVersion = repoHistoryFixture(promptId, "0.1.0", 1,
+                List.of(newExecution("only", "r1", true, Instant.parse("2026-04-01T00:00:00Z"))));
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(onlyVersion));
+        when(promptStore.listVersions(promptId)).thenReturn(List.of(onlyVersion));
+
+        mockMvc.perform(get("/api/prompts/{promptSpecId}/history", promptId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(0))
+                .andExpect(jsonPath("$.total").value(0))
+                .andExpect(jsonPath("$.hasMore").value(false));
+    }
+
+    @Test
+    void getRepoHistoryClampsNonPositivePageToFirstPage() throws Exception {
+        String promptId = "support/welcome";
+        Execution older1 = newExecution("old-1", "r1", true, Instant.parse("2026-04-01T00:00:00Z"));
+        Execution older2 = newExecution("old-2", "r1", true, Instant.parse("2026-04-02T00:00:00Z"));
+        PromptSpec older = repoHistoryFixture(promptId, "0.1.0", 1, List.of(older1, older2));
+        PromptSpec latestVersion = repoHistoryFixture(promptId, "0.2.0", 2, List.of());
+
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(latestVersion));
+        when(promptStore.listVersions(promptId)).thenReturn(List.of(older, latestVersion));
+
+        mockMvc.perform(get("/api/prompts/{promptSpecId}/history", promptId).queryParam("page", "-3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page").value(1))
+                .andExpect(jsonPath("$.items.length()").value(2));
+    }
+
+    @Test
+    void getRepoHistoryByGroupAndNameAliasDelegatesToCanonicalEndpoint() throws Exception {
+        String promptId = "support/welcome";
+        Execution older = newExecution("old-1", "r1", true, Instant.parse("2026-04-01T00:00:00Z"));
+        PromptSpec olderVersion = repoHistoryFixture(promptId, "0.1.0", 1, List.of(older));
+        PromptSpec latestVersion = repoHistoryFixture(promptId, "0.2.0", 2, List.of());
+
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(latestVersion));
+        when(promptStore.listVersions(promptId)).thenReturn(List.of(olderVersion, latestVersion));
+
+        mockMvc.perform(get("/api/prompts/{group}/{name}/history", "support", "welcome"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].id").value("old-1"));
+    }
+
+    @Test
+    void getRepoHistoryReturnsNotFoundForUnknownPrompt() throws Exception {
+        when(promptStore.getLatestVersion("missing")).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/prompts/{promptSpecId}/history", "missing"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getRepoHistoryFiltersByRevision() throws Exception {
+        String promptId = "support/welcome";
+        Execution r1a = newExecution("r1a", "r1", true, Instant.parse("2026-04-01T00:00:00Z"));
+        Execution r1b = newExecution("r1b", "r1", true, Instant.parse("2026-04-02T00:00:00Z"));
+        Execution r2a = newExecution("r2a", "r2", true, Instant.parse("2026-04-03T00:00:00Z"));
+        PromptSpec v1 = repoHistoryFixture(promptId, "0.1.0", 1, List.of(r1a, r1b));
+        PromptSpec v2 = repoHistoryFixture(promptId, "0.2.0", 2, List.of(r2a));
+        PromptSpec latestVersion = repoHistoryFixture(promptId, "0.3.0", 3, List.of());
+
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(latestVersion));
+        when(promptStore.listVersions(promptId)).thenReturn(List.of(v1, v2, latestVersion));
+
+        mockMvc.perform(get("/api/prompts/{promptSpecId}/history", promptId).queryParam("revision", "r1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(2))
+                .andExpect(jsonPath("$.items[0].id").value("r1b"))
+                .andExpect(jsonPath("$.items[1].id").value("r1a"));
+    }
+
+    @Test
+    void getRepoHistoryFiltersByStatus() throws Exception {
+        String promptId = "support/welcome";
+        Execution ok = newExecution("ok", "r1", true, Instant.parse("2026-04-01T00:00:00Z"));
+        Execution fail = newExecution("fail", "r1", false, Instant.parse("2026-04-02T00:00:00Z"));
+        PromptSpec older = repoHistoryFixture(promptId, "0.1.0", 1, List.of(ok, fail));
+        PromptSpec latestVersion = repoHistoryFixture(promptId, "0.2.0", 2, List.of());
+
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(latestVersion));
+        when(promptStore.listVersions(promptId)).thenReturn(List.of(older, latestVersion));
+
+        mockMvc.perform(get("/api/prompts/{promptSpecId}/history", promptId).queryParam("status", "fail"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].id").value("fail"));
+    }
+
+    @Test
+    void getRepoHistoryRespectsPageSizeAndPaginates() throws Exception {
+        String promptId = "support/welcome";
+        java.util.List<Execution> seventyFive = new java.util.ArrayList<>();
+        for (int i = 0; i < 75; i++) {
+            seventyFive.add(newExecution("e-" + i, "r1", true,
+                    Instant.parse("2026-04-01T00:00:00Z").plusSeconds(i)));
+        }
+        PromptSpec older = repoHistoryFixture(promptId, "0.1.0", 1, seventyFive);
+        PromptSpec latestVersion = repoHistoryFixture(promptId, "0.2.0", 2, List.of());
+
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(latestVersion));
+        when(promptStore.listVersions(promptId)).thenReturn(List.of(older, latestVersion));
+
+        mockMvc.perform(get("/api/prompts/{promptSpecId}/history", promptId)
+                        .queryParam("page", "1").queryParam("pageSize", "50"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(50))
+                .andExpect(jsonPath("$.total").value(75))
+                .andExpect(jsonPath("$.hasMore").value(true));
+
+        mockMvc.perform(get("/api/prompts/{promptSpecId}/history", promptId)
+                        .queryParam("page", "2").queryParam("pageSize", "50"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(25))
+                .andExpect(jsonPath("$.hasMore").value(false));
+    }
+
+    @Test
+    void getRepoHistoryRejectsUnknownStatus() throws Exception {
+        String promptId = "support/welcome";
+        PromptSpec latestVersion = repoHistoryFixture(promptId, "0.1.0", 1, List.of());
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(latestVersion));
+        when(promptStore.listVersions(promptId)).thenReturn(List.of(latestVersion));
+
+        mockMvc.perform(get("/api/prompts/{promptSpecId}/history", promptId).queryParam("status", "maybe"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void getRepoHistoryClampsExcessivePageSizeToMaximum() throws Exception {
+        String promptId = "support/welcome";
+        Execution sample = newExecution("e", "r1", true, Instant.parse("2026-04-01T00:00:00Z"));
+        PromptSpec older = repoHistoryFixture(promptId, "0.1.0", 1, List.of(sample));
+        PromptSpec latestVersion = repoHistoryFixture(promptId, "0.2.0", 2, List.of());
+
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(latestVersion));
+        when(promptStore.listVersions(promptId)).thenReturn(List.of(older, latestVersion));
+
+        mockMvc.perform(get("/api/prompts/{promptSpecId}/history", promptId).queryParam("pageSize", "500"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pageSize").value(RepoHistoryAssembler.MAX_PAGE_SIZE));
+    }
+
+    private static PromptSpec repoHistoryFixture(String id, String version, int revision, List<Execution> executions) {
+        return PromptSpec.builder()
+                .withGroup("support")
+                .withName("welcome")
+                .withVersion(version)
+                .withRevision(revision)
+                .withDescription("desc")
+                .withRequest(ChatCompletionRequest.builder()
+                        .withVendor("openai")
+                        .withModel("gpt-4o")
+                        .withMessages(List.of())
+                        .build())
+                .withExecutions(executions)
+                .build()
+                .withId(id);
+    }
+
+    private static Execution newExecution(String id, String revision, boolean ok, Instant timestamp) {
+        Execution e = new Execution();
+        e.setId(id);
+        e.setRevision(revision);
+        e.setOk(ok);
+        e.setTimestamp(timestamp);
+        return e;
     }
 
     private Path initializeRepositoryWithPromptCommit(Path tempDir, Instant commitInstant) throws Exception {

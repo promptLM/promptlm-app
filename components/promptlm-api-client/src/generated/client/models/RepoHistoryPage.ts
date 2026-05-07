@@ -16,41 +16,30 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { Execution } from './Execution';
 /**
- * Project specification for a prompt store repository
+ * Page of historic executions returned by the repo-history endpoint
  */
-export type ProjectSpec = {
-    id?: string;
-    name?: string;
-    description?: string;
-    healthStatus?: ProjectSpec.healthStatus;
-    healthMessage?: string;
+export type RepoHistoryPage = {
     /**
-     * Timestamp when the project was created
+     * Executions on the current page, newest first
      */
-    createdAt?: string;
+    items?: Array<Execution>;
     /**
-     * Timestamp when the project was last updated
+     * 1-indexed page number
      */
-    updatedAt?: string;
+    page?: number;
     /**
-     * Number of prompt specs in this project
+     * Number of items requested per page
      */
-    promptCount?: number;
+    pageSize?: number;
     /**
-     * Local filesystem path where the repository is checked out
+     * Total number of items matching the filter across all pages
      */
-    localPath?: string;
+    total?: number;
     /**
-     * Remote repository URL
+     * True when at least one further page is available
      */
-    repositoryUrl?: string;
+    hasMore?: boolean;
 };
-export namespace ProjectSpec {
-    export enum healthStatus {
-        HEALTHY = 'HEALTHY',
-        BROKEN_LOCAL = 'BROKEN_LOCAL',
-        BROKEN_REMOTE = 'BROKEN_REMOTE',
-    }
-}
 
