@@ -6,6 +6,16 @@ This document is the single source of truth for the procedure. The Claude Code s
 
 The agent running this procedure acts as the **orchestrator** and may simulate the other roles inline or delegate them to subagents. Pick the smallest team the issue actually needs.
 
+## Orchestrator discipline
+
+The orchestrator's job is **sequencing, integration, decisions, user comms, and logs** — not heavy reading or writing. Delegate work that would otherwise consume meaningful context, even when you could do it inline. The orchestrator is the only role that holds the full picture across all 13 steps; preserving its context is what lets it integrate the rest.
+
+**Delegate to subagents.** Reading and synthesizing source files; per-issue or per-module investigations (architecture survey, test surface, security surface); cross-issue dependency analysis; code review passes; implementation slices; long-running searches.
+
+**Keep inline.** Deciding what comes next; integrating subagent outputs; user-facing comms and confirmations; appending to the progress and decision logs; clarification calls and authorization gates.
+
+**Run subagents in parallel** only for **independent, read-only** work. Never parallel-edit the same files.
+
 ## Scope
 
 Use this procedure when:
@@ -62,20 +72,21 @@ When delegating to subagents, run them in parallel only for **independent, read-
 
 ## Workflow
 
-12 steps. Track progress as you go:
+13 steps. Track progress as you go:
 
 - [ ] 1. Initialize logs and state
 - [ ] 2. Read & analyze GitHub issues
 - [ ] 3. Repo & architecture analysis
-- [ ] 4. Clarify with user (only if blocking)
-- [ ] 5. Update GitHub issues with clarified scope
-- [ ] 6. Write implementation plan
-- [ ] 7. Implement with XP pair engineering
-- [ ] 8. Verify (user-facing tests first)
-- [ ] 9. Mandatory review loop
-- [ ] 10. Security analysis + pen-testing (if applicable)
-- [ ] 11. Sprint-review demo write-up
-- [ ] 12. Final issue updates and user summary
+- [ ] 4. Cross-issue dependency analysis (skip when delivering one issue)
+- [ ] 5. Clarify with user (only if blocking)
+- [ ] 6. Update GitHub issues with clarified scope
+- [ ] 7. Write implementation plan
+- [ ] 8. Implement with XP pair engineering
+- [ ] 9. Verify (user-facing tests first)
+- [ ] 10. Mandatory review loop
+- [ ] 11. Security analysis + pen-testing (if applicable)
+- [ ] 12. Sprint-review demo write-up
+- [ ] 13. Final issue updates and user summary
 
 ### 1. Initialize state and logs
 
@@ -93,7 +104,7 @@ When delegating to subagents, run them in parallel only for **independent, read-
 
 **Owner.** product-owner.
 
-1. Use `gh issue view <N>` (or the GitHub MCP tools, preferred when both are available). For convenience, the slash command pre-loads issues via `scripts/load-issues.sh` at invocation time.
+1. Use `gh issue view <N>` (or the GitHub MCP tools, preferred when both are available). The slash command intentionally does not preload issue text — fetching here keeps the orchestrator free to delegate the read to a product-owner subagent when the issues are long or numerous.
 2. Read each issue's description, comments, labels, milestones, and linked issues.
 3. If specific issue numbers were provided, prioritize those; otherwise identify likely-relevant open issues and proceed unless scope is genuinely ambiguous.
 
@@ -123,9 +134,42 @@ When delegating to subagents, run them in parallel only for **independent, read-
 4. Capture test framework, test commands, build, lint, typecheck, format commands.
 5. Identify trust boundaries, sensitive data flows, input surfaces, authn/authz, network boundaries, file handling, dependency risks.
 
-**Output.** Append to `implementation-plan.md`: architecture summary; relevant files/modules; test + CI summary; verification command candidates; security and privacy notes; initial implementation constraints.
+**Output.** Append to `implementation-plan.md`: architecture summary; relevant files/modules; test + CI summary; verification command candidates; security and privacy notes; initial implementation constraints. When delivering more than one issue, also produce a per-issue candidate file set so step 4 has something to work with.
 
-### 4. Clarify with the user (only if blocking)
+### 4. Cross-issue dependency analysis (skip when delivering one issue)
+
+**Owner.** architect (subagent, read-only).
+
+**Skip when.** Only one issue is in scope.
+
+**Goal.** Decide whether the issues can be delivered in parallel, must be sequenced, or split into mixed groups. Produce a small DAG so the orchestrator can plan downstream work without reloading every issue's detail itself.
+
+**Inputs.**
+
+- Issue analyses from step 2 (acceptance criteria, affected components, declared linked issues)
+- Per-issue candidate file sets and module map from step 3
+
+**Signals to consider, in order of reliability.**
+
+1. **Explicit GitHub links.** "Blocks" / "Blocked by" / "Depends on" relationships, linked-issue references, task-list checkboxes referencing other issues. Authoritative — honor these first.
+2. **File-set overlap.** Two issues with disjoint candidate file sets are usually parallel-safe; overlap means serialize (or merge into a single slice).
+3. **Contract / API impact.** Any issue whose acceptance criteria change a public type, schema, endpoint, migration, or shared interface becomes a barrier — its consumers must wait. Labels like `breaking`, `api`, `schema`, `migration` are hints.
+4. **Module ownership.** Same package or module = serialize by default even with disjoint files (merge churn, review fatigue).
+
+**Output.** A "parallelization plan" section in `implementation-plan.md`:
+
+```
+parallel_groups: [[<issue>, ...], ...]
+edges: [{from: <issue>, to: <issue>, reason: "<why>"}]
+confidence: high | medium | low (per group)
+delivery_strategy: serial | parallel-worktrees | parallel-inline
+```
+
+**Conservative default.** If confidence is low or any signal is ambiguous, sequence. Parallel only when file sets are disjoint **and** no contract edges **and** ownership doesn't conflict. For parallel delivery, spawn one delivery thread per group (typically in its own git worktree) — never parallel-edit the same files.
+
+**Pause and re-clarify if** the analysis surfaces a dependency the user didn't account for, especially a contract change that retro-actively widens scope.
+
+### 5. Clarify with the user (only if blocking)
 
 **Owners.** orchestrator, product-owner; pull in architect or security-analyst when relevant.
 
@@ -142,7 +186,7 @@ Ask the user **only** when missing info blocks correct or safe implementation �
 
 **Output.** Log questions, defaults, and assumptions in the progress log.
 
-### 5. Adjust GitHub issues after clarification
+### 6. Adjust GitHub issues after clarification
 
 **Owners.** product-owner, orchestrator.
 
@@ -152,7 +196,7 @@ Posting an issue comment is an externally visible action. Before posting, surfac
 
 **Fallback.** If no write access, write the proposed comment into `implementation-plan.md` and log the limitation.
 
-### 6. Implementation planning
+### 7. Implementation planning
 
 **Owners.** orchestrator + product-owner + architect + test-engineer + security-analyst.
 
@@ -166,7 +210,7 @@ Posting an issue comment is an externally visible action. Before posting, surfac
 - Architecture approach
 - Workstreams (each mapped to ≥1 acceptance criterion)
 - XP pair-engineering plan
-- Parallelization plan (independent slices only)
+- Parallelization plan (independent slices within an issue; cross-issue plan from step 4 if applicable)
 - Files likely to change
 - Verification matrix (criterion → test → command)
 - Tests to add/update — user-facing first, then unit
@@ -181,7 +225,7 @@ Prefer **vertical slices** that can be demoed end-to-end over horizontal layers.
 
 **Output.** `implementation-plan.md` is a current-state document. Archive any previous version with `scripts/archive-current-state.sh .claude/issue-delivery` before rewriting, then write the new plan.
 
-### 7. Execute implementation with XP pair
+### 8. Execute implementation with XP pair
 
 **Owners.** xp-driver + xp-navigator; test-engineer alongside; security-analyst on sensitive slices.
 
@@ -204,7 +248,7 @@ Prefer **vertical slices** that can be demoed end-to-end over horizontal layers.
 
 **Logging.** Append progress-log entries at meaningful milestones with `scripts/append-progress.sh`. Record material decisions in the decision log.
 
-### 8. Verification
+### 9. Verification
 
 **Owners.** test-engineer, orchestrator.
 
@@ -233,7 +277,7 @@ Every acceptance criterion must have a verification path.
 
 **Output.** Append verification evidence to `review-report.md` and `sprint-review-demo.md`.
 
-### 9. Mandatory review loop
+### 10. Mandatory review loop
 
 Run **at least one** formal review pass after implementation and initial verification.
 
@@ -253,7 +297,7 @@ Run **at least one** formal review pass after implementation and initial verific
 
 **Output.** `review-report.md` is a current-state document — archive before rewriting (`scripts/archive-current-state.sh`).
 
-### 10. Security analysis and pen-testing
+### 11. Security analysis and pen-testing
 
 **Required when** the change touches: user input, authn/authz, data storage or access, logging, networking, file handling, dependencies, secrets, payments, admin functionality, public APIs.
 
@@ -271,7 +315,7 @@ Run **at least one** formal review pass after implementation and initial verific
 
 **Output.** `security-report.md` — current-state document, archive before rewriting.
 
-### 11. Sprint-review demo
+### 12. Sprint-review demo
 
 **Owner.** demo-lead.
 
@@ -293,13 +337,13 @@ Run **at least one** formal review pass after implementation and initial verific
 
 **Output.** `sprint-review-demo.md` — current-state document, archive before rewriting.
 
-### 12. Final issue and log updates
+### 13. Final issue and log updates
 
 **Owners.** orchestrator, product-owner, demo-lead.
 
 1. Append final entries to the progress log: status, changed files, verification results, review results, security results, residual risks.
 2. Append final material decisions to the decision log.
-3. Update GitHub issues with implementation summary, verification evidence, security notes, and demo notes (per-issue confirmation, as in step 5).
+3. Update GitHub issues with implementation summary, verification evidence, security notes, and demo notes (per-issue confirmation, as in step 6).
 4. **Do not close issues** unless the user explicitly asked or the repo's convention clearly indicates closure.
 5. Produce the final user-facing summary.
 
@@ -324,7 +368,7 @@ These trump local convenience. If you find yourself violating one, stop and esca
 - **Verify before claiming done.** Acceptance criteria → tests → run → evidence.
 - **User-facing tests first.** Unit tests cover edges; they do not replace behavior tests.
 - **Parallel only when safe.** Independent, read-only work can fan out. Never parallel-edit the same files.
-- **Security is not optional** for the surfaces listed in step 10.
+- **Security is not optional** for the surfaces listed in step 11.
 - **Traceability.** Every material decision ties back to an issue requirement, repo constraint, user clarification, or test result — captured in the decision log.
 - **Autonomy with guardrails.** Proceed when the next step is clear and low-risk. Ask only on decisions that materially affect product, scope, compatibility, security, data migration, public APIs, or irreversible actions.
 - **Never** commit, push, force-push, deploy, close issues, or take other destructive/external actions without explicit user authorization. A single approval covers a single action — not future ones.
@@ -374,4 +418,4 @@ When you can't finish the full scope: complete the safe subset, leave the repo c
 - [`log-formats.md`](log-formats.md) — entry formats for progress and decision logs
 - [`github-issue-templates.md`](github-issue-templates.md) — issue comment templates
 - [`log-templates/`](log-templates/) — starter templates for the six artifact files
-- [`scripts/`](scripts/) — helper scripts (`init-artifacts.sh`, `archive-current-state.sh`, `append-progress.sh`, `load-issues.sh`)
+- [`scripts/`](scripts/) — helper scripts (`init-artifacts.sh`, `archive-current-state.sh`, `append-progress.sh`)
