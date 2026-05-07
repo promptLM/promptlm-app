@@ -27,7 +27,7 @@ export type { RevisionHistoryTableProps } from './RevisionHistoryTable';
 export { ExecutionsTable, executionRowDomId } from './ExecutionsTable';
 export type { ExecutionsTableProps } from './ExecutionsTable';
 export { PromptDetailHeader } from './PromptDetailHeader';
-export type { PromptDetailHeaderProps } from './PromptDetailHeader';
+export type { PromptDetailHeaderProps, PreReleaseExecutionBadge } from './PromptDetailHeader';
 export type {
   MessageRole,
   PromptDetailMessage,
