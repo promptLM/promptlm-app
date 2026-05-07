@@ -15,8 +15,7 @@ github-issue-delivery/
 ├── scripts/                        ← helper scripts
 │   ├── init-artifacts.sh
 │   ├── append-progress.sh
-│   ├── archive-current-state.sh
-│   └── load-issues.sh
+│   └── archive-current-state.sh
 └── deliver-issue.md                ← Claude Code slash command wrapper
 ```
 
@@ -54,11 +53,11 @@ ln -s github-issue-delivery/deliver-issue.md .claude/commands/deliver-issue.md
 From your project root:
 
 ```bash
-# Inline-load syntax used by the wrapper:
-.claude/commands/github-issue-delivery/scripts/load-issues.sh
+# Smoke-test the artifact-init helper (idempotent — safe to re-run):
+.claude/commands/github-issue-delivery/scripts/init-artifacts.sh /tmp/issue-delivery-smoke
+ls /tmp/issue-delivery-smoke && rm -rf /tmp/issue-delivery-smoke
 
-# Should print "(no issue numbers passed; …)" — that's the expected
-# fallback when called with no args.
+# Should list six markdown files, then clean up.
 ```
 
 ## Usage
@@ -72,7 +71,7 @@ Pass one or more issue numbers as arguments. The wrapper:
 
 1. Pre-loads repo state (branch + working tree) inline.
 2. Pre-loads each issue's title, state, labels, body, and comments via `gh` (or prints a fallback message if `gh` is unavailable).
-3. Tells the orchestrator agent to follow `PROCEDURE.md` from step 1 to step 12.
+3. Tells the orchestrator agent to follow `PROCEDURE.md` from step 1 to step 13.
 
 The agent will create artifacts under `.claude/issue-delivery/` (configurable — see `PROCEDURE.md` "Mandatory artifacts").
 
