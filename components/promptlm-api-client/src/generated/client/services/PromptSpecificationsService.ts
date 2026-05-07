@@ -291,7 +291,7 @@ export class PromptSpecificationsService {
      * @throws ApiError
      */
     public static getPromptGroups(
-        includeRetired?: string,
+        includeRetired?: boolean,
     ): CancelablePromise<string> {
         return __request(OpenAPI, {
             method: 'GET',

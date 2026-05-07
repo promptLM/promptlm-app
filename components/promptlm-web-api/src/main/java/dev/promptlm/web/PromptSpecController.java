@@ -398,7 +398,8 @@ public class PromptSpecController {
                                   schema = @Schema(type = "array", implementation = String.class)))
     @GetMapping("/groups")
     public List<String> getPromptGroups(
-            @Parameter(description = "Include groups that only contain retired prompts") 
+            @Parameter(description = "Include groups that only contain retired prompts",
+                       schema = @Schema(type = "boolean"))
             @RequestParam(value = "includeRetired", required = false, defaultValue = "false") boolean includeRetired) {
         List<PromptSpec> prompts = promptStore.listAllPrompts(includeRetired);
 

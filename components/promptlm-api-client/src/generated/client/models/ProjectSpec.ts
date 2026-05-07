@@ -38,13 +38,13 @@ export type ProjectSpec = {
      */
     promptCount?: number;
     /**
-     * Local filesystem path where the repository is checked out
-     */
-    localPath?: string;
-    /**
      * Remote repository URL
      */
     repositoryUrl?: string;
+    /**
+     * Local filesystem path where the repository is checked out
+     */
+    localPath?: string;
 };
 export namespace ProjectSpec {
     export enum healthStatus {
