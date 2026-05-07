@@ -152,6 +152,7 @@ public class ProjectSpec {
     }
 
     @JsonProperty("repoDir")
+    @Schema(hidden = true)
     public void setRepoDir(Path repoDir) {
 
         this.repoDir = repoDir;

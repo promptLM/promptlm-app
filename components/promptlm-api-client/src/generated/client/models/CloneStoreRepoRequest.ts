@@ -16,9 +16,6 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-/**
- * Clone store request details
- */
 export type CloneStoreRepoRequest = {
     name?: string;
     /**

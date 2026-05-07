@@ -374,7 +374,6 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** @description Clone store request details */
         CloneStoreRepoRequest: {
             name?: string;
             /** @description Client-generated operation identifier for store status events */
@@ -384,19 +383,26 @@ export interface components {
             /** Format: uri */
             remoteUrl?: string;
         };
+        Message: {
+            content?: string;
+            role?: string;
+            name?: string;
+        };
         JsonNode: {
-            number?: boolean;
-            container?: boolean;
-            /** @enum {string} */
-            nodeType?: "ARRAY" | "BINARY" | "BOOLEAN" | "MISSING" | "NULL" | "NUMBER" | "OBJECT" | "POJO" | "STRING";
-            string?: boolean;
-            integralNumber?: boolean;
-            missingNode?: boolean;
-            valueNode?: boolean;
             pojo?: boolean;
-            short?: boolean;
             int?: boolean;
             long?: boolean;
+            float?: boolean;
+            null?: boolean;
+            array?: boolean;
+            empty?: boolean;
+            number?: boolean;
+            missingNode?: boolean;
+            valueNode?: boolean;
+            object?: boolean;
+            /** @enum {string} */
+            nodeType?: "ARRAY" | "BINARY" | "BOOLEAN" | "MISSING" | "NULL" | "NUMBER" | "OBJECT" | "POJO" | "STRING";
+            short?: boolean;
             double?: boolean;
             bigDecimal?: boolean;
             bigInteger?: boolean;
@@ -404,20 +410,16 @@ export interface components {
             textual?: boolean;
             boolean?: boolean;
             binary?: boolean;
+            integralNumber?: boolean;
             floatingPointNumber?: boolean;
-            empty?: boolean;
-            array?: boolean;
-            null?: boolean;
-            object?: boolean;
-            float?: boolean;
+            container?: boolean;
+            string?: boolean;
             embeddedValue?: boolean;
         };
-        Message: {
-            content?: string;
-            role?: string;
-            name?: string;
-        };
-        /** @description Prompt specification creation request details */
+        /**
+         * @description Request payload for creating or updating a prompt specification
+         * @default null
+         */
         PromptSpecCreationRequest: {
             /**
              * @description Unique identifier of the prompt being created or updated
@@ -483,7 +485,10 @@ export interface components {
              */
             repositoryUrl?: string;
         };
-        /** @description LLM request payload and runtime parameters */
+        /**
+         * @description LLM request payload and runtime parameters
+         * @default null
+         */
         PromptSpecRequest: {
             /**
              * @description Type discriminator for the request
@@ -512,7 +517,10 @@ export interface components {
              */
             model_snapshot?: string;
         };
-        /** @description Fine-grained model inference controls */
+        /**
+         * @description Fine-grained model inference controls
+         * @default null
+         */
         PromptSpecRequestParameters: {
             /**
              * Format: double
@@ -539,10 +547,16 @@ export interface components {
              * @description Penalty for introducing new topics
              */
             presencePenalty?: number;
-            /** @description Whether to stream partial responses as they are generated */
-            stream?: boolean;
+            /**
+             * @description Whether to stream partial responses as they are generated
+             * @default false
+             */
+            stream: boolean;
         };
-        /** @description Describes the primary vendor and model configuration for a prompt */
+        /**
+         * @description Describes the primary vendor and model configuration for a prompt
+         * @default null
+         */
         VendorAndModel: {
             /**
              * @description LLM vendor identifier
@@ -599,7 +613,10 @@ export interface components {
             type?: "images/generations";
             imageUrl?: string;
         });
-        /** @description Prompt specification persisted in the prompt store */
+        /**
+         * @description Prompt specification persisted in the prompt store
+         * @default null
+         */
         PromptSpec: {
             specVersion?: string;
             /** Format: uuid */
@@ -608,17 +625,17 @@ export interface components {
              * @description Unique identifier of this prompt
              * @example support_welcome
              */
-            id?: string;
+            id: string;
             /**
              * @description Prompt name
              * @example support_welcome
              */
-            name?: string;
+            name: string;
             /**
              * @description Prompt group
              * @example support
              */
-            group?: string;
+            group: string;
             /**
              * @description Semantic version of the prompt
              * @example 1.0.0
@@ -678,119 +695,16 @@ export interface components {
              * @description Filesystem path where the prompt is persisted
              * @example prompts/support/welcome.yaml
              */
-            path?: {
-                absolute?: boolean;
-                parent?: {
-                    absolute?: boolean;
-                    root?: {
-                        absolute?: boolean;
-                        fileName?: {
-                            absolute?: boolean;
-                            fileSystem?: {
-                                open?: boolean;
-                                readOnly?: boolean;
-                                separator?: string;
-                                rootDirectories?: unknown;
-                                fileStores?: unknown;
-                                userPrincipalLookupService?: unknown;
-                            };
-                            /** Format: int32 */
-                            nameCount?: number;
-                        };
-                        fileSystem?: {
-                            open?: boolean;
-                            readOnly?: boolean;
-                            separator?: string;
-                            rootDirectories?: unknown;
-                            fileStores?: unknown;
-                            userPrincipalLookupService?: unknown;
-                        };
-                        /** Format: int32 */
-                        nameCount?: number;
-                    };
-                    fileName?: {
-                        absolute?: boolean;
-                        fileSystem?: {
-                            open?: boolean;
-                            readOnly?: boolean;
-                            separator?: string;
-                            rootDirectories?: unknown;
-                            fileStores?: unknown;
-                            userPrincipalLookupService?: unknown;
-                        };
-                        /** Format: int32 */
-                        nameCount?: number;
-                    };
-                    fileSystem?: {
-                        open?: boolean;
-                        readOnly?: boolean;
-                        separator?: string;
-                        rootDirectories?: unknown;
-                        fileStores?: unknown;
-                        userPrincipalLookupService?: unknown;
-                    };
-                    /** Format: int32 */
-                    nameCount?: number;
-                };
-                root?: {
-                    absolute?: boolean;
-                    fileName?: {
-                        absolute?: boolean;
-                        fileSystem?: {
-                            open?: boolean;
-                            readOnly?: boolean;
-                            separator?: string;
-                            rootDirectories?: unknown;
-                            fileStores?: unknown;
-                            userPrincipalLookupService?: unknown;
-                        };
-                        /** Format: int32 */
-                        nameCount?: number;
-                    };
-                    fileSystem?: {
-                        open?: boolean;
-                        readOnly?: boolean;
-                        separator?: string;
-                        rootDirectories?: unknown;
-                        fileStores?: unknown;
-                        userPrincipalLookupService?: unknown;
-                    };
-                    /** Format: int32 */
-                    nameCount?: number;
-                };
-                fileName?: {
-                    absolute?: boolean;
-                    fileSystem?: {
-                        open?: boolean;
-                        readOnly?: boolean;
-                        separator?: string;
-                        rootDirectories?: unknown;
-                        fileStores?: unknown;
-                        userPrincipalLookupService?: unknown;
-                    };
-                    /** Format: int32 */
-                    nameCount?: number;
-                };
-                fileSystem?: {
-                    open?: boolean;
-                    readOnly?: boolean;
-                    separator?: string;
-                    rootDirectories?: unknown;
-                    fileStores?: unknown;
-                    userPrincipalLookupService?: unknown;
-                };
-                /** Format: int32 */
-                nameCount?: number;
-            };
+            path?: string;
             /** @description Recent executions of the prompt */
             executions?: components["schemas"]["Execution"][];
             /** @description Stable hash across semantic prompt fields */
             semanticHash?: string;
         };
         Request: {
+            url?: string;
             model?: string;
             vendor?: string;
-            url?: string;
             type: string;
         };
         Placeholder: {
@@ -812,7 +726,10 @@ export interface components {
             reasoning?: string;
             comments?: string;
         };
-        /** @description Single recorded execution of a PromptSpec */
+        /**
+         * @description Single recorded execution of a PromptSpec
+         * @default null
+         */
         Execution: {
             id?: string;
             /** Format: date-time */
@@ -860,9 +777,10 @@ export interface components {
             author?: string;
             /**
              * @description Outcome of the run; true when the run succeeded
+             * @default false
              * @example true
              */
-            ok?: boolean;
+            ok: boolean;
             /** @description Failure message captured when ok is false */
             error?: string;
         };
@@ -887,7 +805,10 @@ export interface components {
         EvaluationSpec: {
             evaluations?: components["schemas"]["Evaluation"][];
         };
-        /** @description Collection of placeholders and their default values */
+        /**
+         * @description Collection of placeholders and their default values
+         * @default null
+         */
         Placeholders: {
             startPattern?: string;
             endPattern?: string;
@@ -896,7 +817,6 @@ export interface components {
                 [key: string]: string;
             };
         };
-        /** @description Create store request details */
         CreateStoreRequest: {
             repoDir: string;
             repoName: string;
@@ -907,7 +827,10 @@ export interface components {
                 [key: string]: string;
             };
         };
-        /** @description Project specification for a prompt store repository */
+        /**
+         * @description Project specification for a prompt store repository
+         * @default null
+         */
         ProjectSpec: {
             /** Format: uuid */
             id?: string;
@@ -916,110 +839,6 @@ export interface components {
             /** @enum {string} */
             healthStatus?: "HEALTHY" | "BROKEN_LOCAL" | "BROKEN_REMOTE";
             healthMessage?: string;
-            repoDir?: {
-                absolute?: boolean;
-                parent?: {
-                    absolute?: boolean;
-                    root?: {
-                        absolute?: boolean;
-                        fileName?: {
-                            absolute?: boolean;
-                            fileSystem?: {
-                                open?: boolean;
-                                readOnly?: boolean;
-                                separator?: string;
-                                rootDirectories?: unknown;
-                                fileStores?: unknown;
-                                userPrincipalLookupService?: unknown;
-                            };
-                            /** Format: int32 */
-                            nameCount?: number;
-                        };
-                        fileSystem?: {
-                            open?: boolean;
-                            readOnly?: boolean;
-                            separator?: string;
-                            rootDirectories?: unknown;
-                            fileStores?: unknown;
-                            userPrincipalLookupService?: unknown;
-                        };
-                        /** Format: int32 */
-                        nameCount?: number;
-                    };
-                    fileName?: {
-                        absolute?: boolean;
-                        fileSystem?: {
-                            open?: boolean;
-                            readOnly?: boolean;
-                            separator?: string;
-                            rootDirectories?: unknown;
-                            fileStores?: unknown;
-                            userPrincipalLookupService?: unknown;
-                        };
-                        /** Format: int32 */
-                        nameCount?: number;
-                    };
-                    fileSystem?: {
-                        open?: boolean;
-                        readOnly?: boolean;
-                        separator?: string;
-                        rootDirectories?: unknown;
-                        fileStores?: unknown;
-                        userPrincipalLookupService?: unknown;
-                    };
-                    /** Format: int32 */
-                    nameCount?: number;
-                };
-                root?: {
-                    absolute?: boolean;
-                    fileName?: {
-                        absolute?: boolean;
-                        fileSystem?: {
-                            open?: boolean;
-                            readOnly?: boolean;
-                            separator?: string;
-                            rootDirectories?: unknown;
-                            fileStores?: unknown;
-                            userPrincipalLookupService?: unknown;
-                        };
-                        /** Format: int32 */
-                        nameCount?: number;
-                    };
-                    fileSystem?: {
-                        open?: boolean;
-                        readOnly?: boolean;
-                        separator?: string;
-                        rootDirectories?: unknown;
-                        fileStores?: unknown;
-                        userPrincipalLookupService?: unknown;
-                    };
-                    /** Format: int32 */
-                    nameCount?: number;
-                };
-                fileName?: {
-                    absolute?: boolean;
-                    fileSystem?: {
-                        open?: boolean;
-                        readOnly?: boolean;
-                        separator?: string;
-                        rootDirectories?: unknown;
-                        fileStores?: unknown;
-                        userPrincipalLookupService?: unknown;
-                    };
-                    /** Format: int32 */
-                    nameCount?: number;
-                };
-                fileSystem?: {
-                    open?: boolean;
-                    readOnly?: boolean;
-                    separator?: string;
-                    rootDirectories?: unknown;
-                    fileStores?: unknown;
-                    userPrincipalLookupService?: unknown;
-                };
-                /** Format: int32 */
-                nameCount?: number;
-            };
             /**
              * Format: date-time
              * @description Timestamp when the project was created
@@ -1036,23 +855,21 @@ export interface components {
              */
             promptCount?: number;
             /**
-             * @description Local filesystem path where the repository is checked out
-             * @example /Users/me/repos/my-repo
-             */
-            localPath?: string;
-            /**
              * @description Remote repository URL
              * @example https://github.com/my-org/my-repo
              */
             repositoryUrl?: string;
+            /**
+             * @description Local filesystem path where the repository is checked out
+             * @example /Users/me/repos/my-repo
+             */
+            localPath?: string;
         };
-        /** @description Repository path */
         ConnectRepositoryRequest: {
             /** @description Absolute path to the repository on disk */
             repoPath?: string;
             displayName?: string;
         };
-        /** @description Prompt specification to execute */
         ExecutePromptRequest: {
             promptSpec?: components["schemas"]["PromptSpec"];
         };
@@ -1077,7 +894,10 @@ export interface components {
             /** Format: date-time */
             lastUpdated?: string;
         };
-        /** @description Model entry in the catalog. */
+        /**
+         * @description Model entry in the catalog.
+         * @default null
+         */
         ModelCatalogModel: {
             /**
              * @description Model identifier
@@ -1094,18 +914,30 @@ export interface components {
              * @example config
              */
             source?: string;
-            /** @description Whether the model supports chat/completion style requests */
-            supportsChat?: boolean;
-            /** @description Whether additional configuration is required before use */
-            requiresConfig?: boolean;
+            /**
+             * @description Whether the model supports chat/completion style requests
+             * @default false
+             */
+            supportsChat: boolean;
+            /**
+             * @description Whether additional configuration is required before use
+             * @default false
+             */
+            requiresConfig: boolean;
             /** @description Optional target route for gateway aliases */
             target?: string;
         };
-        /** @description Model catalog response containing available vendors and models. */
+        /**
+         * @description Model catalog response containing available vendors and models.
+         * @default null
+         */
         ModelCatalogResponse: {
             vendors?: components["schemas"]["ModelCatalogVendor"][];
         };
-        /** @description Vendor entry in the model catalog. */
+        /**
+         * @description Vendor entry in the model catalog.
+         * @default null
+         */
         ModelCatalogVendor: {
             /**
              * @description Vendor identifier
@@ -1117,12 +949,18 @@ export interface components {
              * @example OpenAI
              */
             displayName?: string;
-            /** @description Whether the vendor is active/available */
-            active?: boolean;
+            /**
+             * @description Whether the vendor is active/available
+             * @default false
+             */
+            active: boolean;
             /** @description Models provided by the vendor */
             models?: components["schemas"]["ModelCatalogModel"][];
         };
-        /** @description Feature flags advertised by the server */
+        /**
+         * @description Feature flags advertised by the server
+         * @default null
+         */
         Capabilities: {
             /**
              * @description Enabled capability identifiers
@@ -1175,6 +1013,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
+        /** @description Clone store request details */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CloneStoreRepoRequest"];
@@ -1199,6 +1038,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
+        /** @description Create store request details */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CreateStoreRequest"];
@@ -1258,6 +1098,7 @@ export interface operations {
             };
             cookie?: never;
         };
+        /** @description Updated prompt specification details */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PromptSpecCreationRequest"];
@@ -1354,6 +1195,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
+        /** @description Repository path */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ConnectRepositoryRequest"];
@@ -1398,6 +1240,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
+        /** @description Prompt specification creation request details */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PromptSpecCreationRequest"];
@@ -1501,6 +1344,7 @@ export interface operations {
             };
             cookie?: never;
         };
+        /** @description Prompt specification to execute */
         requestBody?: {
             content: {
                 "application/json": components["schemas"]["ExecutePromptRequest"];
@@ -1543,6 +1387,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
+        /** @description Prompt specification to execute */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ExecutePromptRequest"];
@@ -1662,7 +1507,7 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description Include groups that only contain retired prompts */
-                includeRetired?: boolean;
+                includeRetired?: string;
             };
             header?: never;
             path?: never;

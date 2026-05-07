@@ -270,21 +270,19 @@ const toPromptSpecDetails = (response: PromptSpecDetailsResponse): PromptSpecDet
 };
 
 const toProjectSummary = (project: ProjectSpecResponse): ProjectSummary => ({
-  id: project.id,
-  name: project.name ?? project.repoDir ?? project.repoUrl ?? project.id,
-  localPath: project.repoDir ?? '',
-  repositoryUrl: project.repoUrl ?? project.org ?? '',
-  description: project.description ?? project.org,
+  id: project.id ?? '',
+  name: project.name ?? project.localPath ?? project.repositoryUrl ?? project.id ?? '',
+  localPath: project.localPath ?? '',
+  repositoryUrl: project.repositoryUrl ?? '',
+  description: project.description,
   promptCount:
     typeof (project as { promptCount?: unknown }).promptCount === 'number'
       ? ((project as { promptCount?: number }).promptCount ?? 0)
-      : typeof project.repoDir === 'string'
-        ? 1
-        : 0,
+      : 0,
   createdAt: project.createdAt ?? new Date().toISOString(),
   updatedAt: project.updatedAt ?? new Date().toISOString(),
-  healthStatus: (project as { healthStatus?: unknown }).healthStatus ?? null,
-  healthMessage: (project as { healthMessage?: unknown }).healthMessage ?? null,
+  healthStatus: (project as { healthStatus?: unknown }).healthStatus as ProjectSummary['healthStatus'] ?? null,
+  healthMessage: (project as { healthMessage?: unknown }).healthMessage as ProjectSummary['healthMessage'] ?? null,
 });
 
 const formatHttpError = (err: unknown): Error => toDisplayError(err);

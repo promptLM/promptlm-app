@@ -34,15 +34,15 @@ export type PromptSpec = {
     /**
      * Unique identifier of this prompt
      */
-    id?: string;
+    id: string;
     /**
      * Prompt name
      */
-    name?: string;
+    name: string;
     /**
      * Prompt group
      */
-    group?: string;
+    group: string;
     /**
      * Semantic version of the prompt
      */
@@ -105,102 +105,7 @@ export type PromptSpec = {
     /**
      * Filesystem path where the prompt is persisted
      */
-    path?: {
-        absolute?: boolean;
-        parent?: {
-            absolute?: boolean;
-            root?: {
-                absolute?: boolean;
-                fileName?: {
-                    absolute?: boolean;
-                    fileSystem?: {
-                        open?: boolean;
-                        readOnly?: boolean;
-                        separator?: string;
-                        rootDirectories?: any;
-                        fileStores?: any;
-                        userPrincipalLookupService?: any;
-                    };
-                    nameCount?: number;
-                };
-                fileSystem?: {
-                    open?: boolean;
-                    readOnly?: boolean;
-                    separator?: string;
-                    rootDirectories?: any;
-                    fileStores?: any;
-                    userPrincipalLookupService?: any;
-                };
-                nameCount?: number;
-            };
-            fileName?: {
-                absolute?: boolean;
-                fileSystem?: {
-                    open?: boolean;
-                    readOnly?: boolean;
-                    separator?: string;
-                    rootDirectories?: any;
-                    fileStores?: any;
-                    userPrincipalLookupService?: any;
-                };
-                nameCount?: number;
-            };
-            fileSystem?: {
-                open?: boolean;
-                readOnly?: boolean;
-                separator?: string;
-                rootDirectories?: any;
-                fileStores?: any;
-                userPrincipalLookupService?: any;
-            };
-            nameCount?: number;
-        };
-        root?: {
-            absolute?: boolean;
-            fileName?: {
-                absolute?: boolean;
-                fileSystem?: {
-                    open?: boolean;
-                    readOnly?: boolean;
-                    separator?: string;
-                    rootDirectories?: any;
-                    fileStores?: any;
-                    userPrincipalLookupService?: any;
-                };
-                nameCount?: number;
-            };
-            fileSystem?: {
-                open?: boolean;
-                readOnly?: boolean;
-                separator?: string;
-                rootDirectories?: any;
-                fileStores?: any;
-                userPrincipalLookupService?: any;
-            };
-            nameCount?: number;
-        };
-        fileName?: {
-            absolute?: boolean;
-            fileSystem?: {
-                open?: boolean;
-                readOnly?: boolean;
-                separator?: string;
-                rootDirectories?: any;
-                fileStores?: any;
-                userPrincipalLookupService?: any;
-            };
-            nameCount?: number;
-        };
-        fileSystem?: {
-            open?: boolean;
-            readOnly?: boolean;
-            separator?: string;
-            rootDirectories?: any;
-            fileStores?: any;
-            userPrincipalLookupService?: any;
-        };
-        nameCount?: number;
-    };
+    path?: string;
     /**
      * Recent executions of the prompt
      */

@@ -25,102 +25,6 @@ export type ProjectSpec = {
     description?: string;
     healthStatus?: ProjectSpec.healthStatus;
     healthMessage?: string;
-    repoDir?: {
-        absolute?: boolean;
-        parent?: {
-            absolute?: boolean;
-            root?: {
-                absolute?: boolean;
-                fileName?: {
-                    absolute?: boolean;
-                    fileSystem?: {
-                        open?: boolean;
-                        readOnly?: boolean;
-                        separator?: string;
-                        rootDirectories?: any;
-                        fileStores?: any;
-                        userPrincipalLookupService?: any;
-                    };
-                    nameCount?: number;
-                };
-                fileSystem?: {
-                    open?: boolean;
-                    readOnly?: boolean;
-                    separator?: string;
-                    rootDirectories?: any;
-                    fileStores?: any;
-                    userPrincipalLookupService?: any;
-                };
-                nameCount?: number;
-            };
-            fileName?: {
-                absolute?: boolean;
-                fileSystem?: {
-                    open?: boolean;
-                    readOnly?: boolean;
-                    separator?: string;
-                    rootDirectories?: any;
-                    fileStores?: any;
-                    userPrincipalLookupService?: any;
-                };
-                nameCount?: number;
-            };
-            fileSystem?: {
-                open?: boolean;
-                readOnly?: boolean;
-                separator?: string;
-                rootDirectories?: any;
-                fileStores?: any;
-                userPrincipalLookupService?: any;
-            };
-            nameCount?: number;
-        };
-        root?: {
-            absolute?: boolean;
-            fileName?: {
-                absolute?: boolean;
-                fileSystem?: {
-                    open?: boolean;
-                    readOnly?: boolean;
-                    separator?: string;
-                    rootDirectories?: any;
-                    fileStores?: any;
-                    userPrincipalLookupService?: any;
-                };
-                nameCount?: number;
-            };
-            fileSystem?: {
-                open?: boolean;
-                readOnly?: boolean;
-                separator?: string;
-                rootDirectories?: any;
-                fileStores?: any;
-                userPrincipalLookupService?: any;
-            };
-            nameCount?: number;
-        };
-        fileName?: {
-            absolute?: boolean;
-            fileSystem?: {
-                open?: boolean;
-                readOnly?: boolean;
-                separator?: string;
-                rootDirectories?: any;
-                fileStores?: any;
-                userPrincipalLookupService?: any;
-            };
-            nameCount?: number;
-        };
-        fileSystem?: {
-            open?: boolean;
-            readOnly?: boolean;
-            separator?: string;
-            rootDirectories?: any;
-            fileStores?: any;
-            userPrincipalLookupService?: any;
-        };
-        nameCount?: number;
-    };
     /**
      * Timestamp when the project was created
      */
@@ -134,13 +38,13 @@ export type ProjectSpec = {
      */
     promptCount?: number;
     /**
-     * Local filesystem path where the repository is checked out
-     */
-    localPath?: string;
-    /**
      * Remote repository URL
      */
     repositoryUrl?: string;
+    /**
+     * Local filesystem path where the repository is checked out
+     */
+    localPath?: string;
 };
 export namespace ProjectSpec {
     export enum healthStatus {

@@ -35,6 +35,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import jakarta.validation.Valid;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.api.errors.NoHeadException;
@@ -128,8 +129,10 @@ public class PromptSpecController {
     })
     @PostMapping
     public ResponseEntity<PromptSpec> createPromptSpec(
-            @Parameter(description = "Prompt specification creation request details", required = true) 
-            @Valid @RequestBody PromptSpecCreationRequest request) {
+            @RequestBody(description = "Prompt specification creation request details", required = true,
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = PromptSpecCreationRequest.class)))
+            @Valid @org.springframework.web.bind.annotation.RequestBody PromptSpecCreationRequest request) {
         if (!StringUtils.hasText(request.getGroup()) || !StringUtils.hasText(request.getName())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "name and group must not be blank");
         }
@@ -156,10 +159,12 @@ public class PromptSpecController {
     })
     @PutMapping("/{promptSpecId}")
     public ResponseEntity<PromptSpec> updatePromptSpec(
-            @Parameter(description = "ID of the prompt specification to update") 
+            @Parameter(description = "ID of the prompt specification to update")
             @PathVariable("promptSpecId") String promptSpecId,
-            @Parameter(description = "Updated prompt specification details", required = true) 
-            @Valid @RequestBody PromptSpecCreationRequest request) {
+            @RequestBody(description = "Updated prompt specification details", required = true,
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = PromptSpecCreationRequest.class)))
+            @Valid @org.springframework.web.bind.annotation.RequestBody PromptSpecCreationRequest request) {
         if (!StringUtils.hasText(request.getGroup()) || !StringUtils.hasText(request.getName())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "name and group must not be blank");
         }
@@ -505,8 +510,10 @@ public class PromptSpecController {
     })
     @PostMapping("/execute")
     public ResponseEntity<?> executePrompt(
-            @Parameter(description = "Prompt specification to execute", required = true)
-            @Valid @RequestBody ExecutePromptRequest request) {
+            @RequestBody(description = "Prompt specification to execute", required = true,
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ExecutePromptRequest.class)))
+            @Valid @org.springframework.web.bind.annotation.RequestBody ExecutePromptRequest request) {
         if (request.getPromptSpec() == null) {
             return ResponseEntity.badRequest().build();
         }
@@ -539,8 +546,10 @@ public class PromptSpecController {
     public ResponseEntity<?> executeStoredPrompt(
             @Parameter(description = "ID of the prompt specification to execute", required = true)
             @PathVariable("promptSpecId") String promptSpecId,
-            @Parameter(description = "Prompt specification to execute", required = true)
-            @Valid @RequestBody(required = false) ExecutePromptRequest request) {
+            @RequestBody(description = "Prompt specification to execute", required = false,
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ExecutePromptRequest.class)))
+            @Valid @org.springframework.web.bind.annotation.RequestBody(required = false) ExecutePromptRequest request) {
         Optional<PromptSpec> latestStoredSpec = promptStore.getLatestVersion(promptSpecId);
         if (latestStoredSpec.isEmpty()) {
             return ResponseEntity.notFound().build();

@@ -17,9 +17,9 @@
 /* tslint:disable */
 /* eslint-disable */
 export type Request = {
+    url?: string;
     model?: string;
     vendor?: string;
-    url?: string;
     type: string;
 };
 
