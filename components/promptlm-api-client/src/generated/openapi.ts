@@ -416,10 +416,7 @@ export interface components {
             string?: boolean;
             embeddedValue?: boolean;
         };
-        /**
-         * @description Request payload for creating or updating a prompt specification
-         * @default null
-         */
+        /** @description Request payload for creating or updating a prompt specification */
         PromptSpecCreationRequest: {
             /**
              * @description Unique identifier of the prompt being created or updated
@@ -485,10 +482,7 @@ export interface components {
              */
             repositoryUrl?: string;
         };
-        /**
-         * @description LLM request payload and runtime parameters
-         * @default null
-         */
+        /** @description LLM request payload and runtime parameters */
         PromptSpecRequest: {
             /**
              * @description Type discriminator for the request
@@ -517,10 +511,7 @@ export interface components {
              */
             model_snapshot?: string;
         };
-        /**
-         * @description Fine-grained model inference controls
-         * @default null
-         */
+        /** @description Fine-grained model inference controls */
         PromptSpecRequestParameters: {
             /**
              * Format: double
@@ -547,16 +538,10 @@ export interface components {
              * @description Penalty for introducing new topics
              */
             presencePenalty?: number;
-            /**
-             * @description Whether to stream partial responses as they are generated
-             * @default false
-             */
-            stream: boolean;
+            /** @description Whether to stream partial responses as they are generated */
+            stream?: boolean;
         };
-        /**
-         * @description Describes the primary vendor and model configuration for a prompt
-         * @default null
-         */
+        /** @description Describes the primary vendor and model configuration for a prompt */
         VendorAndModel: {
             /**
              * @description LLM vendor identifier
@@ -613,10 +598,7 @@ export interface components {
             type?: "images/generations";
             imageUrl?: string;
         });
-        /**
-         * @description Prompt specification persisted in the prompt store
-         * @default null
-         */
+        /** @description Prompt specification persisted in the prompt store */
         PromptSpec: {
             specVersion?: string;
             /** Format: uuid */
@@ -726,10 +708,7 @@ export interface components {
             reasoning?: string;
             comments?: string;
         };
-        /**
-         * @description Single recorded execution of a PromptSpec
-         * @default null
-         */
+        /** @description Single recorded execution of a PromptSpec */
         Execution: {
             id?: string;
             /** Format: date-time */
@@ -777,10 +756,9 @@ export interface components {
             author?: string;
             /**
              * @description Outcome of the run; true when the run succeeded
-             * @default false
              * @example true
              */
-            ok: boolean;
+            ok?: boolean;
             /** @description Failure message captured when ok is false */
             error?: string;
         };
@@ -805,10 +783,7 @@ export interface components {
         EvaluationSpec: {
             evaluations?: components["schemas"]["Evaluation"][];
         };
-        /**
-         * @description Collection of placeholders and their default values
-         * @default null
-         */
+        /** @description Collection of placeholders and their default values */
         Placeholders: {
             startPattern?: string;
             endPattern?: string;
@@ -827,10 +802,7 @@ export interface components {
                 [key: string]: string;
             };
         };
-        /**
-         * @description Project specification for a prompt store repository
-         * @default null
-         */
+        /** @description Project specification for a prompt store repository */
         ProjectSpec: {
             /** Format: uuid */
             id?: string;
@@ -894,10 +866,7 @@ export interface components {
             /** Format: date-time */
             lastUpdated?: string;
         };
-        /**
-         * @description Model entry in the catalog.
-         * @default null
-         */
+        /** @description Model entry in the catalog. */
         ModelCatalogModel: {
             /**
              * @description Model identifier
@@ -914,30 +883,18 @@ export interface components {
              * @example config
              */
             source?: string;
-            /**
-             * @description Whether the model supports chat/completion style requests
-             * @default false
-             */
-            supportsChat: boolean;
-            /**
-             * @description Whether additional configuration is required before use
-             * @default false
-             */
-            requiresConfig: boolean;
+            /** @description Whether the model supports chat/completion style requests */
+            supportsChat?: boolean;
+            /** @description Whether additional configuration is required before use */
+            requiresConfig?: boolean;
             /** @description Optional target route for gateway aliases */
             target?: string;
         };
-        /**
-         * @description Model catalog response containing available vendors and models.
-         * @default null
-         */
+        /** @description Model catalog response containing available vendors and models. */
         ModelCatalogResponse: {
             vendors?: components["schemas"]["ModelCatalogVendor"][];
         };
-        /**
-         * @description Vendor entry in the model catalog.
-         * @default null
-         */
+        /** @description Vendor entry in the model catalog. */
         ModelCatalogVendor: {
             /**
              * @description Vendor identifier
@@ -949,18 +906,12 @@ export interface components {
              * @example OpenAI
              */
             displayName?: string;
-            /**
-             * @description Whether the vendor is active/available
-             * @default false
-             */
-            active: boolean;
+            /** @description Whether the vendor is active/available */
+            active?: boolean;
             /** @description Models provided by the vendor */
             models?: components["schemas"]["ModelCatalogModel"][];
         };
-        /**
-         * @description Feature flags advertised by the server
-         * @default null
-         */
+        /** @description Feature flags advertised by the server */
         Capabilities: {
             /**
              * @description Enabled capability identifiers

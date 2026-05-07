@@ -17,6 +17,7 @@
     "normalize:openapi": "node ./scripts/normalize-openapi.mjs",
     "generate:openapi": "openapi-typescript ../../apps/promptlm-webapp/target/generated/openapi/promptlm-webapp-openapi.json --output ./src/generated/openapi.ts",
     "generate:client": "openapi -i ../../apps/promptlm-webapp/target/generated/openapi/promptlm-webapp-openapi.json -o ./src/generated/client --client fetch",
+    "test": "node --test scripts/*.test.mjs",
     "build": "tsc -p tsconfig.json"
   },
   "devDependencies": {
