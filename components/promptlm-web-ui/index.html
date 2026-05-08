@@ -6,15 +6,28 @@
     <meta name="theme-color" content="#070e16" />
 
     <!--
-      First-pass brand metadata. The hero copy here is lifted from the
-      marketing canvas (design/handoff/brand/site.jsx) and should be
-      reviewed once the marketing site copy is locked. Follow-up
-      tracking: #131 (filed alongside #111 BS-6).
+      Brand metadata. Description copy reflects what the app actually
+      ships today (per README.adoc + AppShellLayout primary nav: Dashboard,
+      Prompts, Projects). The aspirational MCP / mocking / inspection
+      copy from the brand canvas hero stays scoped to the marketing
+      surface (site/) until those capabilities ship in the live shell.
+      og:title carries the tagline form for stronger social previews;
+      <title> stays terse for the browser tab.
+
+      JSON-LD SoftwareApplication block exposes the product to search
+      engines and AI assistants. Keep in sync with the README and the
+      meta description above.
+
+      Domain (https://promptlm.dev/), Twitter handle (@promptlm),
+      author (promptLM), and theme-color (pl-ink-900 #070e16) confirmed
+      during #131 review.
+
+      First-pass-then-locked history: #111 BS-6 (efc5518) -> #131.
     -->
     <title>promptLM</title>
     <meta
       name="description"
-      content="promptLM is a developer tool for testing LLM clients, mocking model behavior, and inspecting MCP traffic. Run, replay, regress."
+      content="promptLM is an open-source framework for managing, versioning, and releasing LLM prompts. Track revisions, capture dev-run telemetry, ship prompts as code."
     />
     <meta name="author" content="promptLM" />
 
@@ -25,12 +38,13 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 
     <!-- Open Graph -->
-    <meta property="og:title" content="promptLM" />
+    <meta property="og:title" content="promptLM — the prompt lifecycle, under instrument." />
     <meta
       property="og:description"
-      content="promptLM is a developer tool for testing LLM clients, mocking model behavior, and inspecting MCP traffic. Run, replay, regress."
+      content="Open-source framework for managing, versioning, and releasing LLM prompts. Track revisions, capture dev-run telemetry, ship prompts as code."
     />
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="promptLM" />
     <meta property="og:url" content="https://promptlm.dev/" />
     <meta property="og:image" content="https://promptlm.dev/og-image.png" />
     <meta property="og:image:width" content="1200" />
@@ -40,13 +54,46 @@
     <!-- Twitter / X -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@promptlm" />
-    <meta name="twitter:title" content="promptLM" />
+    <meta name="twitter:title" content="promptLM — the prompt lifecycle, under instrument." />
     <meta
       name="twitter:description"
-      content="promptLM is a developer tool for testing LLM clients, mocking model behavior, and inspecting MCP traffic. Run, replay, regress."
+      content="Open-source framework for managing, versioning, and releasing LLM prompts. Track revisions, capture dev-run telemetry, ship prompts as code."
     />
     <meta name="twitter:image" content="https://promptlm.dev/og-image.png" />
     <meta name="twitter:image:alt" content="promptLM — the prompt lifecycle, under instrument." />
+
+    <!-- Structured data: SoftwareApplication. Surfaces the product to
+         search engines and AI answer engines. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "promptLM",
+        "alternateName": "promptLM — the prompt lifecycle, under instrument.",
+        "description": "Open-source framework for managing, versioning, and releasing LLM prompts. Track revisions, capture dev-run telemetry, ship prompts as code.",
+        "url": "https://promptlm.dev/",
+        "image": "https://promptlm.dev/og-image.png",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Cross-platform",
+        "license": "https://www.apache.org/licenses/LICENSE-2.0",
+        "isAccessibleForFree": true,
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "publisher": {
+          "@type": "Organization",
+          "name": "promptLM",
+          "url": "https://promptlm.dev/",
+          "logo": "https://promptlm.dev/favicon-512.png"
+        },
+        "sameAs": [
+          "https://github.com/promptLM/promptlm-app",
+          "https://twitter.com/promptlm"
+        ]
+      }
+    </script>
   </head>
 
   <body>
