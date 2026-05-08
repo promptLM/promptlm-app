@@ -29,6 +29,7 @@ import dev.promptlm.domain.promptspec.ReleaseMetadata;
 import dev.promptlm.lifecycle.PromptLifecycleFacade;
 import dev.promptlm.execution.PromptExecutor;
 import dev.promptlm.store.api.PromptStore;
+import dev.promptlm.store.api.Revision;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.junit.jupiter.api.Test;
@@ -677,6 +678,103 @@ class PromptSpecControllerWebMvcTest {
                 .andExpect(status().isConflict());
 
         verify(promptLifecycleFacade, times(2)).createPromptSpec(any(PromptSpec.class));
+    }
+
+    @Test
+    void getRevisionsByGroupAndNameReturnsListNewestFirst() throws Exception {
+        PromptSpec snapshot = PromptSpec.builder()
+                .withGroup("support")
+                .withName("welcome")
+                .withVersion("1.0.0")
+                .withRevision(2)
+                .withDescription("snapshot")
+                .withRequest(null)
+                .build()
+                .withId("support/welcome");
+
+        Revision newer = new Revision(
+                "r2",
+                null,
+                "f0d51b1c2c1f5fa9d3a3b2e8f7e3a1d4c5b6a7e8",
+                "Jane Doe",
+                Instant.parse("2026-04-01T10:00:00Z"),
+                "Tweak welcome copy",
+                Revision.Kind.EDIT,
+                snapshot
+        );
+        Revision older = new Revision(
+                "r1",
+                null,
+                "a1b2c3d4e5f6071829304050607080900a0b0c0d",
+                "Jane Doe",
+                Instant.parse("2026-03-15T09:00:00Z"),
+                "Initial welcome prompt",
+                Revision.Kind.ADD,
+                snapshot
+        );
+
+        when(promptStore.listRevisions("support", "welcome")).thenReturn(List.of(newer, older));
+
+        mockMvc.perform(get("/api/prompts/{group}/{name}/revisions", "support", "welcome"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].rev").value("r2"))
+                .andExpect(jsonPath("$[0].sha").value(newer.sha()))
+                .andExpect(jsonPath("$[0].kind").value("edit"))
+                .andExpect(jsonPath("$[0].when").value("2026-04-01T10:00:00Z"))
+                .andExpect(jsonPath("$[0].author").value("Jane Doe"))
+                .andExpect(jsonPath("$[0].msg").value("Tweak welcome copy"))
+                .andExpect(jsonPath("$[0].tag").doesNotExist())
+                .andExpect(jsonPath("$[0].spec.group").value("support"))
+                .andExpect(jsonPath("$[0].spec.name").value("welcome"))
+                .andExpect(jsonPath("$[1].rev").value("r1"))
+                .andExpect(jsonPath("$[1].kind").value("add"));
+    }
+
+    @Test
+    void getRevisionsByPromptIdSplitsGroupAndName() throws Exception {
+        Revision rev = new Revision(
+                "r1",
+                "v1.0.0",
+                "0123456789abcdef0123456789abcdef01234567",
+                "Jane Doe",
+                Instant.parse("2026-03-15T09:00:00Z"),
+                "Initial",
+                Revision.Kind.ADD,
+                null
+        );
+        when(promptStore.listRevisions("support", "welcome")).thenReturn(List.of(rev));
+
+        mockMvc.perform(get("/api/prompts/{promptSpecId}/revisions", "support/welcome"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].tag").value("v1.0.0"))
+                .andExpect(jsonPath("$[0].spec").doesNotExist());
+
+        verify(promptStore).listRevisions("support", "welcome");
+    }
+
+    @Test
+    void getRevisionsReturnsNotFoundWhenStoreReturnsEmpty() throws Exception {
+        when(promptStore.listRevisions("support", "missing")).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/prompts/{group}/{name}/revisions", "support", "missing"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getRevisionsReturnsBadRequestWhenStoreRejectsSegment() throws Exception {
+        when(promptStore.listRevisions(eq("support"), eq("..")))
+                .thenThrow(new IllegalArgumentException("name contains invalid path segment"));
+
+        mockMvc.perform(get("/api/prompts/{group}/{name}/revisions", "support", ".."))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void getRevisionsByPromptIdReturnsBadRequestWhenIdIsMalformed() throws Exception {
+        mockMvc.perform(get("/api/prompts/{promptSpecId}/revisions", "no-slash-here"))
+                .andExpect(status().isBadRequest());
     }
 
     private Path initializeRepositoryWithPromptCommit(Path tempDir, Instant commitInstant) throws Exception {

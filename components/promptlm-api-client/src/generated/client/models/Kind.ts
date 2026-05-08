@@ -16,10 +16,12 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type Request = {
-    url?: string;
-    vendor?: string;
-    model?: string;
-    type: string;
-};
-
+/**
+ * How a revision changed the prompt spec file.
+ */
+export enum Kind {
+    ADD = 'add',
+    EDIT = 'edit',
+    REMOVE = 'remove',
+    RENAME = 'rename',
+}

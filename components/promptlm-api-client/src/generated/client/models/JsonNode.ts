@@ -20,12 +20,8 @@ export type JsonNode = {
     pojo?: boolean;
     int?: boolean;
     long?: boolean;
-    float?: boolean;
     null?: boolean;
-    array?: boolean;
-    empty?: boolean;
-    number?: boolean;
-    missingNode?: boolean;
+    float?: boolean;
     valueNode?: boolean;
     object?: boolean;
     nodeType?: JsonNode.nodeType;
@@ -41,8 +37,12 @@ export type JsonNode = {
     binary?: boolean;
     integralNumber?: boolean;
     floatingPointNumber?: boolean;
-    container?: boolean;
     string?: boolean;
+    array?: boolean;
+    empty?: boolean;
+    number?: boolean;
+    missingNode?: boolean;
+    container?: boolean;
     embeddedValue?: boolean;
 };
 export namespace JsonNode {

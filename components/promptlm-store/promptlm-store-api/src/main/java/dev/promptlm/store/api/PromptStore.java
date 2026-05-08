@@ -114,6 +114,27 @@ public interface PromptStore {
     Optional<PromptSpec> findPromptSpec(String group, String name);
 
     /**
+     * Lists all git-history revisions for the given prompt, newest first.
+     *
+     * <p>Each entry corresponds to a single commit that touched the prompt's
+     * spec file. Implementations are expected to derive {@link Revision#kind()}
+     * from the commit's diff against its parent.
+     *
+     * <p>Default implementation returns an empty list — backends that do not
+     * track revisions can leave it unimplemented.
+     *
+     * @param group the prompt group
+     * @param name  the prompt name
+     * @return a list of revisions, newest first; empty if the prompt has no
+     *         history or the backend does not track it
+     * @throws IllegalArgumentException if {@code group} or {@code name} contains
+     *         characters that are not safe as path segments
+     */
+    default List<Revision> listRevisions(String group, String name) {
+        return List.of();
+    }
+
+    /**
      * Lists all prompts in the store.
      * 
      * @return A list of all prompt specifications.

@@ -26,6 +26,7 @@ import dev.promptlm.domain.promptspec.ReleaseMetadata;
 import dev.promptlm.domain.promptspec.Request;
 import dev.promptlm.lifecycle.application.PromptSpecAlreadyExistsException;
 import dev.promptlm.store.api.PromptStore;
+import dev.promptlm.store.api.Revision;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Hidden;
@@ -491,6 +492,69 @@ public class PromptSpecController {
             @PathVariable("name") String name,
             @RequestParam("pr") String pullRequestReference) {
         return completeReleasePrompt(group + "/" + name, pullRequestReference);
+    }
+
+    /**
+     * List the git-history revisions for a prompt, newest first.
+     */
+    @Operation(
+            summary = "List revisions for a prompt specification",
+            description = "Returns a newest-first list of revisions for the given prompt, "
+                    + "derived from the active project's git history. Each revision includes "
+                    + "metadata (rev label, sha, author, when, msg, kind, optional tag) plus "
+                    + "the full PromptSpec snapshot at that commit when it can be deserialized "
+                    + "against the current schema (otherwise spec is null).",
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "Revisions list, newest first.",
+                            content = @Content(
+                                    mediaType = "application/json",
+                                    array = @ArraySchema(schema = @Schema(implementation = Revision.class))
+                            )
+                    ),
+                    @ApiResponse(
+                            responseCode = "400",
+                            description = "Invalid prompt id (unsafe path segments)."
+                    ),
+                    @ApiResponse(
+                            responseCode = "404",
+                            description = "No revisions found for the given prompt."
+                    )
+            }
+    )
+    @GetMapping("/{group}/{name}/revisions")
+    public ResponseEntity<List<Revision>> getRevisionsByGroupAndName(
+            @Parameter(description = "Prompt group") @PathVariable("group") String group,
+            @Parameter(description = "Prompt name") @PathVariable("name") String name) {
+        List<Revision> revisions;
+        try {
+            revisions = promptStore.listRevisions(group, name);
+        } catch (IllegalArgumentException invalid) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, invalid.getMessage(), invalid);
+        }
+        if (revisions == null || revisions.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(revisions);
+    }
+
+    @Hidden
+    @GetMapping("/{promptSpecId}/revisions")
+    public ResponseEntity<List<Revision>> getRevisions(
+            @PathVariable("promptSpecId") String promptSpecId) {
+        if (promptSpecId == null || promptSpecId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "promptSpecId must not be blank");
+        }
+        int slash = promptSpecId.indexOf('/');
+        if (slash <= 0 || slash == promptSpecId.length() - 1) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "promptSpecId must be of the form 'group/name'");
+        }
+        String group = promptSpecId.substring(0, slash);
+        String name = promptSpecId.substring(slash + 1);
+        return getRevisionsByGroupAndName(group, name);
     }
 
     /**
