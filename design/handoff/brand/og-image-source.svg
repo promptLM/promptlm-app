@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  promptLM Open Graph card master. 1200x630 (Twitter / Facebook / LinkedIn
+  standard share aspect 1.91:1). Uses the canonical Mark C2 (refined Graph)
+  silhouette and the brand canvas hero copy.
+
+  Hex values from the canonical pl-* oklch tokens:
+    pl-ink-900      oklch(0.16  0.02 250)  -> #070e16  (headline + ink edges)
+    pl-ink-500      oklch(0.58  0.012 250) -> approx     #777f8a  (subtle ink)
+    pl-ink-600      oklch(0.45  0.015 250) -> approx     #5a626d  (body copy)
+    pl-signal-deep  oklch(0.55  0.18  235) -> #007cca  (accent edge + node)
+    pl-paper        oklch(0.985 0.003 240) -> #f8fafc  (canvas)
+    pl-ink-200      oklch(0.92  0.006 240) -> approx     #e7eaef  (hairlines)
+
+  Typography: Geist (display) + JetBrains Mono (mono) — matches the brand
+  type stack. Falls back to platform sans-serif at render time so the card
+  rasters consistently regardless of font availability on the renderer.
+
+  Rendered to og-image.png at 1200x630 via:
+    rsvg-convert -w 1200 -h 630 og-image-source.svg -o og-image.png
+
+  See #111 BS-6.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <!-- canvas -->
+  <rect width="1200" height="630" fill="#f8fafc"/>
+
+  <!-- hairline grid (matches .pl-grid-bg from tokens.css, 32px cells) -->
+  <defs>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#070e16" stroke-opacity="0.045" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+
+  <!-- top eyebrow rule -->
+  <line x1="80" y1="80" x2="1120" y2="80" stroke="#e7eaef" stroke-width="1"/>
+  <text x="80" y="68" font-family="'JetBrains Mono', ui-monospace, monospace"
+        font-size="14" font-weight="500" letter-spacing="2.4" fill="#5a626d">
+    PROMPTLM · BRAND CARD
+  </text>
+
+  <!-- mark + wordmark, top-left lockup -->
+  <g transform="translate(80 130)">
+    <!-- Mark C2 scaled 4x from 24-unit master (96x96 footprint) -->
+    <g transform="scale(4)">
+      <line x1="7" y1="7" x2="17" y2="12" stroke="#070e16" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="7" y1="7" x2="7" y2="17" stroke="#070e16" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="7" y1="17" x2="17" y2="12" stroke="#007cca" stroke-width="1.75" stroke-linecap="round"/>
+      <circle cx="7" cy="7" r="2.6" fill="#070e16"/>
+      <circle cx="7" cy="17" r="2.6" fill="#070e16"/>
+      <circle cx="17" cy="12" r="2.8" fill="#007cca"/>
+    </g>
+    <!-- wordmark "promptLM" right of mark, baseline aligned to optical center -->
+    <text x="118" y="68" font-family="'Geist', ui-sans-serif, system-ui, sans-serif"
+          font-size="56" font-weight="400" letter-spacing="-1.6" fill="#070e16">prompt<tspan font-weight="600">LM</tspan></text>
+  </g>
+
+  <!-- hero headline -->
+  <text x="80" y="350" font-family="'Geist', ui-sans-serif, system-ui, sans-serif"
+        font-size="72" font-weight="400" letter-spacing="-2.9" fill="#070e16">The prompt lifecycle,</text>
+  <text x="80" y="430" font-family="'Geist', ui-sans-serif, system-ui, sans-serif"
+        font-size="72" font-weight="400" letter-spacing="-2.9" fill="#070e16">under instrument.</text>
+
+  <!-- subhead -->
+  <text x="80" y="490" font-family="'Geist', ui-sans-serif, system-ui, sans-serif"
+        font-size="22" font-weight="400" letter-spacing="-0.3" fill="#5a626d">
+    A developer tool for testing LLM clients, mocking model behavior, and inspecting MCP traffic.
+  </text>
+
+  <!-- bottom hairline + install line -->
+  <line x1="80" y1="540" x2="1120" y2="540" stroke="#e7eaef" stroke-width="1"/>
+  <text x="80" y="582" font-family="'JetBrains Mono', ui-monospace, monospace"
+        font-size="20" font-weight="500" fill="#070e16">
+    <tspan fill="#777f8a">$</tspan> npm i -D @promptlm/cli
+  </text>
+
+  <!-- url tag, bottom-right -->
+  <text x="1120" y="582" text-anchor="end" font-family="'JetBrains Mono', ui-monospace, monospace"
+        font-size="18" font-weight="500" letter-spacing="0.6" fill="#007cca">
+    promptlm.dev
+  </text>
+</svg>
