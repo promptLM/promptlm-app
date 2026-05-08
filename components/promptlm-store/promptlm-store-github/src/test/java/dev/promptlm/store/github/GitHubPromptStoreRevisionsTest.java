@@ -105,14 +105,15 @@ class GitHubPromptStoreRevisionsTest {
     }
 
     @Test
-    void listRevisionsReportsRenameAsAddOnNewPathAndRemoveOnOld(@TempDir Path repoDir) throws Exception {
+    void listRevisionsDetectsRenameWithIdenticalContent(@TempDir Path repoDir) throws Exception {
         try (Git jgit = Git.init().setInitialBranch("main").setDirectory(repoDir.toFile()).call()) {
             String originalYaml = "id: support/welcome\nname: welcome\ngroup: support\nversion: '1.0'\nrevision: 1\ndescription: 'rename me'\n";
             commitPromptYaml(jgit, repoDir, "support", "welcome",
                     originalYaml,
                     "Add welcome prompt", Instant.parse("2026-01-10T10:00:00Z"));
 
-            // Rename: delete old path, add the same content at the new path.
+            // Rename: delete old path, write the same content at the new path
+            // — exact rename detection picks this up via blob-SHA match.
             Path oldFile = repoDir.resolve("prompts/support/welcome/promptlm.yml");
             Files.delete(oldFile);
             jgit.add().addFilepattern("prompts/support/welcome/promptlm.yml").setUpdate(true).call();
@@ -126,17 +127,48 @@ class GitHubPromptStoreRevisionsTest {
 
         GitHubPromptStore store = newStore(repoDir);
 
-        // v1 limitation: JGit's path-filtered log doesn't follow renames, so a
-        // rename surfaces as ADD on the new path and REMOVE on the old path.
-        // This is documented; full RENAME detection is a follow-up.
+        // From the new path's perspective: the rename commit shows up as the
+        // single revision and is classified as RENAME (the same blob existed
+        // at the old path in the parent and is gone at that path now).
         List<Revision> fromNewPath = store.listRevisions("support", "greeting");
         assertThat(fromNewPath).hasSize(1);
-        assertThat(fromNewPath.get(0).kind()).isEqualTo(Revision.Kind.ADD);
+        assertThat(fromNewPath.get(0).kind()).isEqualTo(Revision.Kind.RENAME);
 
+        // From the old path's perspective: the same commit is also classified
+        // as RENAME (the blob reappeared at the new path).
         List<Revision> fromOldPath = store.listRevisions("support", "welcome");
         assertThat(fromOldPath).extracting(Revision::kind)
                 .first()
-                .isEqualTo(Revision.Kind.REMOVE);
+                .isEqualTo(Revision.Kind.RENAME);
+    }
+
+    @Test
+    void listRevisionsTreatsRenameWithEditAsAddOnNewPath(@TempDir Path repoDir) throws Exception {
+        // Exact rename detection only catches identical-content renames.
+        // A rename + edit is intentionally classified as ADD/REMOVE so we
+        // don't false-positive on similar-but-not-equal content.
+        try (Git jgit = Git.init().setInitialBranch("main").setDirectory(repoDir.toFile()).call()) {
+            String originalYaml = "id: support/welcome\nname: welcome\ngroup: support\nversion: '1.0'\nrevision: 1\ndescription: 'before'\n";
+            commitPromptYaml(jgit, repoDir, "support", "welcome",
+                    originalYaml,
+                    "Add welcome", Instant.parse("2026-02-01T10:00:00Z"));
+
+            Path oldFile = repoDir.resolve("prompts/support/welcome/promptlm.yml");
+            Files.delete(oldFile);
+            jgit.add().addFilepattern("prompts/support/welcome/promptlm.yml").setUpdate(true).call();
+
+            Path newFile = repoDir.resolve("prompts/support/greeting/promptlm.yml");
+            Files.createDirectories(newFile.getParent());
+            Files.writeString(newFile,
+                    "id: support/greeting\nname: greeting\ngroup: support\nversion: '1.1'\nrevision: 2\ndescription: 'after'\n");
+            jgit.add().addFilepattern("prompts/support/greeting/promptlm.yml").call();
+            commit(jgit, "Rename + tweak", Instant.parse("2026-02-15T10:00:00Z"));
+        }
+
+        GitHubPromptStore store = newStore(repoDir);
+        List<Revision> fromNewPath = store.listRevisions("support", "greeting");
+        assertThat(fromNewPath).hasSize(1);
+        assertThat(fromNewPath.get(0).kind()).isEqualTo(Revision.Kind.ADD);
     }
 
     @Test

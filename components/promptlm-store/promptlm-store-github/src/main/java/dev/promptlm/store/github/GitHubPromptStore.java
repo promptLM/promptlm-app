@@ -809,39 +809,105 @@ public class GitHubPromptStore implements PromptStore {
      * Classifies a single commit by comparing the prompt-spec blob's presence
      * at the commit and at its first parent.
      *
-     * <p>Note: rename detection ({@link Revision.Kind#RENAME}) is not yet
-     * surfaced. The current implementation relies on JGit's path-filtered log
-     * which does not natively follow renames, so a rename appears as an
-     * {@code ADD} on the new path and a {@code REMOVE} on the old path. A
-     * follow-up will track renames via blob-SHA matching across siblings.
+     * <p>Rename detection: when the file appears to be added on this path
+     * and an identical blob (same SHA) exists at a different path in the
+     * parent tree (and that other path is gone in this commit), we report
+     * {@link Revision.Kind#RENAME}. Symmetric for the old path. This is
+     * <em>exact</em> rename detection — only catches "move with no edit".
+     * Renames-with-edits still surface as ADD/REMOVE; that's a follow-up if
+     * needed.
      */
     private Revision.Kind deriveKind(Repository repository,
                                      RevCommit commit,
                                      String promptPath) {
-        boolean existsAtCommit = blobAtPath(repository, commit, promptPath) != null;
+        ObjectId blobAtCommit = blobAtPath(repository, commit, promptPath);
+        boolean existsAtCommit = blobAtCommit != null;
 
-        if (commit.getParentCount() == 0) {
+        // JGit's path-filtered LogCommand rewrites parent links. Use a fresh
+        // RevWalk to fetch the commit's real parents.
+        RevCommit unfilteredCommit;
+        try (org.eclipse.jgit.revwalk.RevWalk walk =
+                     new org.eclipse.jgit.revwalk.RevWalk(repository)) {
+            unfilteredCommit = walk.parseCommit(commit.getId());
+        } catch (IOException e) {
+            log.warn("Failed to re-parse commit {} for path {}",
+                    commit.name(), promptPath, e);
+            return existsAtCommit ? Revision.Kind.ADD : Revision.Kind.REMOVE;
+        }
+
+        if (unfilteredCommit.getParentCount() == 0) {
             return existsAtCommit ? Revision.Kind.ADD : Revision.Kind.REMOVE;
         }
 
         RevCommit parent;
         try (org.eclipse.jgit.revwalk.RevWalk walk =
                      new org.eclipse.jgit.revwalk.RevWalk(repository)) {
-            parent = walk.parseCommit(commit.getParent(0).getId());
+            parent = walk.parseCommit(unfilteredCommit.getParent(0).getId());
         } catch (IOException e) {
             log.warn("Failed to parse parent of commit {} for path {}",
                     commit.name(), promptPath, e);
             return Revision.Kind.EDIT;
         }
-        boolean existsAtParent = blobAtPath(repository, parent, promptPath) != null;
+        ObjectId blobAtParent = blobAtPath(repository, parent, promptPath);
+        boolean existsAtParent = blobAtParent != null;
 
-        if (existsAtCommit && !existsAtParent) {
+        if (existsAtCommit && existsAtParent) {
+            return Revision.Kind.EDIT;
+        }
+
+        if (existsAtCommit) {
+            // ADD on this path: was the same blob present at a different path
+            // in the parent (and removed in this commit)? If so, it's a rename.
+            if (matchingBlobMissingFromCurrent(repository, parent, unfilteredCommit, blobAtCommit, promptPath)) {
+                return Revision.Kind.RENAME;
+            }
             return Revision.Kind.ADD;
         }
-        if (!existsAtCommit && existsAtParent) {
-            return Revision.Kind.REMOVE;
+
+        // REMOVE on this path: did the same blob reappear at a different path
+        // in the current commit (and was absent there in the parent)?
+        if (matchingBlobMissingFromCurrent(repository, unfilteredCommit, parent, blobAtParent, promptPath)) {
+            return Revision.Kind.RENAME;
         }
-        return Revision.Kind.EDIT;
+        return Revision.Kind.REMOVE;
+    }
+
+    /**
+     * Returns true if the {@code targetBlob} is present at some path (other
+     * than {@code excludePath}) in {@code searchTreeCommit} but absent at the
+     * same path in {@code requireMissingTreeCommit}. Used to detect that a
+     * rename pair surrounds {@code excludePath}.
+     */
+    private static boolean matchingBlobMissingFromCurrent(Repository repository,
+                                                          RevCommit searchTreeCommit,
+                                                          RevCommit requireMissingTreeCommit,
+                                                          ObjectId targetBlob,
+                                                          String excludePath) {
+        if (targetBlob == null) {
+            return false;
+        }
+        try (TreeWalk walk = new TreeWalk(repository)) {
+            walk.addTree(searchTreeCommit.getTree());
+            walk.setRecursive(true);
+            while (walk.next()) {
+                String candidatePath = walk.getPathString();
+                ObjectId blobAtCandidate = walk.getObjectId(0);
+                if (candidatePath.equals(excludePath)) {
+                    continue;
+                }
+                if (!targetBlob.equals(blobAtCandidate)) {
+                    continue;
+                }
+                ObjectId atOther = blobAtPath(repository, requireMissingTreeCommit, candidatePath);
+                if (!targetBlob.equals(atOther)) {
+                    return true;
+                }
+            }
+        } catch (IOException e) {
+            log.warn("Failed to scan tree of {} for rename detection of path {}",
+                    searchTreeCommit.name(), excludePath, e);
+        }
+        return false;
     }
 
     private PromptSpec readSnapshot(Repository repository, RevCommit commit, String promptPath) {
