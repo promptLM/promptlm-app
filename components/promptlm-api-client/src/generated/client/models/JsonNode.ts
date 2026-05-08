@@ -18,8 +18,8 @@
 /* eslint-disable */
 export type JsonNode = {
     missingNode?: boolean;
-    valueNode?: boolean;
     pojo?: boolean;
+    valueNode?: boolean;
     object?: boolean;
     nodeType?: JsonNode.nodeType;
     integralNumber?: boolean;
@@ -36,9 +36,9 @@ export type JsonNode = {
     textual?: boolean;
     boolean?: boolean;
     binary?: boolean;
+    number?: boolean;
     container?: boolean;
     string?: boolean;
-    number?: boolean;
     array?: boolean;
     empty?: boolean;
     null?: boolean;
