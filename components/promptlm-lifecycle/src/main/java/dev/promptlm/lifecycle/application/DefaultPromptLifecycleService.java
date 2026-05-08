@@ -25,6 +25,10 @@ import dev.promptlm.domain.promptspec.EvaluationResults;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import dev.promptlm.domain.promptspec.ReleaseMetadata;
 import dev.promptlm.domain.promptspec.Request;
+import dev.promptlm.lifecycle.audit.ReleaseAuditContext;
+import dev.promptlm.lifecycle.audit.ReleaseAuditEvent;
+import dev.promptlm.lifecycle.audit.ReleaseAuditLogger;
+import dev.promptlm.lifecycle.audit.ReleaseAuditOutcome;
 import dev.promptlm.release.PromptReleaseException;
 import dev.promptlm.release.PromptReleasePolicy;
 import org.slf4j.Logger;
@@ -47,17 +51,23 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
     private final PromptIdGeneratorPort idGenerator;
     private final PromptLifecycleEventPublisher eventPublisher;
     private final PromptReleasePolicy releasePolicy;
+    private final ReleaseAuditLogger auditLogger;
+    private final ReleaseAuditContext auditContext;
 
     DefaultPromptLifecycleService(PromptStorePort repository,
                                   PromptTemplatePort template,
                                   PromptIdGeneratorPort idGenerator,
                                   PromptLifecycleEventPublisher eventPublisher,
-                                  PromptReleasePolicy releasePolicy) {
+                                  PromptReleasePolicy releasePolicy,
+                                  ReleaseAuditLogger auditLogger,
+                                  ReleaseAuditContext auditContext) {
         this.repository = repository;
         this.template = template;
         this.idGenerator = idGenerator;
         this.eventPublisher = eventPublisher;
         this.releasePolicy = releasePolicy;
+        this.auditLogger = auditLogger;
+        this.auditContext = auditContext;
     }
 
     @Override
@@ -202,6 +212,52 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
 
     @Override
     public PromptSpec releasePrompt(String promptSpecId) {
+        AuditContextSnapshot snapshot = readAuditContext(promptSpecId);
+        try {
+            PromptSpec released = doReleasePrompt(promptSpecId);
+            ReleaseMetadata metadata = released.getReleaseMetadata();
+            String mode = metadata == null ? null : metadata.mode();
+            ReleaseAuditOutcome outcome = metadata != null && metadata.isReleased()
+                    ? ReleaseAuditOutcome.RELEASED
+                    : ReleaseAuditOutcome.REQUESTED;
+            auditLogger.record(ReleaseAuditEvent.forSuccess(
+                    outcome,
+                    promptSpecId,
+                    mode,
+                    null,
+                    snapshot.correlationId,
+                    snapshot.caller,
+                    snapshot.executionId));
+            return released;
+            // IllegalArgumentException is included defensively: nothing in doReleasePrompt
+            // currently throws it, but the wrap should still classify any future domain
+            // assertion as BLOCKED_PROMPT rather than miscategorising it as infra.
+        } catch (PromptReleaseException | IllegalStateException | IllegalArgumentException e) {
+            auditLogger.record(ReleaseAuditEvent.forFailure(
+                    ReleaseAuditOutcome.BLOCKED_PROMPT,
+                    promptSpecId,
+                    null,
+                    null,
+                    snapshot.correlationId,
+                    snapshot.caller,
+                    snapshot.executionId,
+                    e));
+            throw e;
+        } catch (RuntimeException e) {
+            auditLogger.record(ReleaseAuditEvent.forFailure(
+                    ReleaseAuditOutcome.BLOCKED_INFRA,
+                    promptSpecId,
+                    null,
+                    null,
+                    snapshot.correlationId,
+                    snapshot.caller,
+                    snapshot.executionId,
+                    e));
+            throw e;
+        }
+    }
+
+    private PromptSpec doReleasePrompt(String promptSpecId) {
         PromptSpec promptSpec = repository.getLatestVersion(promptSpecId)
                 .orElseThrow(() -> new PromptReleaseException(
                         "Could not find prompt %s".formatted(promptSpecId)));
@@ -238,6 +294,81 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
 
     @Override
     public PromptSpec completeReleasePrompt(String promptSpecId, String pullRequestReference) {
+        AuditContextSnapshot snapshot = readAuditContext(promptSpecId);
+        try {
+            PromptSpec released = doCompleteReleasePrompt(promptSpecId, pullRequestReference);
+            ReleaseMetadata metadata = released.getReleaseMetadata();
+            String mode = metadata == null ? null : metadata.mode();
+            auditLogger.record(ReleaseAuditEvent.forSuccess(
+                    ReleaseAuditOutcome.RELEASED,
+                    promptSpecId,
+                    mode,
+                    pullRequestReference,
+                    snapshot.correlationId,
+                    snapshot.caller,
+                    snapshot.executionId));
+            return released;
+        } catch (PromptReleaseException | IllegalStateException | IllegalArgumentException e) {
+            auditLogger.record(ReleaseAuditEvent.forFailure(
+                    ReleaseAuditOutcome.BLOCKED_PROMPT,
+                    promptSpecId,
+                    null,
+                    pullRequestReference,
+                    snapshot.correlationId,
+                    snapshot.caller,
+                    snapshot.executionId,
+                    e));
+            throw e;
+        } catch (RuntimeException e) {
+            auditLogger.record(ReleaseAuditEvent.forFailure(
+                    ReleaseAuditOutcome.BLOCKED_INFRA,
+                    promptSpecId,
+                    null,
+                    pullRequestReference,
+                    snapshot.correlationId,
+                    snapshot.caller,
+                    snapshot.executionId,
+                    e));
+            throw e;
+        }
+    }
+
+    /**
+     * Read the audit context defensively. The {@link ReleaseAuditContext} javadoc forbids
+     * implementations from throwing, but a misbehaving custom implementation must not be able
+     * to alter release behaviour. Any exception here is downgraded to the safe default
+     * (caller=null, executionId=null, fresh UUID for correlationId) and the operational
+     * logger records the failure once so it isn't silently lost.
+     */
+    private AuditContextSnapshot readAuditContext(String promptSpecId) {
+        String correlationId;
+        String caller;
+        String executionId;
+        try {
+            correlationId = auditContext.correlationId();
+        } catch (RuntimeException e) {
+            log.warn("ReleaseAuditContext.correlationId() failed; using fallback UUID.", e);
+            correlationId = java.util.UUID.randomUUID().toString();
+        }
+        try {
+            caller = auditContext.caller();
+        } catch (RuntimeException e) {
+            log.warn("ReleaseAuditContext.caller() failed; using null.", e);
+            caller = null;
+        }
+        try {
+            executionId = auditContext.executionIdFor(promptSpecId);
+        } catch (RuntimeException e) {
+            log.warn("ReleaseAuditContext.executionIdFor() failed; using null.", e);
+            executionId = null;
+        }
+        return new AuditContextSnapshot(correlationId, caller, executionId);
+    }
+
+    private record AuditContextSnapshot(String correlationId, String caller, String executionId) {
+    }
+
+    private PromptSpec doCompleteReleasePrompt(String promptSpecId, String pullRequestReference) {
         repository.getLatestVersion(promptSpecId)
                 .orElseThrow(() -> new PromptReleaseException(
                         "Could not find prompt %s".formatted(promptSpecId)));
