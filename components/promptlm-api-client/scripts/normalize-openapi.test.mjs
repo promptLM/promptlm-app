@@ -26,6 +26,7 @@ import {
   isNoopDefault,
   stripEmptyDefaults,
   stripParameterSchemaDefaults,
+  stripServers,
 } from './normalize-openapi.mjs';
 
 describe('isNoopDefault', () => {
@@ -255,5 +256,43 @@ describe('stripParameterSchemaDefaults', () => {
     const spec = { components: {} };
     stripParameterSchemaDefaults(spec);
     assert.ok(spec);
+  });
+});
+
+describe('stripServers', () => {
+  it('removes a populated servers block', () => {
+    const spec = {
+      openapi: '3.1.0',
+      servers: [{ url: 'http://localhost:50864', description: 'Generated server url' }],
+      paths: {},
+    };
+    stripServers(spec);
+    assert.equal('servers' in spec, false);
+  });
+
+  it('removes an empty servers block', () => {
+    const spec = { servers: [] };
+    stripServers(spec);
+    assert.equal('servers' in spec, false);
+  });
+
+  it('is a no-op when servers is absent', () => {
+    const spec = { openapi: '3.1.0', paths: {} };
+    stripServers(spec);
+    assert.deepEqual(spec, { openapi: '3.1.0', paths: {} });
+  });
+
+  it('does not touch nested servers (e.g. per-path overrides) — only the top-level field', () => {
+    const spec = {
+      servers: [{ url: 'http://localhost:50864' }],
+      paths: {
+        '/api/things': {
+          servers: [{ url: 'http://other.example.com' }],
+        },
+      },
+    };
+    stripServers(spec);
+    assert.equal('servers' in spec, false);
+    assert.deepEqual(spec.paths['/api/things'].servers, [{ url: 'http://other.example.com' }]);
   });
 });

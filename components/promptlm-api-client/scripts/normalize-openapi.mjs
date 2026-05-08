@@ -15,7 +15,7 @@
 /**
  * Normalises the springdoc-generated OpenAPI spec before client generation.
  *
- * Two distinct passes:
+ * Three distinct passes:
  *
  * 1. Strip "default-default" markers anywhere in the spec.
  *    springdoc emits `default: ""` (and `default: false`, `default: 0`,
@@ -36,6 +36,16 @@
  *    typed as `string` in the generated client. Defaults on parameter schemas
  *    are documentation-only and not part of the wire contract, so we drop
  *    them unconditionally.
+ *
+ * 3. Strip the top-level `servers` block.
+ *    The OpenAPI spec is dumped from a webapp booted on a random port allocated
+ *    by `build-helper-maven-plugin`'s `reserve-network-port` goal. springdoc
+ *    bakes that random URL into `servers[]`, and `openapi-typescript-codegen`
+ *    then bakes it into the generated client's `OpenAPI.BASE` constant, so the
+ *    port number flips on every regen and clutters the diff. The runtime URL
+ *    is supplied by the caller (relative URLs against the webapp's actual
+ *    origin), so the `servers[]` block is build-environment leakage rather
+ *    than wire contract; we drop it.
  */
 
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -119,6 +129,20 @@ export const stripParameterSchemaDefaults = (spec) => {
   }
 };
 
+/**
+ * Drop the top-level `servers` block. springdoc populates it with the
+ * random-port URL the webapp was booted on for the spec dump, which causes
+ * unrelated diff churn in the regenerated client (`OpenAPI.BASE`) on every
+ * build. The runtime client's BASE is supplied by callers (relative URLs
+ * against the webapp's actual origin), so the block is documentation noise
+ * rather than wire contract.
+ */
+export const stripServers = (spec) => {
+  if (spec && typeof spec === 'object' && 'servers' in spec) {
+    delete spec.servers;
+  }
+};
+
 // Only run the side-effecting body when invoked as a script (not when
 // imported from the test file).
 const isMain = process.argv[1] && resolve(process.argv[1]) === __filename;
@@ -140,6 +164,7 @@ if (isMain) {
   const spec = JSON.parse(raw);
   stripEmptyDefaults(spec);
   stripParameterSchemaDefaults(spec);
+  stripServers(spec);
   writeFileSync(specPath, JSON.stringify(spec, null, 2) + '\n');
   console.log(`Normalised spec at ${specPath}`);
 }

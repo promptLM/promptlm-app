@@ -34,7 +34,7 @@ export type OpenAPIConfig = {
 };
 
 export const OpenAPI: OpenAPIConfig = {
-    BASE: 'http://localhost:50864',
+    BASE: '',
     VERSION: '0',
     WITH_CREDENTIALS: false,
     CREDENTIALS: 'include',
