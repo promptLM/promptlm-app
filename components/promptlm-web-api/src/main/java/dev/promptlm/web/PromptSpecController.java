@@ -41,6 +41,7 @@ import jakarta.validation.Valid;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.api.errors.NoHeadException;
 import org.eclipse.jgit.revwalk.RevCommit;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -503,7 +504,10 @@ public class PromptSpecController {
                     + "derived from the active project's git history. Each revision includes "
                     + "metadata (rev label, sha, author, when, msg, kind, optional tag) plus "
                     + "the full PromptSpec snapshot at that commit when it can be deserialized "
-                    + "against the current schema (otherwise spec is null).",
+                    + "against the current schema (otherwise spec is null). Responses carry a "
+                    + "weak ETag derived from the newest revision's commit SHA; clients can "
+                    + "send `If-None-Match` to receive 304 Not Modified when the history is "
+                    + "unchanged.",
             responses = {
                     @ApiResponse(
                             responseCode = "200",
@@ -512,6 +516,10 @@ public class PromptSpecController {
                                     mediaType = "application/json",
                                     array = @ArraySchema(schema = @Schema(implementation = Revision.class))
                             )
+                    ),
+                    @ApiResponse(
+                            responseCode = "304",
+                            description = "Not Modified — the supplied If-None-Match matches the current ETag."
                     ),
                     @ApiResponse(
                             responseCode = "400",
@@ -526,7 +534,8 @@ public class PromptSpecController {
     @GetMapping("/{group}/{name}/revisions")
     public ResponseEntity<List<Revision>> getRevisionsByGroupAndName(
             @Parameter(description = "Prompt group") @PathVariable("group") String group,
-            @Parameter(description = "Prompt name") @PathVariable("name") String name) {
+            @Parameter(description = "Prompt name") @PathVariable("name") String name,
+            @RequestHeader(value = HttpHeaders.IF_NONE_MATCH, required = false) String ifNoneMatch) {
         List<Revision> revisions;
         try {
             revisions = promptStore.listRevisions(group, name);
@@ -536,13 +545,19 @@ public class PromptSpecController {
         if (revisions == null || revisions.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.ok(revisions);
+
+        String etag = revisionsEtag(revisions);
+        if (etagMatches(ifNoneMatch, etag)) {
+            return ResponseEntity.status(HttpStatus.NOT_MODIFIED).eTag(etag).build();
+        }
+        return ResponseEntity.ok().eTag(etag).body(revisions);
     }
 
     @Hidden
     @GetMapping("/{promptSpecId}/revisions")
     public ResponseEntity<List<Revision>> getRevisions(
-            @PathVariable("promptSpecId") String promptSpecId) {
+            @PathVariable("promptSpecId") String promptSpecId,
+            @RequestHeader(value = HttpHeaders.IF_NONE_MATCH, required = false) String ifNoneMatch) {
         if (promptSpecId == null || promptSpecId.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "promptSpecId must not be blank");
         }
@@ -554,7 +569,40 @@ public class PromptSpecController {
         }
         String group = promptSpecId.substring(0, slash);
         String name = promptSpecId.substring(slash + 1);
-        return getRevisionsByGroupAndName(group, name);
+        return getRevisionsByGroupAndName(group, name, ifNoneMatch);
+    }
+
+    private static String revisionsEtag(List<Revision> revisions) {
+        // Weak ETag tied to the newest commit SHA — sufficient because a new
+        // commit on the prompt path produces a new newest sha and invalidates.
+        return "W/\"" + revisions.get(0).sha() + "\"";
+    }
+
+    private static boolean etagMatches(String ifNoneMatch, String currentEtag) {
+        if (ifNoneMatch == null || ifNoneMatch.isBlank()) {
+            return false;
+        }
+        // RFC 7232: `If-None-Match` may be a comma-separated list of ETags or
+        // the wildcard `*`. Handle both, and treat strong/weak forms as a
+        // match when the opaque-tag portion is identical.
+        String normalizedCurrent = stripWeakPrefix(currentEtag);
+        for (String candidate : ifNoneMatch.split(",")) {
+            String trimmed = candidate.trim();
+            if ("*".equals(trimmed)) {
+                return true;
+            }
+            if (stripWeakPrefix(trimmed).equals(normalizedCurrent)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String stripWeakPrefix(String etag) {
+        if (etag.startsWith("W/")) {
+            return etag.substring(2);
+        }
+        return etag;
     }
 
     /**

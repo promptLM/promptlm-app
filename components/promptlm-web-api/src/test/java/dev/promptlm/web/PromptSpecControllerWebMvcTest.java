@@ -777,6 +777,92 @@ class PromptSpecControllerWebMvcTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void getRevisionsExposesWeakEtagDerivedFromNewestSha() throws Exception {
+        Revision newer = new Revision(
+                "r2",
+                null,
+                "f0d51b1c2c1f5fa9d3a3b2e8f7e3a1d4c5b6a7e8",
+                "Jane Doe",
+                Instant.parse("2026-04-01T10:00:00Z"),
+                "Tweak",
+                Revision.Kind.EDIT,
+                null
+        );
+        Revision older = new Revision(
+                "r1",
+                null,
+                "a1b2c3d4e5f6071829304050607080900a0b0c0d",
+                "Jane Doe",
+                Instant.parse("2026-03-15T09:00:00Z"),
+                "Initial",
+                Revision.Kind.ADD,
+                null
+        );
+        when(promptStore.listRevisions("support", "welcome")).thenReturn(List.of(newer, older));
+
+        mockMvc.perform(get("/api/prompts/{group}/{name}/revisions", "support", "welcome"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("ETag", "W/\"" + newer.sha() + "\""));
+    }
+
+    @Test
+    void getRevisionsReturnsNotModifiedWhenIfNoneMatchEqualsCurrentEtag() throws Exception {
+        Revision newer = new Revision(
+                "r2", null, "f0d51b1c2c1f5fa9d3a3b2e8f7e3a1d4c5b6a7e8",
+                "Jane Doe", Instant.parse("2026-04-01T10:00:00Z"),
+                "Tweak", Revision.Kind.EDIT, null
+        );
+        when(promptStore.listRevisions("support", "welcome")).thenReturn(List.of(newer));
+
+        mockMvc.perform(get("/api/prompts/{group}/{name}/revisions", "support", "welcome")
+                        .header("If-None-Match", "W/\"" + newer.sha() + "\""))
+                .andExpect(status().isNotModified())
+                .andExpect(header().string("ETag", "W/\"" + newer.sha() + "\""));
+    }
+
+    @Test
+    void getRevisionsReturnsNotModifiedForStrongFormOfWeakEtag() throws Exception {
+        Revision newer = new Revision(
+                "r2", null, "f0d51b1c2c1f5fa9d3a3b2e8f7e3a1d4c5b6a7e8",
+                "Jane Doe", Instant.parse("2026-04-01T10:00:00Z"),
+                "Tweak", Revision.Kind.EDIT, null
+        );
+        when(promptStore.listRevisions("support", "welcome")).thenReturn(List.of(newer));
+
+        // Client may have stripped the W/ prefix; the opaque tag still matches.
+        mockMvc.perform(get("/api/prompts/{group}/{name}/revisions", "support", "welcome")
+                        .header("If-None-Match", "\"" + newer.sha() + "\""))
+                .andExpect(status().isNotModified());
+    }
+
+    @Test
+    void getRevisionsReturnsNotModifiedForWildcardIfNoneMatch() throws Exception {
+        Revision newer = new Revision(
+                "r2", null, "abc", "x", Instant.now(), "m", Revision.Kind.ADD, null);
+        when(promptStore.listRevisions("support", "welcome")).thenReturn(List.of(newer));
+
+        mockMvc.perform(get("/api/prompts/{group}/{name}/revisions", "support", "welcome")
+                        .header("If-None-Match", "*"))
+                .andExpect(status().isNotModified());
+    }
+
+    @Test
+    void getRevisionsReturnsFullPayloadWhenIfNoneMatchDoesNotMatch() throws Exception {
+        Revision newer = new Revision(
+                "r2", null, "f0d51b1c2c1f5fa9d3a3b2e8f7e3a1d4c5b6a7e8",
+                "Jane Doe", Instant.parse("2026-04-01T10:00:00Z"),
+                "Tweak", Revision.Kind.EDIT, null
+        );
+        when(promptStore.listRevisions("support", "welcome")).thenReturn(List.of(newer));
+
+        mockMvc.perform(get("/api/prompts/{group}/{name}/revisions", "support", "welcome")
+                        .header("If-None-Match", "W/\"deadbeefdeadbeefdeadbeefdeadbeefdeadbeef\""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(header().string("ETag", "W/\"" + newer.sha() + "\""));
+    }
+
     private Path initializeRepositoryWithPromptCommit(Path tempDir, Instant commitInstant) throws Exception {
         Path repository = tempDir.resolve("repo");
         Files.createDirectories(repository);

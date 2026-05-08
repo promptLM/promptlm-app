@@ -283,7 +283,7 @@ export interface paths {
         };
         /**
          * List revisions for a prompt specification
-         * @description Returns a newest-first list of revisions for the given prompt, derived from the active project's git history. Each revision includes metadata (rev label, sha, author, when, msg, kind, optional tag) plus the full PromptSpec snapshot at that commit when it can be deserialized against the current schema (otherwise spec is null).
+         * @description Returns a newest-first list of revisions for the given prompt, derived from the active project's git history. Each revision includes metadata (rev label, sha, author, when, msg, kind, optional tag) plus the full PromptSpec snapshot at that commit when it can be deserialized against the current schema (otherwise spec is null). Responses carry a weak ETag derived from the newest revision's commit SHA; clients can send `If-None-Match` to receive 304 Not Modified when the history is unchanged.
          */
         get: operations["getRevisionsByGroupAndName"];
         put?: never;
@@ -409,12 +409,10 @@ export interface components {
             name?: string;
         };
         JsonNode: {
-            pojo?: boolean;
-            int?: boolean;
-            long?: boolean;
-            null?: boolean;
-            float?: boolean;
+            container?: boolean;
+            string?: boolean;
             valueNode?: boolean;
+            missingNode?: boolean;
             object?: boolean;
             /** @enum {string} */
             nodeType?: "ARRAY" | "BINARY" | "BOOLEAN" | "MISSING" | "NULL" | "NUMBER" | "OBJECT" | "POJO" | "STRING";
@@ -426,14 +424,16 @@ export interface components {
             textual?: boolean;
             boolean?: boolean;
             binary?: boolean;
-            integralNumber?: boolean;
-            floatingPointNumber?: boolean;
-            string?: boolean;
+            number?: boolean;
             array?: boolean;
             empty?: boolean;
-            number?: boolean;
-            missingNode?: boolean;
-            container?: boolean;
+            null?: boolean;
+            float?: boolean;
+            pojo?: boolean;
+            int?: boolean;
+            long?: boolean;
+            integralNumber?: boolean;
+            floatingPointNumber?: boolean;
             embeddedValue?: boolean;
         };
         /** @description Request payload for creating or updating a prompt specification */
@@ -704,9 +704,9 @@ export interface components {
             semanticHash?: string;
         };
         Request: {
-            url?: string;
             vendor?: string;
             model?: string;
+            url?: string;
             type: string;
         };
         Placeholder: {
@@ -847,15 +847,15 @@ export interface components {
              */
             promptCount?: number;
             /**
-             * @description Remote repository URL
-             * @example https://github.com/my-org/my-repo
-             */
-            repositoryUrl?: string;
-            /**
              * @description Local filesystem path where the repository is checked out
              * @example /Users/me/repos/my-repo
              */
             localPath?: string;
+            /**
+             * @description Remote repository URL
+             * @example https://github.com/my-org/my-repo
+             */
+            repositoryUrl?: string;
         };
         ConnectRepositoryRequest: {
             /** @description Absolute path to the repository on disk */
@@ -1477,7 +1477,9 @@ export interface operations {
     getRevisionsByGroupAndName: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "If-None-Match"?: string;
+            };
             path: {
                 /** @description Prompt group */
                 group: string;
@@ -1495,6 +1497,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Revision"][];
+                };
+            };
+            /** @description Not Modified — the supplied If-None-Match matches the current ETag. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Revision"][];
                 };
             };
             /** @description Invalid prompt id (unsafe path segments). */

@@ -225,15 +225,17 @@ export class PromptSpecificationsService {
     }
     /**
      * List revisions for a prompt specification
-     * Returns a newest-first list of revisions for the given prompt, derived from the active project's git history. Each revision includes metadata (rev label, sha, author, when, msg, kind, optional tag) plus the full PromptSpec snapshot at that commit when it can be deserialized against the current schema (otherwise spec is null).
+     * Returns a newest-first list of revisions for the given prompt, derived from the active project's git history. Each revision includes metadata (rev label, sha, author, when, msg, kind, optional tag) plus the full PromptSpec snapshot at that commit when it can be deserialized against the current schema (otherwise spec is null). Responses carry a weak ETag derived from the newest revision's commit SHA; clients can send `If-None-Match` to receive 304 Not Modified when the history is unchanged.
      * @param group Prompt group
      * @param name Prompt name
+     * @param ifNoneMatch
      * @returns Revision Revisions list, newest first.
      * @throws ApiError
      */
     public static getRevisionsByGroupAndName(
         group: string,
         name: string,
+        ifNoneMatch?: string,
     ): CancelablePromise<Array<Revision>> {
         return __request(OpenAPI, {
             method: 'GET',
@@ -242,7 +244,11 @@ export class PromptSpecificationsService {
                 'group': group,
                 'name': name,
             },
+            headers: {
+                'If-None-Match': ifNoneMatch,
+            },
             errors: {
+                304: `Not Modified — the supplied If-None-Match matches the current ETag.`,
                 400: `Invalid prompt id (unsafe path segments).`,
                 404: `No revisions found for the given prompt.`,
             },
