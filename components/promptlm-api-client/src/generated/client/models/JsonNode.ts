@@ -18,10 +18,11 @@
 /* eslint-disable */
 export type JsonNode = {
     missingNode?: boolean;
+    number?: boolean;
     valueNode?: boolean;
-    pojo?: boolean;
     object?: boolean;
     nodeType?: JsonNode.nodeType;
+    pojo?: boolean;
     integralNumber?: boolean;
     floatingPointNumber?: boolean;
     short?: boolean;
@@ -38,7 +39,6 @@ export type JsonNode = {
     binary?: boolean;
     container?: boolean;
     string?: boolean;
-    number?: boolean;
     array?: boolean;
     empty?: boolean;
     null?: boolean;

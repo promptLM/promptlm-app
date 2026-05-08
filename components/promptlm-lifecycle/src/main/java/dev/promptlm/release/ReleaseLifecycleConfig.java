@@ -16,15 +16,14 @@
 
 package dev.promptlm.release;
 
-/**
- * Checked exception thrown when a prompt cannot be released.
- */
-public class PromptReleaseException extends RuntimeException {
-    public PromptReleaseException(String message) {
-        super(message);
-    }
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Configuration;
 
-    public PromptReleaseException(String message, Throwable cause) {
-        super(message, cause);
-    }
+/**
+ * Wires release-side {@code @ConfigurationProperties} so they're discovered without a global
+ * {@code @ConfigurationPropertiesScan}.
+ */
+@Configuration
+@EnableConfigurationProperties(PreReleaseExecuteProperties.class)
+public class ReleaseLifecycleConfig {
 }

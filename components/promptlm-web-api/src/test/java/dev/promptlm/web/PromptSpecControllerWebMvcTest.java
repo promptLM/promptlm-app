@@ -29,6 +29,9 @@ import dev.promptlm.domain.promptspec.PromptSpec;
 import dev.promptlm.domain.promptspec.ReleaseMetadata;
 import dev.promptlm.lifecycle.PromptLifecycleFacade;
 import dev.promptlm.execution.PromptExecutor;
+import dev.promptlm.release.OnInfraFailure;
+import dev.promptlm.release.PreReleaseInfrastructureFailure;
+import dev.promptlm.release.PreReleasePromptFailure;
 import dev.promptlm.store.api.PromptStore;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.lib.PersonIdent;
@@ -182,15 +185,90 @@ class PromptSpecControllerWebMvcTest {
         ));
 
         when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(stored));
-        when(promptLifecycleFacade.release(promptId)).thenReturn(requested);
+        when(promptLifecycleFacade.release(promptId, dev.promptlm.release.OnInfraFailure.REJECT)).thenReturn(requested);
 
         mockMvc.perform(post("/api/prompts/{promptSpecId}/release", promptId))
                 .andExpect(status().isOk())
                 .andExpect(header().string("X-PromptLM-Release-State", "requested"))
                 .andExpect(jsonPath("$.extensions['x-promptlm'].release.state").value("requested"));
 
-        verify(promptLifecycleFacade).release(promptId);
+        verify(promptLifecycleFacade).release(promptId, dev.promptlm.release.OnInfraFailure.REJECT);
         verify(promptStore, times(0)).release(any(PromptSpec.class));
+    }
+
+    @Test
+    void releaseEndpointPropagatesPromptFailureAs422() throws Exception {
+        String promptId = "support/welcome";
+        PromptSpec stored = baseSpec(promptId);
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(stored));
+        when(promptLifecycleFacade.release(promptId, OnInfraFailure.REJECT))
+                .thenThrow(new PreReleasePromptFailure(promptId, null, new IllegalArgumentException("placeholder X missing")));
+
+        mockMvc.perform(post("/api/prompts/{promptSpecId}/release", promptId))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("PRE_RELEASE_PROMPT_FAILURE"));
+    }
+
+    @Test
+    void releaseEndpointPropagatesInfraFailureAs503ByDefault() throws Exception {
+        String promptId = "support/welcome";
+        PromptSpec stored = baseSpec(promptId);
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(stored));
+        when(promptLifecycleFacade.release(promptId, OnInfraFailure.REJECT))
+                .thenThrow(new PreReleaseInfrastructureFailure(promptId, null, new java.io.IOException("vendor 503")));
+
+        mockMvc.perform(post("/api/prompts/{promptSpecId}/release", promptId))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("PRE_RELEASE_INFRA_FAILURE"));
+    }
+
+    @Test
+    void releaseWithOnInfraFailureRecordSucceedsAndForwardsRecordToFacade() throws Exception {
+        String promptId = "support/welcome";
+        PromptSpec stored = baseSpec(promptId);
+        PromptSpec released = stored.withVersion("1.0.0").withReleaseMetadata(new ReleaseMetadata(
+                ReleaseMetadata.STATE_RELEASED,
+                ReleaseMetadata.MODE_DIRECT,
+                "1.0.0",
+                "support/welcome-v1.0.0",
+                "main",
+                null,
+                null,
+                false));
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(stored));
+        when(promptLifecycleFacade.release(promptId, OnInfraFailure.RECORD)).thenReturn(released);
+
+        mockMvc.perform(post("/api/prompts/{promptSpecId}/release", promptId).param("onInfraFailure", "record"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-PromptLM-Release-State", "released"));
+
+        verify(promptLifecycleFacade).release(promptId, OnInfraFailure.RECORD);
+    }
+
+    @Test
+    void releaseRejectsUnsupportedOnInfraFailureValue() throws Exception {
+        String promptId = "support/welcome";
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(baseSpec(promptId)));
+
+        mockMvc.perform(post("/api/prompts/{promptSpecId}/release", promptId).param("onInfraFailure", "ignore"))
+                .andExpect(status().isBadRequest());
+    }
+
+    private static PromptSpec baseSpec(String promptId) {
+        String[] parts = promptId.split("/", 2);
+        return PromptSpec.builder()
+                .withGroup(parts[0])
+                .withName(parts[1])
+                .withVersion("1.0.0-SNAPSHOT")
+                .withRevision(3)
+                .withDescription("desc")
+                .withRequest(ChatCompletionRequest.builder()
+                        .withVendor("openai")
+                        .withModel("gpt-4o")
+                        .withMessages(List.of())
+                        .build())
+                .build()
+                .withId(promptId);
     }
 
     @Test
