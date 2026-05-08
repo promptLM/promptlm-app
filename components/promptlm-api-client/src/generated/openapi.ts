@@ -165,7 +165,7 @@ export interface paths {
         put?: never;
         /**
          * Release a new version of a prompt
-         * @description Requests release for a prompt specification. In direct mode the response state is released. In pr_two_phase mode the response state is requested until /release/complete is called.
+         * @description Requests release for a prompt specification. In direct mode the response state is released. In pr_two_phase mode the response state is requested until /release/complete is called. The pre-release-execute gate runs the spec defaults server-side before promotion; failures yield 422 (PRE_RELEASE_PROMPT_FAILURE) or 503 (PRE_RELEASE_INFRA_FAILURE) unless onInfraFailure=record is supplied.
          */
         post: operations["releasePrompt"];
         delete?: never;
@@ -266,6 +266,26 @@ export interface paths {
          * @description Returns a list of all available projects
          */
         get: operations["getAllProjects"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/prompts/{promptSpecId}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get older executions for a prompt
+         * @description Returns executions captured against earlier revisions of the prompt (those not in the current latest version's executions list). Sorted newest first. Filters: revision, status (ok|fail). Paginated.
+         */
+        get: operations["getRepoHistory"];
         put?: never;
         post?: never;
         delete?: never;
@@ -389,20 +409,17 @@ export interface components {
             name?: string;
         };
         JsonNode: {
+            container?: boolean;
             pojo?: boolean;
-            int?: boolean;
-            long?: boolean;
-            float?: boolean;
-            null?: boolean;
-            array?: boolean;
-            empty?: boolean;
-            number?: boolean;
-            missingNode?: boolean;
             valueNode?: boolean;
             object?: boolean;
             /** @enum {string} */
             nodeType?: "ARRAY" | "BINARY" | "BOOLEAN" | "MISSING" | "NULL" | "NUMBER" | "OBJECT" | "POJO" | "STRING";
+            integralNumber?: boolean;
+            floatingPointNumber?: boolean;
             short?: boolean;
+            int?: boolean;
+            long?: boolean;
             double?: boolean;
             bigDecimal?: boolean;
             bigInteger?: boolean;
@@ -410,10 +427,13 @@ export interface components {
             textual?: boolean;
             boolean?: boolean;
             binary?: boolean;
-            integralNumber?: boolean;
-            floatingPointNumber?: boolean;
-            container?: boolean;
             string?: boolean;
+            missingNode?: boolean;
+            number?: boolean;
+            array?: boolean;
+            empty?: boolean;
+            null?: boolean;
+            float?: boolean;
             embeddedValue?: boolean;
         };
         /** @description Request payload for creating or updating a prompt specification */
@@ -684,9 +704,9 @@ export interface components {
             semanticHash?: string;
         };
         Request: {
-            url?: string;
-            model?: string;
             vendor?: string;
+            model?: string;
+            url?: string;
             type: string;
         };
         Placeholder: {
@@ -761,6 +781,16 @@ export interface components {
             ok?: boolean;
             /** @description Failure message captured when ok is false */
             error?: string;
+            /**
+             * @description Origin of this execution; null reads as MANUAL for back-compat
+             * @enum {string}
+             */
+            kind?: "MANUAL" | "PRE_RELEASE";
+            /**
+             * @description Failure classification; null when ok is true
+             * @enum {string}
+             */
+            failureClass?: "PROMPT" | "INFRASTRUCTURE";
         };
         Response: {
             content?: string;
@@ -850,6 +880,34 @@ export interface components {
             displayName?: string;
             /** @enum {string} */
             type?: "USER" | "ORGANIZATION";
+        };
+        /** @description Page of historic executions returned by the repo-history endpoint */
+        RepoHistoryPage: {
+            /** @description Executions on the current page, newest first */
+            items?: components["schemas"]["Execution"][];
+            /**
+             * Format: int32
+             * @description 1-indexed page number
+             * @example 1
+             */
+            page?: number;
+            /**
+             * Format: int32
+             * @description Number of items requested per page
+             * @example 50
+             */
+            pageSize?: number;
+            /**
+             * Format: int32
+             * @description Total number of items matching the filter across all pages
+             * @example 127
+             */
+            total?: number;
+            /**
+             * @description True when at least one further page is available
+             * @example true
+             */
+            hasMore?: boolean;
         };
         PromptStats: {
             /** Format: int32 */
@@ -1220,7 +1278,10 @@ export interface operations {
     };
     releasePrompt: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Behaviour when the pre-release-execute gate hits an infrastructure-class failure. 'reject' (default) soft-blocks the release; 'record' records the failed execution and proceeds. */
+                onInfraFailure?: "reject" | "record";
+            };
             header?: never;
             path: {
                 /** @description The unique identifier of the prompt specification to release. */
@@ -1241,6 +1302,24 @@ export interface operations {
             };
             /** @description Prompt specification with the given ID not found. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PromptSpec"];
+                };
+            };
+            /** @description Pre-release execution failed for prompt-class reasons (PRE_RELEASE_PROMPT_FAILURE). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PromptSpec"];
+                };
+            };
+            /** @description Pre-release execution failed for infrastructure-class reasons (PRE_RELEASE_INFRA_FAILURE). Retry, or repeat the request with onInfraFailure=record to release with the failure recorded. */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1414,6 +1493,56 @@ export interface operations {
             };
         };
     };
+    getRepoHistory: {
+        parameters: {
+            query?: {
+                /** @description Filter to executions with this revision identifier */
+                revision?: string;
+                /** @description Filter by outcome: 'ok' or 'fail' */
+                status?: string;
+                /** @description 1-indexed page number; values < 1 are clamped to 1 */
+                page?: string;
+                /** @description Page size; clamped to [1, 200]; non-positive values yield the default of 50 */
+                pageSize?: string;
+            };
+            header?: never;
+            path: {
+                /** @description ID of the prompt specification (group/name composite) */
+                promptSpecId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page of historic executions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepoHistoryPage"];
+                };
+            };
+            /** @description Invalid query parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["RepoHistoryPage"];
+                };
+            };
+            /** @description Prompt specification not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["RepoHistoryPage"];
+                };
+            };
+        };
+    };
     getDefaultTemplate: {
         parameters: {
             query?: never;
@@ -1458,7 +1587,7 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description Include groups that only contain retired prompts */
-                includeRetired?: string;
+                includeRetired?: boolean;
             };
             header?: never;
             path?: never;

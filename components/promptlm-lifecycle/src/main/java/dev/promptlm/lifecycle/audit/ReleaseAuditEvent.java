@@ -63,8 +63,36 @@ public record ReleaseAuditEvent(
     /**
      * Build an event for a release-side action that completed without throwing.
      *
-     * @param outcome              must be {@link ReleaseAuditOutcome#RELEASED} or
-     *                             {@link ReleaseAuditOutcome#REQUESTED}
+     * @param outcome        must be {@link ReleaseAuditOutcome#RELEASED} or
+     *                       {@link ReleaseAuditOutcome#REQUESTED}
+     * @param onInfraFailure the resolved value of the override flag at call time
+     *                       ({@code null} on the {@code completeReleasePrompt} path)
+     */
+    public static ReleaseAuditEvent forSuccess(ReleaseAuditOutcome outcome,
+                                               String promptSpecId,
+                                               String mode,
+                                               String pullRequestReference,
+                                               String correlationId,
+                                               String caller,
+                                               String executionId,
+                                               String onInfraFailure) {
+        return new ReleaseAuditEvent(
+                outcome,
+                promptSpecId,
+                mode,
+                pullRequestReference,
+                correlationId,
+                caller,
+                onInfraFailure,
+                executionId,
+                null,
+                null
+        );
+    }
+
+    /**
+     * Backwards-compatible single-arg-light overload that emits {@code null} for
+     * {@code onInfraFailure}. Useful in tests that don't care about the override flag.
      */
     public static ReleaseAuditEvent forSuccess(ReleaseAuditOutcome outcome,
                                                String promptSpecId,
@@ -73,18 +101,8 @@ public record ReleaseAuditEvent(
                                                String correlationId,
                                                String caller,
                                                String executionId) {
-        return new ReleaseAuditEvent(
-                outcome,
-                promptSpecId,
-                mode,
-                pullRequestReference,
-                correlationId,
-                caller,
-                null,
-                executionId,
-                null,
-                null
-        );
+        return forSuccess(outcome, promptSpecId, mode, pullRequestReference,
+                correlationId, caller, executionId, null);
     }
 
     /**
@@ -101,6 +119,7 @@ public record ReleaseAuditEvent(
                                                String correlationId,
                                                String caller,
                                                String executionId,
+                                               String onInfraFailure,
                                                Throwable error) {
         return new ReleaseAuditEvent(
                 outcome,
@@ -109,10 +128,25 @@ public record ReleaseAuditEvent(
                 pullRequestReference,
                 correlationId,
                 caller,
-                null,
+                onInfraFailure,
                 executionId,
                 error == null ? null : error.getClass().getSimpleName(),
                 error == null ? null : error.getMessage()
         );
+    }
+
+    /**
+     * Backwards-compatible overload that emits {@code null} for {@code onInfraFailure}.
+     */
+    public static ReleaseAuditEvent forFailure(ReleaseAuditOutcome outcome,
+                                               String promptSpecId,
+                                               String mode,
+                                               String pullRequestReference,
+                                               String correlationId,
+                                               String caller,
+                                               String executionId,
+                                               Throwable error) {
+        return forFailure(outcome, promptSpecId, mode, pullRequestReference,
+                correlationId, caller, executionId, null, error);
     }
 }

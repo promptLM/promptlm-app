@@ -236,6 +236,18 @@ export default function PromptDetail() {
         vendor={view.vendor}
         model={view.model}
         status={view.status}
+        preReleaseExecution={
+          // Issue #98: surface the gating execution badge for released
+          // revisions. PR 1 mocks the link via `view.executions[0]`; PR 2
+          // will derive the gating execution id from the release record.
+          featureFlags.releaseFlow && view.status === 'production' && view.executions[0]
+            ? {
+                status: view.executions[0].ok ? 'ok' : 'error',
+                tooltip: `View pre-release run ${view.executions[0].id}`,
+                onClick: () => focusExecution(view.executions[0].id),
+              }
+            : undefined
+        }
       />
 
       {showMetrics && (

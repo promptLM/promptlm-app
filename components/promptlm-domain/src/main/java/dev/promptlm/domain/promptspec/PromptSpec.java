@@ -452,6 +452,13 @@ public class PromptSpec {
         return this.path == path ? this : new PromptSpec(this.specVersion, this.uuid, this.id, this.name, this.group, this.version, this.revision, this.description, this.authors, this.purpose, this.repositoryUrl, this.status, this.createdAt, this.updatedAt, this.retiredAt, this.retiredReason, this.request, this.placeholders, this.response, this.extensions, path, this.executions, this.semanticHash);
     }
 
+    public PromptSpec withExecutions(List<Execution> executions) {
+
+        return Objects.equals(this.executions, executions)
+                ? this
+                : new PromptSpec(this.specVersion, this.uuid, this.id, this.name, this.group, this.version, this.revision, this.description, this.authors, this.purpose, this.repositoryUrl, this.status, this.createdAt, this.updatedAt, this.retiredAt, this.retiredReason, this.request, this.placeholders, this.response, this.extensions, this.path, executions, this.semanticHash);
+    }
+
     public PromptSpec withSemanticHash(String semanticHash) {
         return Objects.equals(this.semanticHash, semanticHash) ? this : new PromptSpec(this.specVersion, this.uuid, this.id, this.name, this.group, this.version, this.revision, this.description, this.authors, this.purpose, this.repositoryUrl, this.status, this.createdAt, this.updatedAt, this.retiredAt, this.retiredReason, this.request, this.placeholders, this.response, this.extensions, this.path, this.executions, semanticHash);
     }

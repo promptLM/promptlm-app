@@ -73,7 +73,11 @@ import static org.mockito.Mockito.when;
                 "spring.ai.anthropic.api-key=test-mock-anthropic-api-key-for-testing",
                 "promptlm.store.remote.username=testuser",
                 "promptlm.store.remote.token=",
-                "promptlm.store.remote.base-url=http://localhost:3003/api/v1"
+                "promptlm.store.remote.base-url=http://localhost:3003/api/v1",
+                // Disable the pre-release-execute gate (#96) — this test exercises the audit
+                // emission path, not the gate. With the gate enabled, the mocked PromptStore
+                // returns a PromptSpec without real messages and the gate rejects with 422.
+                "promptlm.release.pre-execute.enabled=false"
         }
 )
 @AutoConfigureTestRestTemplate
@@ -174,9 +178,14 @@ class ReleaseAuditEndpointIntegrationTest {
         assertThat(kv).containsEntry("mode", ReleaseMetadata.MODE_DIRECT);
         assertThat(kv.get("correlationId")).isNotNull();
         assertThat(((String) kv.get("correlationId"))).isNotBlank();
-        // Schema-stable sentinel nulls until #124 / #96 land.
+        // caller still null until #124 (auth) lands.
         assertThat(kv).containsEntry("caller", null);
-        assertThat(kv).containsEntry("onInfraFailure", null);
+        // onInfraFailure now populated (default REJECT) since #96 merged the gate + override flag.
+        assertThat(kv).containsEntry("onInfraFailure", "REJECT");
+        // executionId still null on the happy path: the gate is disabled in this test, so no
+        // gating Execution is attached. When the gate is enabled and runs successfully, the
+        // executionId would come from the gating Execution; sad-path tests in the lifecycle
+        // module already cover that via PreReleaseInfrastructureFailure / PreReleasePromptFailure.
         assertThat(kv).containsEntry("executionId", null);
         // Happy path: no exception fields.
         assertThat(kv).containsEntry("exceptionType", null);

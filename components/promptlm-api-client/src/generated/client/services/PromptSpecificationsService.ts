@@ -20,6 +20,7 @@ import type { ExecutePromptRequest } from '../models/ExecutePromptRequest';
 import type { PromptSpec } from '../models/PromptSpec';
 import type { PromptSpecCreationRequest } from '../models/PromptSpecCreationRequest';
 import type { PromptStats } from '../models/PromptStats';
+import type { RepoHistoryPage } from '../models/RepoHistoryPage';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
@@ -130,13 +131,15 @@ export class PromptSpecificationsService {
     }
     /**
      * Release a new version of a prompt
-     * Requests release for a prompt specification. In direct mode the response state is released. In pr_two_phase mode the response state is requested until /release/complete is called.
+     * Requests release for a prompt specification. In direct mode the response state is released. In pr_two_phase mode the response state is requested until /release/complete is called. The pre-release-execute gate runs the spec defaults server-side before promotion; failures yield 422 (PRE_RELEASE_PROMPT_FAILURE) or 503 (PRE_RELEASE_INFRA_FAILURE) unless onInfraFailure=record is supplied.
      * @param promptSpecId The unique identifier of the prompt specification to release.
+     * @param onInfraFailure Behaviour when the pre-release-execute gate hits an infrastructure-class failure. 'reject' (default) soft-blocks the release; 'record' records the failed execution and proceeds.
      * @returns PromptSpec Release operation response as prompt specification. Header X-PromptLM-Release-State mirrors extensions.x-promptlm.release.state (requested|released).
      * @throws ApiError
      */
     public static releasePrompt(
         promptSpecId: string,
+        onInfraFailure?: 'reject' | 'record',
     ): CancelablePromise<PromptSpec> {
         return __request(OpenAPI, {
             method: 'POST',
@@ -144,8 +147,13 @@ export class PromptSpecificationsService {
             path: {
                 'promptSpecId': promptSpecId,
             },
+            query: {
+                'onInfraFailure': onInfraFailure,
+            },
             errors: {
                 404: `Prompt specification with the given ID not found.`,
+                422: `Pre-release execution failed for prompt-class reasons (PRE_RELEASE_PROMPT_FAILURE).`,
+                503: `Pre-release execution failed for infrastructure-class reasons (PRE_RELEASE_INFRA_FAILURE). Retry, or repeat the request with onInfraFailure=record to release with the failure recorded.`,
             },
         });
     }
@@ -223,6 +231,42 @@ export class PromptSpecificationsService {
         });
     }
     /**
+     * Get older executions for a prompt
+     * Returns executions captured against earlier revisions of the prompt (those not in the current latest version's executions list). Sorted newest first. Filters: revision, status (ok|fail). Paginated.
+     * @param promptSpecId ID of the prompt specification (group/name composite)
+     * @param revision Filter to executions with this revision identifier
+     * @param status Filter by outcome: 'ok' or 'fail'
+     * @param page 1-indexed page number; values < 1 are clamped to 1
+     * @param pageSize Page size; clamped to [1, 200]; non-positive values yield the default of 50
+     * @returns RepoHistoryPage Page of historic executions
+     * @throws ApiError
+     */
+    public static getRepoHistory(
+        promptSpecId: string,
+        revision?: string,
+        status?: string,
+        page?: string,
+        pageSize?: string,
+    ): CancelablePromise<RepoHistoryPage> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/prompts/{promptSpecId}/history',
+            path: {
+                'promptSpecId': promptSpecId,
+            },
+            query: {
+                'revision': revision,
+                'status': status,
+                'page': page,
+                'pageSize': pageSize,
+            },
+            errors: {
+                400: `Invalid query parameters`,
+                404: `Prompt specification not found`,
+            },
+        });
+    }
+    /**
      * Get default prompt template
      * Returns a new prompt specification with default values
      * @returns PromptSpec Default prompt template
@@ -254,7 +298,7 @@ export class PromptSpecificationsService {
      * @throws ApiError
      */
     public static getPromptGroups(
-        includeRetired?: string,
+        includeRetired?: boolean,
     ): CancelablePromise<string> {
         return __request(OpenAPI, {
             method: 'GET',

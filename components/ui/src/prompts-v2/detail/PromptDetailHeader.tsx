@@ -15,6 +15,15 @@
 import * as React from 'react';
 import { MetaPill, Mono, type PromptStatus, type VendorId } from '../atoms';
 
+export interface PreReleaseExecutionBadge {
+  /** Status of the pre-release execution that gated this version. */
+  status: 'ok' | 'error' | 'pending';
+  /** Click handler — typically jumps to the execution row in the table below. */
+  onClick: () => void;
+  /** Tooltip text shown on hover (e.g. "View pre-release run exec-103"). */
+  tooltip?: string;
+}
+
 export interface PromptDetailHeaderProps {
   name: string;
   description?: string;
@@ -28,7 +37,52 @@ export interface PromptDetailHeaderProps {
   eyebrow?: string;
   /** Trailing meta line for the eyebrow row, e.g. "at HEAD" or "main · 3f7c2e1". */
   eyebrowMeta?: string;
+  /**
+   * When provided, renders the pre-release execution badge adjacent to the
+   * version chip. Issue #98 — only released revisions surface this badge.
+   */
+  preReleaseExecution?: PreReleaseExecutionBadge;
 }
+
+const PRE_RELEASE_DOT: Record<PreReleaseExecutionBadge['status'], string> = {
+  ok: 'var(--pl-ok)',
+  error: 'var(--pl-fail)',
+  pending: 'var(--pl-warn)',
+};
+
+const PreReleaseBadge: React.FC<{ badge: PreReleaseExecutionBadge }> = ({ badge }) => (
+  <button
+    type="button"
+    data-testid="prompt-detail-pre-release-badge"
+    data-status={badge.status}
+    onClick={badge.onClick}
+    title={badge.tooltip ?? 'View pre-release execution'}
+    style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 6,
+      padding: '3px 8px',
+      background: 'transparent',
+      border: '1px solid var(--pl-ink-200)',
+      borderRadius: 999,
+      cursor: 'pointer',
+      fontFamily: 'var(--pl-mono)',
+      fontSize: 11,
+      color: 'var(--pl-ink-700)',
+    }}
+  >
+    <span
+      aria-hidden="true"
+      style={{
+        width: 6,
+        height: 6,
+        borderRadius: 999,
+        background: PRE_RELEASE_DOT[badge.status],
+      }}
+    />
+    <span>pre-release run</span>
+  </button>
+);
 
 const STATUS_FG: Record<PromptStatus, string> = {
   production: 'oklch(0.40 0.12 155)',
@@ -55,6 +109,7 @@ export const PromptDetailHeader: React.FC<PromptDetailHeaderProps> = ({
   status,
   eyebrow = 'Prompt',
   eyebrowMeta = 'at HEAD',
+  preReleaseExecution,
 }) => (
   <div style={{ padding: '40px 56px 24px' }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
@@ -104,6 +159,7 @@ export const PromptDetailHeader: React.FC<PromptDetailHeaderProps> = ({
       style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 22, flexWrap: 'wrap' }}
     >
       <MetaPill label="version" value={version} mono />
+      {preReleaseExecution ? <PreReleaseBadge badge={preReleaseExecution} /> : null}
       <MetaPill label="rev" value={rev} mono />
       <MetaPill label="model" value={`${vendor}/${model}`} mono />
       <MetaPill label="status">

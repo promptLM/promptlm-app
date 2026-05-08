@@ -17,19 +17,16 @@
 /* tslint:disable */
 /* eslint-disable */
 export type JsonNode = {
+    container?: boolean;
     pojo?: boolean;
-    int?: boolean;
-    long?: boolean;
-    float?: boolean;
-    null?: boolean;
-    array?: boolean;
-    empty?: boolean;
-    number?: boolean;
-    missingNode?: boolean;
     valueNode?: boolean;
     object?: boolean;
     nodeType?: JsonNode.nodeType;
+    integralNumber?: boolean;
+    floatingPointNumber?: boolean;
     short?: boolean;
+    int?: boolean;
+    long?: boolean;
     double?: boolean;
     bigDecimal?: boolean;
     bigInteger?: boolean;
@@ -39,10 +36,13 @@ export type JsonNode = {
     textual?: boolean;
     boolean?: boolean;
     binary?: boolean;
-    integralNumber?: boolean;
-    floatingPointNumber?: boolean;
-    container?: boolean;
     string?: boolean;
+    missingNode?: boolean;
+    number?: boolean;
+    array?: boolean;
+    empty?: boolean;
+    null?: boolean;
+    float?: boolean;
     embeddedValue?: boolean;
 };
 export namespace JsonNode {

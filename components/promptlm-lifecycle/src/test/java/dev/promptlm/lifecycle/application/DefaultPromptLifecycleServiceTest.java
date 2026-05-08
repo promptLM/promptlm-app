@@ -30,6 +30,10 @@ import dev.promptlm.lifecycle.audit.ReleaseAuditContext;
 import dev.promptlm.lifecycle.audit.ReleaseAuditEvent;
 import dev.promptlm.lifecycle.audit.ReleaseAuditLogger;
 import dev.promptlm.lifecycle.audit.ReleaseAuditOutcome;
+import dev.promptlm.release.OnInfraFailure;
+import dev.promptlm.release.PreReleaseExecuteGate;
+import dev.promptlm.release.PreReleaseInfrastructureFailure;
+import dev.promptlm.release.PreReleasePromptFailure;
 import dev.promptlm.release.PromptReleaseException;
 import dev.promptlm.release.PromptReleasePolicy;
 import org.junit.jupiter.api.BeforeEach;
@@ -80,6 +84,9 @@ class DefaultPromptLifecycleServiceTest {
     private PromptReleasePolicy releasePolicy;
 
     @Mock
+    private PreReleaseExecuteGate preReleaseExecuteGate;
+
+    @Mock
     private ReleaseAuditLogger auditLogger;
 
     private final ReleaseAuditContext auditContext = new NoOpReleaseAuditContext();
@@ -96,6 +103,7 @@ class DefaultPromptLifecycleServiceTest {
                 idGenerator,
                 eventPublisher,
                 releasePolicy,
+                preReleaseExecuteGate,
                 auditLogger,
                 auditContext);
         basePromptSpec = PromptSpec.builder()
@@ -509,6 +517,108 @@ class DefaultPromptLifecycleServiceTest {
     }
 
     @Test
+    void releasePromptRunsPreReleaseGateWhenEnabled() {
+        EvaluationResults successResults = new EvaluationResults(List.of(new EvaluationResult("eval", "type", 1.0, null, null)));
+        PromptSpec evaluated = basePromptSpec.withEvaluationResults(successResults);
+        PromptSpec gated = evaluated.withResponse(null);
+        PromptSpec released = gated
+                .withVersion("1.0.0")
+                .withReleaseMetadata(new ReleaseMetadata(
+                        ReleaseMetadata.STATE_RELEASED,
+                        ReleaseMetadata.MODE_DIRECT,
+                        "1.0.0",
+                        "group/name-v1.0.0",
+                        "main",
+                        null,
+                        null,
+                        false));
+
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
+        when(preReleaseExecuteGate.isEnabled()).thenReturn(true);
+        when(preReleaseExecuteGate.runOrThrow(evaluated, OnInfraFailure.REJECT)).thenReturn(gated);
+        when(repository.requestRelease(gated)).thenReturn(released);
+
+        PromptSpec result = service.releasePrompt(PROMPT_ID);
+
+        assertThat(result).isEqualTo(released);
+        verify(preReleaseExecuteGate).runOrThrow(evaluated, OnInfraFailure.REJECT);
+        verify(repository).requestRelease(gated);
+    }
+
+    @Test
+    void releasePromptAbortsBeforeStoreOnPromptFailure() {
+        EvaluationResults successResults = new EvaluationResults(List.of(new EvaluationResult("eval", "type", 1.0, null, null)));
+        PromptSpec evaluated = basePromptSpec.withEvaluationResults(successResults);
+
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
+        when(preReleaseExecuteGate.isEnabled()).thenReturn(true);
+        when(preReleaseExecuteGate.runOrThrow(evaluated, OnInfraFailure.REJECT))
+                .thenThrow(new PreReleasePromptFailure(PROMPT_ID, null, new IllegalArgumentException("bad")));
+
+        assertThatThrownBy(() -> service.releasePrompt(PROMPT_ID))
+                .isInstanceOf(PreReleasePromptFailure.class);
+
+        verify(preReleaseExecuteGate).runOrThrow(evaluated, OnInfraFailure.REJECT);
+        verify(repository).getLatestVersion(PROMPT_ID);
+        verifyNoMoreInteractions(repository);
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void releasePromptForwardsOnInfraFailureToGate() {
+        EvaluationResults successResults = new EvaluationResults(List.of(new EvaluationResult("eval", "type", 1.0, null, null)));
+        PromptSpec evaluated = basePromptSpec.withEvaluationResults(successResults);
+        PromptSpec gated = evaluated.withResponse(null);
+        PromptSpec released = gated
+                .withVersion("1.0.0")
+                .withReleaseMetadata(new ReleaseMetadata(
+                        ReleaseMetadata.STATE_RELEASED,
+                        ReleaseMetadata.MODE_DIRECT,
+                        "1.0.0",
+                        "group/name-v1.0.0",
+                        "main",
+                        null,
+                        null,
+                        false));
+
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
+        when(preReleaseExecuteGate.isEnabled()).thenReturn(true);
+        when(preReleaseExecuteGate.runOrThrow(evaluated, OnInfraFailure.RECORD)).thenReturn(gated);
+        when(repository.requestRelease(gated)).thenReturn(released);
+
+        service.releasePrompt(PROMPT_ID, OnInfraFailure.RECORD);
+
+        verify(preReleaseExecuteGate).runOrThrow(evaluated, OnInfraFailure.RECORD);
+    }
+
+    @Test
+    void releasePromptSkipsGateWhenDisabled() {
+        EvaluationResults successResults = new EvaluationResults(List.of(new EvaluationResult("eval", "type", 1.0, null, null)));
+        PromptSpec evaluated = basePromptSpec.withEvaluationResults(successResults);
+        PromptSpec released = evaluated
+                .withVersion("1.0.0")
+                .withReleaseMetadata(new ReleaseMetadata(
+                        ReleaseMetadata.STATE_RELEASED,
+                        ReleaseMetadata.MODE_DIRECT,
+                        "1.0.0",
+                        "group/name-v1.0.0",
+                        "main",
+                        null,
+                        null,
+                        false));
+
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
+        when(preReleaseExecuteGate.isEnabled()).thenReturn(false);
+        when(repository.requestRelease(evaluated)).thenReturn(released);
+
+        service.releasePrompt(PROMPT_ID);
+
+        verify(preReleaseExecuteGate).isEnabled();
+        verifyNoMoreInteractions(preReleaseExecuteGate);
+        verify(repository).requestRelease(evaluated);
+    }
+
+    @Test
     void releasePromptThrowsWhenStoreResponseOmitsReleaseMetadata() {
         EvaluationResults successResults = new EvaluationResults(List.of(new EvaluationResult("eval", "type", 1.0, null, null)));
         PromptSpec evaluated = basePromptSpec.withEvaluationResults(successResults);
@@ -572,6 +682,11 @@ class DefaultPromptLifecycleServiceTest {
 
     // -----------------------------------------------------------------------
     // Audit-log smoke tests (issue #126)
+    //
+    // The pre-release-execute gate (#96) is a Mockito mock; isEnabled() returns
+    // false by default, so these tests bypass the gate. The dedicated gate-related
+    // audit tests below stub the gate explicitly to drive the BLOCKED_INFRA /
+    // executionId paths that the gate introduces.
     // -----------------------------------------------------------------------
 
     private ReleaseAuditEvent captureSingleAuditEvent() {
@@ -592,8 +707,7 @@ class DefaultPromptLifecycleServiceTest {
                 "main",
                 null,
                 null,
-                false
-        ));
+                false));
         when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
         when(repository.requestRelease(evaluated)).thenReturn(released);
 
@@ -606,7 +720,7 @@ class DefaultPromptLifecycleServiceTest {
         assertThat(event.pullRequestReference()).isNull();
         assertThat(event.correlationId()).isNotBlank();
         assertThat(event.caller()).isNull();
-        assertThat(event.onInfraFailure()).isNull();
+        assertThat(event.onInfraFailure()).isEqualTo("REJECT");
         assertThat(event.executionId()).isNull();
         assertThat(event.exceptionType()).isNull();
         assertThat(event.exceptionMessage()).isNull();
@@ -624,8 +738,7 @@ class DefaultPromptLifecycleServiceTest {
                 "release/group-name-1.0.0",
                 11,
                 "https://github.com/promptLM/promptlm-app/pull/11",
-                false
-        ));
+                false));
         when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
         when(repository.requestRelease(evaluated)).thenReturn(requested);
 
@@ -690,6 +803,72 @@ class DefaultPromptLifecycleServiceTest {
     }
 
     @Test
+    void releasePromptEmitsBlockedInfraAuditWithExecutionIdOnPreReleaseInfrastructureFailure() {
+        // Gate-driven sad path: PreReleaseInfrastructureFailure must classify as BLOCKED_INFRA
+        // even though it extends PromptReleaseException, and executionId must come from the
+        // failed Execution attached to the exception.
+        EvaluationResults successResults = new EvaluationResults(List.of(new EvaluationResult("eval", "type", 1.0, null, null)));
+        PromptSpec evaluated = basePromptSpec.withEvaluationResults(successResults);
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
+        when(preReleaseExecuteGate.isEnabled()).thenReturn(true);
+        dev.promptlm.domain.promptspec.Execution failedInfra = new dev.promptlm.domain.promptspec.Execution();
+        failedInfra.setId("exec-infra-1");
+        when(preReleaseExecuteGate.runOrThrow(evaluated, OnInfraFailure.REJECT))
+                .thenThrow(new PreReleaseInfrastructureFailure(PROMPT_ID, failedInfra, new RuntimeException("vendor 503")));
+
+        assertThatThrownBy(() -> service.releasePrompt(PROMPT_ID))
+                .isInstanceOf(PreReleaseInfrastructureFailure.class);
+
+        ReleaseAuditEvent event = captureSingleAuditEvent();
+        assertThat(event.outcome()).isEqualTo(ReleaseAuditOutcome.BLOCKED_INFRA);
+        assertThat(event.executionId()).isEqualTo("exec-infra-1");
+        assertThat(event.onInfraFailure()).isEqualTo("REJECT");
+        assertThat(event.exceptionType()).isEqualTo("PreReleaseInfrastructureFailure");
+    }
+
+    @Test
+    void releasePromptEmitsBlockedPromptAuditWithExecutionIdOnPreReleasePromptFailure() {
+        EvaluationResults successResults = new EvaluationResults(List.of(new EvaluationResult("eval", "type", 1.0, null, null)));
+        PromptSpec evaluated = basePromptSpec.withEvaluationResults(successResults);
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
+        when(preReleaseExecuteGate.isEnabled()).thenReturn(true);
+        dev.promptlm.domain.promptspec.Execution failedPrompt = new dev.promptlm.domain.promptspec.Execution();
+        failedPrompt.setId("exec-prompt-1");
+        when(preReleaseExecuteGate.runOrThrow(evaluated, OnInfraFailure.REJECT))
+                .thenThrow(new PreReleasePromptFailure(PROMPT_ID, failedPrompt, new IllegalArgumentException("schema")));
+
+        assertThatThrownBy(() -> service.releasePrompt(PROMPT_ID))
+                .isInstanceOf(PreReleasePromptFailure.class);
+
+        ReleaseAuditEvent event = captureSingleAuditEvent();
+        assertThat(event.outcome()).isEqualTo(ReleaseAuditOutcome.BLOCKED_PROMPT);
+        assertThat(event.executionId()).isEqualTo("exec-prompt-1");
+        assertThat(event.exceptionType()).isEqualTo("PreReleasePromptFailure");
+    }
+
+    @Test
+    void releasePromptForwardsOnInfraFailureRecordIntoAuditEvent() {
+        EvaluationResults successResults = new EvaluationResults(List.of(new EvaluationResult("eval", "type", 1.0, null, null)));
+        PromptSpec evaluated = basePromptSpec.withEvaluationResults(successResults);
+        PromptSpec released = evaluated.withReleaseMetadata(new ReleaseMetadata(
+                ReleaseMetadata.STATE_RELEASED,
+                ReleaseMetadata.MODE_DIRECT,
+                "1.0.0",
+                "group/name-v1.0.0",
+                "main",
+                null,
+                null,
+                false));
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
+        when(repository.requestRelease(evaluated)).thenReturn(released);
+
+        service.releasePrompt(PROMPT_ID, OnInfraFailure.RECORD);
+
+        ReleaseAuditEvent event = captureSingleAuditEvent();
+        assertThat(event.onInfraFailure()).isEqualTo("RECORD");
+    }
+
+    @Test
     void completeReleasePromptEmitsReleasedAudit() {
         PromptSpec existing = basePromptSpec.withId(PROMPT_ID);
         PromptSpec released = existing.withReleaseMetadata(new ReleaseMetadata(
@@ -700,8 +879,7 @@ class DefaultPromptLifecycleServiceTest {
                 "main",
                 11,
                 "https://github.com/promptLM/promptlm-app/pull/11",
-                false
-        ));
+                false));
         when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(existing));
         when(repository.completeRelease(PROMPT_ID, "11")).thenReturn(released);
 
@@ -727,8 +905,7 @@ class DefaultPromptLifecycleServiceTest {
                 "release/group-name-1.0.0",
                 11,
                 "https://github.com/promptLM/promptlm-app/pull/11",
-                false
-        ));
+                false));
         when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(existing));
         when(repository.completeRelease(PROMPT_ID, "11")).thenReturn(requested);
 
@@ -743,9 +920,6 @@ class DefaultPromptLifecycleServiceTest {
 
     @Test
     void releasePromptStillSucceedsWhenAuditLoggerThrowsOnSuccessPath() {
-        // If a third-party ReleaseAuditLogger violates its no-throw contract on the success
-        // path, the release pointer has already moved — the caller must still see success,
-        // not a RuntimeException leaked from the audit emission.
         EvaluationResults successResults = new EvaluationResults(List.of(new EvaluationResult("eval", "type", 1.0, null, null)));
         PromptSpec evaluated = basePromptSpec.withEvaluationResults(successResults);
         PromptSpec released = evaluated.withReleaseMetadata(new ReleaseMetadata(
@@ -763,15 +937,11 @@ class DefaultPromptLifecycleServiceTest {
 
         PromptSpec result = service.releasePrompt(PROMPT_ID);
 
-        // Release succeeded; audit failure was swallowed.
         assertThat(result).isEqualTo(released);
     }
 
     @Test
     void releasePromptPreservesOriginalExceptionWhenAuditLoggerThrowsOnBlockedPromptPath() {
-        // Inside the BLOCKED_PROMPT catch the original exception is "in flight". If the
-        // audit emission throws, it must not replace the original PromptReleaseException —
-        // root-cause information would be lost otherwise.
         EvaluationResults failingResults = new EvaluationResults(List.of(new EvaluationResult("eval", "type", 0.0, null, null)));
         PromptSpec evaluated = basePromptSpec.withEvaluationResults(failingResults);
         when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
@@ -784,8 +954,6 @@ class DefaultPromptLifecycleServiceTest {
 
     @Test
     void releasePromptPreservesOriginalExceptionWhenAuditLoggerThrowsOnBlockedInfraPath() {
-        // Same invariant on the BLOCKED_INFRA catch: the original RuntimeException from
-        // the store path must propagate, not the audit-emission failure.
         EvaluationResults successResults = new EvaluationResults(List.of(new EvaluationResult("eval", "type", 1.0, null, null)));
         PromptSpec evaluated = basePromptSpec.withEvaluationResults(successResults);
         when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
@@ -821,16 +989,14 @@ class DefaultPromptLifecycleServiceTest {
 
     @Test
     void releasePromptStillSucceedsWhenAuditContextThrows() {
-        // A misbehaving ReleaseAuditContext must not break the release path. Use a custom
-        // throwing context to drive the readAuditContext() defensive try/catch, then verify
-        // the release still completes and an audit event is still recorded with fallback values.
         ReleaseAuditContext throwing = new ReleaseAuditContext() {
             @Override public String caller() { throw new RuntimeException("caller boom"); }
             @Override public String correlationId() { throw new RuntimeException("corr boom"); }
             @Override public String executionIdFor(String id) { throw new RuntimeException("exec boom"); }
         };
         DefaultPromptLifecycleService throwingCtxService = new DefaultPromptLifecycleService(
-                repository, template, idGenerator, eventPublisher, releasePolicy, auditLogger, throwing);
+                repository, template, idGenerator, eventPublisher, releasePolicy,
+                preReleaseExecuteGate, auditLogger, throwing);
 
         EvaluationResults successResults = new EvaluationResults(List.of(new EvaluationResult("eval", "type", 1.0, null, null)));
         PromptSpec evaluated = basePromptSpec.withEvaluationResults(successResults);
@@ -851,7 +1017,6 @@ class DefaultPromptLifecycleServiceTest {
         assertThat(result).isEqualTo(released);
         ReleaseAuditEvent event = captureSingleAuditEvent();
         assertThat(event.outcome()).isEqualTo(ReleaseAuditOutcome.RELEASED);
-        // correlationId fell back to a UUID; caller and executionId fell back to null.
         assertThat(event.correlationId()).isNotBlank();
         assertThat(event.caller()).isNull();
         assertThat(event.executionId()).isNull();
@@ -869,14 +1034,12 @@ class DefaultPromptLifecycleServiceTest {
                 "main",
                 null,
                 null,
-                false
-        ));
+                false));
         when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
         when(repository.requestRelease(evaluated)).thenReturn(released);
 
         service.releasePrompt(PROMPT_ID);
 
-        // Exactly one audit entry per call — neither zero nor duplicated on the wrap path.
         verify(auditLogger).record(any(ReleaseAuditEvent.class));
         verifyNoMoreInteractions(auditLogger);
     }

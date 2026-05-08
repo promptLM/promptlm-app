@@ -23,4 +23,8 @@ public class PromptReleaseException extends RuntimeException {
     public PromptReleaseException(String message) {
         super(message);
     }
+
+    public PromptReleaseException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

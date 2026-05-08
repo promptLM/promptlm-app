@@ -22,6 +22,7 @@ import dev.promptlm.domain.events.PromptReleasedEvent;
 import dev.promptlm.domain.promptspec.ChatCompletionRequest;
 import dev.promptlm.domain.promptspec.EvaluationStatus;
 import dev.promptlm.domain.promptspec.EvaluationResults;
+import dev.promptlm.domain.promptspec.Execution;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import dev.promptlm.domain.promptspec.ReleaseMetadata;
 import dev.promptlm.domain.promptspec.Request;
@@ -29,6 +30,10 @@ import dev.promptlm.lifecycle.audit.ReleaseAuditContext;
 import dev.promptlm.lifecycle.audit.ReleaseAuditEvent;
 import dev.promptlm.lifecycle.audit.ReleaseAuditLogger;
 import dev.promptlm.lifecycle.audit.ReleaseAuditOutcome;
+import dev.promptlm.release.OnInfraFailure;
+import dev.promptlm.release.PreReleaseExecuteGate;
+import dev.promptlm.release.PreReleaseInfrastructureFailure;
+import dev.promptlm.release.PreReleasePromptFailure;
 import dev.promptlm.release.PromptReleaseException;
 import dev.promptlm.release.PromptReleasePolicy;
 import org.slf4j.Logger;
@@ -51,6 +56,7 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
     private final PromptIdGeneratorPort idGenerator;
     private final PromptLifecycleEventPublisher eventPublisher;
     private final PromptReleasePolicy releasePolicy;
+    private final PreReleaseExecuteGate preReleaseExecuteGate;
     private final ReleaseAuditLogger auditLogger;
     private final ReleaseAuditContext auditContext;
 
@@ -59,6 +65,7 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
                                   PromptIdGeneratorPort idGenerator,
                                   PromptLifecycleEventPublisher eventPublisher,
                                   PromptReleasePolicy releasePolicy,
+                                  PreReleaseExecuteGate preReleaseExecuteGate,
                                   ReleaseAuditLogger auditLogger,
                                   ReleaseAuditContext auditContext) {
         this.repository = repository;
@@ -66,6 +73,7 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
         this.idGenerator = idGenerator;
         this.eventPublisher = eventPublisher;
         this.releasePolicy = releasePolicy;
+        this.preReleaseExecuteGate = preReleaseExecuteGate;
         this.auditLogger = auditLogger;
         this.auditContext = auditContext;
     }
@@ -212,9 +220,14 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
 
     @Override
     public PromptSpec releasePrompt(String promptSpecId) {
+        return releasePrompt(promptSpecId, OnInfraFailure.REJECT);
+    }
+
+    @Override
+    public PromptSpec releasePrompt(String promptSpecId, OnInfraFailure onInfraFailure) {
         AuditContextSnapshot snapshot = readAuditContext(promptSpecId);
         try {
-            PromptSpec released = doReleasePrompt(promptSpecId);
+            PromptSpec released = doReleasePrompt(promptSpecId, onInfraFailure);
             ReleaseMetadata metadata = released.getReleaseMetadata();
             String mode = metadata == null ? null : metadata.mode();
             ReleaseAuditOutcome outcome = metadata != null && metadata.isReleased()
@@ -227,8 +240,37 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
                     null,
                     snapshot.correlationId,
                     snapshot.caller,
-                    snapshot.executionId));
+                    snapshot.executionId,
+                    nameOf(onInfraFailure)));
             return released;
+            // PreReleaseInfrastructureFailure must be classified BLOCKED_INFRA even though
+            // it extends PromptReleaseException — the pre-release-execute gate (#96) maps
+            // vendor 5xx / network timeouts / outages to this type. The exception also
+            // carries the failed Execution, so executionId is real here, not a sentinel.
+        } catch (PreReleaseInfrastructureFailure e) {
+            safelyRecord(ReleaseAuditEvent.forFailure(
+                    ReleaseAuditOutcome.BLOCKED_INFRA,
+                    promptSpecId,
+                    null,
+                    null,
+                    snapshot.correlationId,
+                    snapshot.caller,
+                    executionIdOf(e.failedExecution(), snapshot.executionId),
+                    nameOf(onInfraFailure),
+                    e));
+            throw e;
+        } catch (PreReleasePromptFailure e) {
+            safelyRecord(ReleaseAuditEvent.forFailure(
+                    ReleaseAuditOutcome.BLOCKED_PROMPT,
+                    promptSpecId,
+                    null,
+                    null,
+                    snapshot.correlationId,
+                    snapshot.caller,
+                    executionIdOf(e.failedExecution(), snapshot.executionId),
+                    nameOf(onInfraFailure),
+                    e));
+            throw e;
             // IllegalArgumentException is included defensively: nothing in doReleasePrompt
             // currently throws it, but the wrap should still classify any future domain
             // assertion as BLOCKED_PROMPT rather than miscategorising it as infra.
@@ -241,6 +283,7 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
                     snapshot.correlationId,
                     snapshot.caller,
                     snapshot.executionId,
+                    nameOf(onInfraFailure),
                     e));
             throw e;
         } catch (RuntimeException e) {
@@ -252,12 +295,13 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
                     snapshot.correlationId,
                     snapshot.caller,
                     snapshot.executionId,
+                    nameOf(onInfraFailure),
                     e));
             throw e;
         }
     }
 
-    private PromptSpec doReleasePrompt(String promptSpecId) {
+    private PromptSpec doReleasePrompt(String promptSpecId, OnInfraFailure onInfraFailure) {
         PromptSpec promptSpec = repository.getLatestVersion(promptSpecId)
                 .orElseThrow(() -> new PromptReleaseException(
                         "Could not find prompt %s".formatted(promptSpecId)));
@@ -278,7 +322,12 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
         }
 
         releasePolicy.validateRelease(promptSpec);
-        PromptSpec released = repository.requestRelease(promptSpec);
+
+        PromptSpec gated = preReleaseExecuteGate.isEnabled()
+                ? preReleaseExecuteGate.runOrThrow(promptSpec, onInfraFailure)
+                : promptSpec;
+
+        PromptSpec released = repository.requestRelease(gated);
         ReleaseMetadata releaseMetadata = requireReleaseMetadata(released);
         if (releaseMetadata.isRequested()) {
             eventPublisher.publishEvent(new PromptReleaseRequestedEvent(released));
@@ -306,7 +355,8 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
                     pullRequestReference,
                     snapshot.correlationId,
                     snapshot.caller,
-                    snapshot.executionId));
+                    snapshot.executionId,
+                    null));
             return released;
         } catch (PromptReleaseException | IllegalStateException | IllegalArgumentException e) {
             safelyRecord(ReleaseAuditEvent.forFailure(
@@ -317,6 +367,7 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
                     snapshot.correlationId,
                     snapshot.caller,
                     snapshot.executionId,
+                    null,
                     e));
             throw e;
         } catch (RuntimeException e) {
@@ -328,6 +379,7 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
                     snapshot.correlationId,
                     snapshot.caller,
                     snapshot.executionId,
+                    null,
                     e));
             throw e;
         }
@@ -381,6 +433,23 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
     }
 
     private record AuditContextSnapshot(String correlationId, String caller, String executionId) {
+    }
+
+    private static String nameOf(OnInfraFailure value) {
+        return value == null ? null : value.name();
+    }
+
+    /** Prefer the gating Execution's id when the gate (or its failure) attached one. */
+    private static String executionIdOf(Execution execution, String fallback) {
+        if (execution == null) {
+            return fallback;
+        }
+        try {
+            String id = execution.getId();
+            return id == null || id.isBlank() ? fallback : id;
+        } catch (RuntimeException e) {
+            return fallback;
+        }
     }
 
     private PromptSpec doCompleteReleasePrompt(String promptSpecId, String pullRequestReference) {
