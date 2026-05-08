@@ -25,6 +25,8 @@ import dev.promptlm.domain.promptspec.EvaluationResults;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import dev.promptlm.domain.promptspec.ReleaseMetadata;
 import dev.promptlm.domain.promptspec.Request;
+import dev.promptlm.release.OnInfraFailure;
+import dev.promptlm.release.PreReleaseExecuteGate;
 import dev.promptlm.release.PromptReleaseException;
 import dev.promptlm.release.PromptReleasePolicy;
 import org.slf4j.Logger;
@@ -47,17 +49,20 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
     private final PromptIdGeneratorPort idGenerator;
     private final PromptLifecycleEventPublisher eventPublisher;
     private final PromptReleasePolicy releasePolicy;
+    private final PreReleaseExecuteGate preReleaseExecuteGate;
 
     DefaultPromptLifecycleService(PromptStorePort repository,
                                   PromptTemplatePort template,
                                   PromptIdGeneratorPort idGenerator,
                                   PromptLifecycleEventPublisher eventPublisher,
-                                  PromptReleasePolicy releasePolicy) {
+                                  PromptReleasePolicy releasePolicy,
+                                  PreReleaseExecuteGate preReleaseExecuteGate) {
         this.repository = repository;
         this.template = template;
         this.idGenerator = idGenerator;
         this.eventPublisher = eventPublisher;
         this.releasePolicy = releasePolicy;
+        this.preReleaseExecuteGate = preReleaseExecuteGate;
     }
 
     @Override
@@ -202,6 +207,11 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
 
     @Override
     public PromptSpec releasePrompt(String promptSpecId) {
+        return releasePrompt(promptSpecId, OnInfraFailure.REJECT);
+    }
+
+    @Override
+    public PromptSpec releasePrompt(String promptSpecId, OnInfraFailure onInfraFailure) {
         PromptSpec promptSpec = repository.getLatestVersion(promptSpecId)
                 .orElseThrow(() -> new PromptReleaseException(
                         "Could not find prompt %s".formatted(promptSpecId)));
@@ -222,7 +232,12 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
         }
 
         releasePolicy.validateRelease(promptSpec);
-        PromptSpec released = repository.requestRelease(promptSpec);
+
+        PromptSpec gated = preReleaseExecuteGate.isEnabled()
+                ? preReleaseExecuteGate.runOrThrow(promptSpec, onInfraFailure)
+                : promptSpec;
+
+        PromptSpec released = repository.requestRelease(gated);
         ReleaseMetadata releaseMetadata = requireReleaseMetadata(released);
         if (releaseMetadata.isRequested()) {
             eventPublisher.publishEvent(new PromptReleaseRequestedEvent(released));

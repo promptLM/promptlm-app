@@ -33,7 +33,7 @@ export type { EvaluationResult } from './models/EvaluationResult';
 export { EvaluationResults } from './models/EvaluationResults';
 export type { EvaluationSpec } from './models/EvaluationSpec';
 export type { ExecutePromptRequest } from './models/ExecutePromptRequest';
-export type { Execution } from './models/Execution';
+export { Execution } from './models/Execution';
 export { ImagesGenerationsRequest } from './models/ImagesGenerationsRequest';
 export { JsonNode } from './models/JsonNode';
 export { Kind } from './models/Kind';
@@ -49,6 +49,7 @@ export type { PromptSpecCreationRequest } from './models/PromptSpecCreationReque
 export type { PromptSpecRequest } from './models/PromptSpecRequest';
 export type { PromptSpecRequestParameters } from './models/PromptSpecRequestParameters';
 export type { PromptStats } from './models/PromptStats';
+export type { RepoHistoryPage } from './models/RepoHistoryPage';
 export { RepositoryOwner } from './models/RepositoryOwner';
 export type { Request } from './models/Request';
 export type { Response } from './models/Response';

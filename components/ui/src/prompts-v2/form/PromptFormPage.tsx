@@ -24,6 +24,10 @@ import {
   SpecFileFooter,
 } from './sections';
 import { validateDraft } from './validation';
+import { TabStrip, type FormTabId } from './TabStrip';
+import { ReleaseRail, type ReleaseRailProps, type ReleaseRailState } from './release/ReleaseRail';
+import { TestTab } from './test/TestTab';
+import type { TestRunRecord, RepoHistoryItem } from './test/types';
 import type {
   FormEvaluation,
   FormMessage,
@@ -35,8 +39,47 @@ import type {
   PromptFormDraft,
   PromptFormErrors,
 } from './types';
+import { evaluateReleaseGates } from './releaseGates';
 
-export interface PromptFormPageProps {
+export interface PromptFormReleaseFlowProps {
+  /**
+   * When `true`, the release-flow + test-tab UI shell is mounted. Default
+   * `false` keeps the original sticky-header behaviour for the v1 ship.
+   */
+  releaseFlowEnabled?: boolean;
+  /** Live executions filtered to the current request shape (Q5 lock). */
+  testExecutions?: ReadonlyArray<TestRunRecord>;
+  /** Older runs surfaced in the History flyover (PR 2 hooks the real API). */
+  testRepoHistory?: ReadonlyArray<RepoHistoryItem>;
+  /** True when request-shape edits since the last run cleared executions[]. */
+  testRequestChanged?: boolean;
+  /** Map of placeholder name → current value (component state in PR 1). */
+  testValues?: Record<string, string>;
+  onChangeTestValues?: (next: Record<string, string>) => void;
+  testValuesDirty?: boolean;
+  onSaveTestValues?: () => void;
+  onResetTestValues?: () => void;
+  /** Run / re-run callbacks; PR 1 wires these to mocks. */
+  onTestRun?: () => void;
+  onTestRerun?: () => void;
+  testRunState?: 'idle' | 'running' | 'error';
+  onClearTestRequestChanged?: () => void;
+  /** Optional override for the rail's current state machine value. */
+  releaseRailState?: ReleaseRailState;
+  /** Diff summary for the rail's diff section. */
+  releaseRailDiff?: ReleaseRailProps['diff'];
+  /** Last-run summary for the rail. Falls back to executions[0] when omitted. */
+  releaseRailLastRun?: ReleaseRailProps['lastRun'];
+  /** Error message body when the rail is in a blocked state. */
+  releaseRailErrorMessage?: string;
+  onReleaseRailRetry?: () => void;
+  /** When true, the placeholder shape is dirty (Q3-aware: only schema edits). */
+  placeholderShapeDirty?: boolean;
+  /** Optional next-version label for the rail header (defaults to "next"). */
+  nextVersion?: string;
+}
+
+export interface PromptFormPageProps extends PromptFormReleaseFlowProps {
   mode: FormMode;
   draft: PromptFormDraft;
   context: PromptFormContext;
@@ -55,10 +98,6 @@ export interface PromptFormPageProps {
   onContentSelectionChange?: (
     selection: { messageIndex: number; selectionStart: number; selectionEnd: number } | null,
   ) => void;
-  /**
-   * Optional override for the rail's evaluation visibility — the page caller
-   * may want to compute the same flag itself.
-   */
 }
 
 const HEADER_HEIGHT = 56;
@@ -116,7 +155,21 @@ const StickyHeader: React.FC<{
   onCancel: () => void;
   onSaveDraft: () => void;
   onSubmit: () => void;
-}> = ({ mode, draft, context, errors, isBusy, isSaving, onCancel, onSaveDraft, onSubmit }) => {
+  releaseFlowEnabled: boolean;
+  releaseDisabledReason: string | null;
+}> = ({
+  mode,
+  draft,
+  context,
+  errors,
+  isBusy,
+  isSaving,
+  onCancel,
+  onSaveDraft,
+  onSubmit,
+  releaseFlowEnabled,
+  releaseDisabledReason,
+}) => {
   const isCreate = mode === 'create';
   const totalErrors =
     errors.metadataCount +
@@ -213,13 +266,27 @@ const StickyHeader: React.FC<{
       <GhostButton onClick={onSaveDraft} disabled={isBusy || isSaving}>
         Save draft
       </GhostButton>
-      <PrimaryButton
-        onClick={onSubmit}
-        disabled={errors.hasErrors || isBusy || isSaving}
-        testId={isCreate ? 'save-prompt-button' : 'prompt-editor-release-action'}
-      >
-        {isSaving ? 'Saving…' : isCreate ? 'Create' : 'Save & release'}
-      </PrimaryButton>
+      <span title={releaseDisabledReason ?? undefined} style={{ display: 'inline-flex' }}>
+        <PrimaryButton
+          onClick={onSubmit}
+          disabled={errors.hasErrors || isBusy || isSaving || Boolean(releaseDisabledReason)}
+          testId={
+            releaseFlowEnabled
+              ? 'prompt-release-action'
+              : isCreate
+                ? 'save-prompt-button'
+                : 'prompt-editor-release-action'
+          }
+        >
+          {isSaving
+            ? 'Saving…'
+            : releaseFlowEnabled
+              ? 'Release'
+              : isCreate
+                ? 'Create'
+                : 'Save & release'}
+        </PrimaryButton>
+      </span>
     </header>
   );
 };
@@ -245,11 +312,78 @@ export const PromptFormPage: React.FC<PromptFormPageProps> = ({
   onSaveDraft,
   onSubmit,
   onContentSelectionChange,
+  releaseFlowEnabled = false,
+  testExecutions = [],
+  testRepoHistory = [],
+  testRequestChanged = false,
+  testValues,
+  onChangeTestValues,
+  testValuesDirty = false,
+  onSaveTestValues,
+  onResetTestValues,
+  onTestRun,
+  onTestRerun,
+  testRunState = 'idle',
+  onClearTestRequestChanged,
+  releaseRailState,
+  releaseRailDiff = null,
+  releaseRailLastRun,
+  releaseRailErrorMessage,
+  onReleaseRailRetry,
+  placeholderShapeDirty = false,
+  nextVersion,
 }) => {
   const errors = React.useMemo(
     () => validateDraft(draft, evalEnabled),
     [draft, evalEnabled],
   );
+
+  const [activeTab, setActiveTab] = React.useState<FormTabId>('editor');
+  const [railOpen, setRailOpen] = React.useState(false);
+  const [internalRailState, setInternalRailState] = React.useState<ReleaseRailState>('idle');
+  const railState = releaseRailState ?? internalRailState;
+
+  const gatesEval = React.useMemo(
+    () =>
+      evaluateReleaseGates({
+        errors,
+        executions: testExecutions,
+        placeholderShapeDirty,
+      }),
+    [errors, testExecutions, placeholderShapeDirty],
+  );
+
+  const fallbackTestValues = React.useMemo<Record<string, string>>(() => ({}), []);
+  const effectiveTestValues = testValues ?? fallbackTestValues;
+
+  const handleHeaderSubmit = () => {
+    if (!releaseFlowEnabled) {
+      onSubmit();
+      return;
+    }
+    setRailOpen(true);
+  };
+
+  const handleRailRelease = () => {
+    if (releaseRailState !== undefined) {
+      // Parent owns the state machine.
+      onSubmit();
+      return;
+    }
+    setInternalRailState('saving');
+    // Mocked PR-1 transitions: saving → running → released. The parent's
+    // onSubmit is invoked at the running step so PR-2 wiring can intercept
+    // the same callback.
+    setTimeout(() => setInternalRailState('running'), 220);
+    setTimeout(() => {
+      onSubmit();
+      setInternalRailState('released');
+    }, 520);
+    setTimeout(() => {
+      setInternalRailState('idle');
+      setRailOpen(false);
+    }, 2200);
+  };
 
   const set = (patch: Partial<PromptFormDraft>) =>
     onChangeDraft({ ...draft, ...patch });
@@ -297,9 +431,40 @@ export const PromptFormPage: React.FC<PromptFormPageProps> = ({
         isSaving={isSaving}
         onCancel={onCancel}
         onSaveDraft={onSaveDraft}
-        onSubmit={onSubmit}
+        onSubmit={handleHeaderSubmit}
+        releaseFlowEnabled={releaseFlowEnabled}
+        releaseDisabledReason={
+          releaseFlowEnabled && !gatesEval.canRelease ? gatesEval.blockingTooltip : null
+        }
       />
 
+      {releaseFlowEnabled ? (
+        <TabStrip
+          active={activeTab}
+          onChange={setActiveTab}
+          testRunCount={testExecutions.length}
+        />
+      ) : null}
+
+      {releaseFlowEnabled && activeTab === 'test' ? (
+        <TestTab
+          draft={draft}
+          executions={testExecutions}
+          repoHistory={testRepoHistory}
+          requestChanged={testRequestChanged}
+          values={effectiveTestValues}
+          onChangeValues={onChangeTestValues ?? (() => undefined)}
+          valuesDirty={testValuesDirty}
+          onSaveValues={onSaveTestValues}
+          onResetValues={onResetTestValues}
+          onRun={onTestRun ?? (() => undefined)}
+          onRerun={onTestRerun}
+          runState={testRunState}
+          onClearRequestChanged={onClearTestRequestChanged}
+        />
+      ) : null}
+
+      {releaseFlowEnabled && activeTab === 'test' ? null : (
       <div
         style={{
           display: 'grid',
@@ -376,6 +541,37 @@ export const PromptFormPage: React.FC<PromptFormPageProps> = ({
           <SpecFileFooter group={draft.group} name={draft.name} />
         </aside>
       </div>
+      )}
+
+      {releaseFlowEnabled ? (
+        <ReleaseRail
+          open={railOpen}
+          state={railState}
+          currentVersion={context.version}
+          nextVersion={nextVersion ?? 'next'}
+          gates={gatesEval.gates}
+          diff={releaseRailDiff}
+          lastRun={
+            releaseRailLastRun ??
+            (testExecutions[0]
+              ? {
+                  status:
+                    testExecutions[0].status === 'ok' || testExecutions[0].status === 'error' || testExecutions[0].status === 'pending'
+                      ? testExecutions[0].status
+                      : 'pending',
+                  durationMs: testExecutions[0].durationMs,
+                  tokensIn: testExecutions[0].tokensIn,
+                  tokensOut: testExecutions[0].tokensOut,
+                }
+              : null)
+          }
+          errorMessage={releaseRailErrorMessage}
+          onRelease={handleRailRelease}
+          onCancel={() => setRailOpen(false)}
+          onClose={() => setRailOpen(false)}
+          onRetry={onReleaseRailRetry}
+        />
+      ) : null}
     </div>
   );
 };

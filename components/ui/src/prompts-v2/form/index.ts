@@ -64,6 +64,57 @@ export type {
 export { PromptFormPage } from './PromptFormPage';
 export type { PromptFormPageProps } from './PromptFormPage';
 
+export { TabStrip } from './TabStrip';
+export type { FormTabId, TabStripProps } from './TabStrip';
+
+export { requestShapeHash } from './requestShape';
+export type { RequestShapeInputs } from './requestShape';
+
+export { evaluateReleaseGates } from './releaseGates';
+export type {
+  ReleaseGateId,
+  ReleaseGateInputs,
+  ReleaseGateResult,
+  ReleaseGatesEvaluation,
+} from './releaseGates';
+
+export { ReleaseRail } from './release/ReleaseRail';
+export type {
+  ReleaseRailProps,
+  ReleaseRailState,
+  ReleaseRailDiffSummary,
+  ReleaseRailLastRun,
+} from './release/ReleaseRail';
+
+export { TestTab } from './test/TestTab';
+export type { TestTabProps } from './test/TestTab';
+export { RunControlsBar } from './test/RunControlsBar';
+export type { RunControlsBarProps } from './test/RunControlsBar';
+export { RunHistoryStrip } from './test/RunHistoryStrip';
+export type { RunHistoryStripProps } from './test/RunHistoryStrip';
+export { HistoryFlyover } from './test/HistoryFlyover';
+export type { HistoryFlyoverProps } from './test/HistoryFlyover';
+export {
+  PlaceholderValuesRegion,
+  RenderedPromptRegion,
+  OutputRegion,
+} from './test/regions';
+export type {
+  PlaceholderValuesRegionProps,
+  RenderedPromptRegionProps,
+  OutputRegionProps,
+} from './test/regions';
+export type {
+  RepoHistoryItem,
+  TestRunRecord,
+  TestRunStatus,
+  TestRunToolCall,
+} from './test/types';
+export { SAMPLE_EXECUTIONS, SAMPLE_REPO_HISTORY } from './test/sampleExecutions';
+export { substitute } from './test/substitute';
+export { renderWithHighlights } from './test/renderWithHighlights';
+export type { RenderWithHighlightsOptions } from './test/renderWithHighlights';
+
 export { validateDraft } from './validation';
 export { EMPTY_DRAFT as PROMPT_FORM_EMPTY_DRAFT } from './types';
 export type {

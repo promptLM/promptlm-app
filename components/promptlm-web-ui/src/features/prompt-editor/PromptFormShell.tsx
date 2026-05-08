@@ -387,6 +387,7 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
       onCancel={handleCancel}
       onSaveDraft={handleSaveDraft}
       onSubmit={handleSubmit}
+      releaseFlowEnabled={featureFlags.releaseFlow}
     />
   );
 };

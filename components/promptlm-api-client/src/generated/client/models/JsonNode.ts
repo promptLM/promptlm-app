@@ -34,15 +34,15 @@ export type JsonNode = {
     boolean?: boolean;
     binary?: boolean;
     number?: boolean;
+    float?: boolean;
     array?: boolean;
     empty?: boolean;
     null?: boolean;
-    float?: boolean;
+    integralNumber?: boolean;
+    floatingPointNumber?: boolean;
     pojo?: boolean;
     int?: boolean;
     long?: boolean;
-    integralNumber?: boolean;
-    floatingPointNumber?: boolean;
     embeddedValue?: boolean;
 };
 export namespace JsonNode {

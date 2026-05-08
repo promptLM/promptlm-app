@@ -60,3 +60,7 @@ docker/data/
 .playwright-cli/
 .tmp/
 .claude/worktrees/
+
+### Agent / Claude scratch (temporary — drop when no longer noisy) ###
+.claude/
+.agents/
