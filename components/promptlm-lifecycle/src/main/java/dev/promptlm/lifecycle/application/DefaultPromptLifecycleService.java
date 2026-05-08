@@ -22,11 +22,18 @@ import dev.promptlm.domain.events.PromptReleasedEvent;
 import dev.promptlm.domain.promptspec.ChatCompletionRequest;
 import dev.promptlm.domain.promptspec.EvaluationStatus;
 import dev.promptlm.domain.promptspec.EvaluationResults;
+import dev.promptlm.domain.promptspec.Execution;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import dev.promptlm.domain.promptspec.ReleaseMetadata;
 import dev.promptlm.domain.promptspec.Request;
+import dev.promptlm.lifecycle.audit.ReleaseAuditContext;
+import dev.promptlm.lifecycle.audit.ReleaseAuditEvent;
+import dev.promptlm.lifecycle.audit.ReleaseAuditLogger;
+import dev.promptlm.lifecycle.audit.ReleaseAuditOutcome;
 import dev.promptlm.release.OnInfraFailure;
 import dev.promptlm.release.PreReleaseExecuteGate;
+import dev.promptlm.release.PreReleaseInfrastructureFailure;
+import dev.promptlm.release.PreReleasePromptFailure;
 import dev.promptlm.release.PromptReleaseException;
 import dev.promptlm.release.PromptReleasePolicy;
 import org.slf4j.Logger;
@@ -50,19 +57,25 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
     private final PromptLifecycleEventPublisher eventPublisher;
     private final PromptReleasePolicy releasePolicy;
     private final PreReleaseExecuteGate preReleaseExecuteGate;
+    private final ReleaseAuditLogger auditLogger;
+    private final ReleaseAuditContext auditContext;
 
     DefaultPromptLifecycleService(PromptStorePort repository,
                                   PromptTemplatePort template,
                                   PromptIdGeneratorPort idGenerator,
                                   PromptLifecycleEventPublisher eventPublisher,
                                   PromptReleasePolicy releasePolicy,
-                                  PreReleaseExecuteGate preReleaseExecuteGate) {
+                                  PreReleaseExecuteGate preReleaseExecuteGate,
+                                  ReleaseAuditLogger auditLogger,
+                                  ReleaseAuditContext auditContext) {
         this.repository = repository;
         this.template = template;
         this.idGenerator = idGenerator;
         this.eventPublisher = eventPublisher;
         this.releasePolicy = releasePolicy;
         this.preReleaseExecuteGate = preReleaseExecuteGate;
+        this.auditLogger = auditLogger;
+        this.auditContext = auditContext;
     }
 
     @Override
@@ -212,6 +225,83 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
 
     @Override
     public PromptSpec releasePrompt(String promptSpecId, OnInfraFailure onInfraFailure) {
+        AuditContextSnapshot snapshot = readAuditContext(promptSpecId);
+        try {
+            PromptSpec released = doReleasePrompt(promptSpecId, onInfraFailure);
+            ReleaseMetadata metadata = released.getReleaseMetadata();
+            String mode = metadata == null ? null : metadata.mode();
+            ReleaseAuditOutcome outcome = metadata != null && metadata.isReleased()
+                    ? ReleaseAuditOutcome.RELEASED
+                    : ReleaseAuditOutcome.REQUESTED;
+            safelyRecord(ReleaseAuditEvent.forSuccess(
+                    outcome,
+                    promptSpecId,
+                    mode,
+                    null,
+                    snapshot.correlationId,
+                    snapshot.caller,
+                    snapshot.executionId,
+                    nameOf(onInfraFailure)));
+            return released;
+            // PreReleaseInfrastructureFailure must be classified BLOCKED_INFRA even though
+            // it extends PromptReleaseException — the pre-release-execute gate (#96) maps
+            // vendor 5xx / network timeouts / outages to this type. The exception also
+            // carries the failed Execution, so executionId is real here, not a sentinel.
+        } catch (PreReleaseInfrastructureFailure e) {
+            safelyRecord(ReleaseAuditEvent.forFailure(
+                    ReleaseAuditOutcome.BLOCKED_INFRA,
+                    promptSpecId,
+                    null,
+                    null,
+                    snapshot.correlationId,
+                    snapshot.caller,
+                    executionIdOf(e.failedExecution(), snapshot.executionId),
+                    nameOf(onInfraFailure),
+                    e));
+            throw e;
+        } catch (PreReleasePromptFailure e) {
+            safelyRecord(ReleaseAuditEvent.forFailure(
+                    ReleaseAuditOutcome.BLOCKED_PROMPT,
+                    promptSpecId,
+                    null,
+                    null,
+                    snapshot.correlationId,
+                    snapshot.caller,
+                    executionIdOf(e.failedExecution(), snapshot.executionId),
+                    nameOf(onInfraFailure),
+                    e));
+            throw e;
+            // IllegalArgumentException is included defensively: nothing in doReleasePrompt
+            // currently throws it, but the wrap should still classify any future domain
+            // assertion as BLOCKED_PROMPT rather than miscategorising it as infra.
+        } catch (PromptReleaseException | IllegalStateException | IllegalArgumentException e) {
+            safelyRecord(ReleaseAuditEvent.forFailure(
+                    ReleaseAuditOutcome.BLOCKED_PROMPT,
+                    promptSpecId,
+                    null,
+                    null,
+                    snapshot.correlationId,
+                    snapshot.caller,
+                    snapshot.executionId,
+                    nameOf(onInfraFailure),
+                    e));
+            throw e;
+        } catch (RuntimeException e) {
+            safelyRecord(ReleaseAuditEvent.forFailure(
+                    ReleaseAuditOutcome.BLOCKED_INFRA,
+                    promptSpecId,
+                    null,
+                    null,
+                    snapshot.correlationId,
+                    snapshot.caller,
+                    snapshot.executionId,
+                    nameOf(onInfraFailure),
+                    e));
+            throw e;
+        }
+    }
+
+    private PromptSpec doReleasePrompt(String promptSpecId, OnInfraFailure onInfraFailure) {
         PromptSpec promptSpec = repository.getLatestVersion(promptSpecId)
                 .orElseThrow(() -> new PromptReleaseException(
                         "Could not find prompt %s".formatted(promptSpecId)));
@@ -253,6 +343,116 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
 
     @Override
     public PromptSpec completeReleasePrompt(String promptSpecId, String pullRequestReference) {
+        AuditContextSnapshot snapshot = readAuditContext(promptSpecId);
+        try {
+            PromptSpec released = doCompleteReleasePrompt(promptSpecId, pullRequestReference);
+            ReleaseMetadata metadata = released.getReleaseMetadata();
+            String mode = metadata == null ? null : metadata.mode();
+            safelyRecord(ReleaseAuditEvent.forSuccess(
+                    ReleaseAuditOutcome.RELEASED,
+                    promptSpecId,
+                    mode,
+                    pullRequestReference,
+                    snapshot.correlationId,
+                    snapshot.caller,
+                    snapshot.executionId,
+                    null));
+            return released;
+        } catch (PromptReleaseException | IllegalStateException | IllegalArgumentException e) {
+            safelyRecord(ReleaseAuditEvent.forFailure(
+                    ReleaseAuditOutcome.BLOCKED_PROMPT,
+                    promptSpecId,
+                    null,
+                    pullRequestReference,
+                    snapshot.correlationId,
+                    snapshot.caller,
+                    snapshot.executionId,
+                    null,
+                    e));
+            throw e;
+        } catch (RuntimeException e) {
+            safelyRecord(ReleaseAuditEvent.forFailure(
+                    ReleaseAuditOutcome.BLOCKED_INFRA,
+                    promptSpecId,
+                    null,
+                    pullRequestReference,
+                    snapshot.correlationId,
+                    snapshot.caller,
+                    snapshot.executionId,
+                    null,
+                    e));
+            throw e;
+        }
+    }
+
+    /**
+     * Emit an audit event without letting any failure escape. Belt-and-suspenders to the
+     * no-throw contract on {@link ReleaseAuditLogger#record}: a third-party implementation
+     * that violates the contract must not be able to (a) cause a successful release to
+     * surface as a caller-visible exception or (b) replace the original release-path
+     * exception inside a catch block. Errors (OOM, StackOverflowError) propagate.
+     */
+    private void safelyRecord(ReleaseAuditEvent event) {
+        try {
+            auditLogger.record(event);
+        } catch (RuntimeException auditEx) {
+            log.warn("Release audit emission failed; release behaviour preserved.", auditEx);
+        }
+    }
+
+    /**
+     * Read the audit context defensively. The {@link ReleaseAuditContext} javadoc forbids
+     * implementations from throwing, but a misbehaving custom implementation must not be able
+     * to alter release behaviour. Any exception here is downgraded to the safe default
+     * (caller=null, executionId=null, fresh UUID for correlationId) and the operational
+     * logger records the failure once so it isn't silently lost.
+     */
+    private AuditContextSnapshot readAuditContext(String promptSpecId) {
+        String correlationId;
+        String caller;
+        String executionId;
+        try {
+            correlationId = auditContext.correlationId();
+        } catch (RuntimeException e) {
+            log.warn("ReleaseAuditContext.correlationId() failed; using fallback UUID.", e);
+            correlationId = java.util.UUID.randomUUID().toString();
+        }
+        try {
+            caller = auditContext.caller();
+        } catch (RuntimeException e) {
+            log.warn("ReleaseAuditContext.caller() failed; using null.", e);
+            caller = null;
+        }
+        try {
+            executionId = auditContext.executionIdFor(promptSpecId);
+        } catch (RuntimeException e) {
+            log.warn("ReleaseAuditContext.executionIdFor() failed; using null.", e);
+            executionId = null;
+        }
+        return new AuditContextSnapshot(correlationId, caller, executionId);
+    }
+
+    private record AuditContextSnapshot(String correlationId, String caller, String executionId) {
+    }
+
+    private static String nameOf(OnInfraFailure value) {
+        return value == null ? null : value.name();
+    }
+
+    /** Prefer the gating Execution's id when the gate (or its failure) attached one. */
+    private static String executionIdOf(Execution execution, String fallback) {
+        if (execution == null) {
+            return fallback;
+        }
+        try {
+            String id = execution.getId();
+            return id == null || id.isBlank() ? fallback : id;
+        } catch (RuntimeException e) {
+            return fallback;
+        }
+    }
+
+    private PromptSpec doCompleteReleasePrompt(String promptSpecId, String pullRequestReference) {
         repository.getLatestVersion(promptSpecId)
                 .orElseThrow(() -> new PromptReleaseException(
                         "Could not find prompt %s".formatted(promptSpecId)));
