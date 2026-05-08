@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  promptLM apple-touch-icon master. Mark C2 on paper background, full bleed.
+  iOS automatically rounds corners and adds a subtle gloss; paper fill
+  reads correctly on both light and dark home screens. Hex values from
+  the canonical pl-* oklch tokens:
+    pl-ink-900     -> #070e16
+    pl-signal-deep -> #007cca
+    pl-paper       -> #f8fafc
+  Rendered to apple-touch-icon.png at 180x180. See #111 BS-5.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180">
+  <rect width="180" height="180" fill="#f8fafc"/>
+  <g transform="translate(30 30) scale(5)">
+    <line x1="7" y1="7" x2="17" y2="12" stroke="#070e16" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="7" y1="7" x2="7" y2="17" stroke="#070e16" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="7" y1="17" x2="17" y2="12" stroke="#007cca" stroke-width="1.75" stroke-linecap="round"/>
+    <circle cx="7" cy="7" r="2.6" fill="#070e16"/>
+    <circle cx="7" cy="17" r="2.6" fill="#070e16"/>
+    <circle cx="17" cy="12" r="2.8" fill="#007cca"/>
+  </g>
+</svg>

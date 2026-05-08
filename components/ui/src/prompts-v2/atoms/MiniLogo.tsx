@@ -18,7 +18,15 @@ export interface MiniLogoProps extends React.SVGAttributes<SVGSVGElement> {
   size?: number;
 }
 
-/** Bracket+circle promptLM mark — used in the app sidebar and report header. */
+/**
+ * Refined Graph (Mark C2) — the canonical promptLM brand mark. Two solid
+ * ink input nodes anchor the figure; the cyan accent output node establishes
+ * destination. Used in the app sidebar, report header, and Storybook chrome.
+ *
+ * Source of truth: design/handoff/brand/logos.jsx (`MarkGraph`). All colors
+ * resolve via CSS variables so future signal/ink shifts propagate without a
+ * code edit. See #111 BS-4 for adoption history.
+ */
 export const MiniLogo: React.FC<MiniLogoProps> = ({ size = 22, style, ...rest }) => (
   <svg
     {...rest}
@@ -29,20 +37,39 @@ export const MiniLogo: React.FC<MiniLogoProps> = ({ size = 22, style, ...rest })
     style={{ display: 'block', ...style }}
     aria-hidden="true"
   >
-    <path
-      d="M8 4 L4 4 L4 20 L8 20"
+    {/* ink edges: top-input → output, top-input → bottom-input */}
+    <line
+      x1="7"
+      y1="7"
+      x2="17"
+      y2="12"
       stroke="var(--pl-ink-900)"
-      strokeWidth="1.6"
-      strokeLinecap="square"
-      strokeLinejoin="miter"
+      strokeWidth="1.5"
+      strokeLinecap="round"
     />
-    <path
-      d="M16 4 L20 4 L20 20 L16 20"
+    <line
+      x1="7"
+      y1="7"
+      x2="7"
+      y2="17"
       stroke="var(--pl-ink-900)"
-      strokeWidth="1.6"
-      strokeLinecap="square"
-      strokeLinejoin="miter"
+      strokeWidth="1.5"
+      strokeLinecap="round"
     />
-    <circle cx="12" cy="12" r="3" fill="none" stroke="var(--pl-signal-deep)" strokeWidth="1.6" />
+    {/* signal edge: bottom-input → output (the accent line) */}
+    <line
+      x1="7"
+      y1="17"
+      x2="17"
+      y2="12"
+      stroke="var(--pl-signal-deep)"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+    />
+    {/* solid ink input nodes */}
+    <circle cx="7" cy="7" r="2.6" fill="var(--pl-ink-900)" />
+    <circle cx="7" cy="17" r="2.6" fill="var(--pl-ink-900)" />
+    {/* signal output node */}
+    <circle cx="17" cy="12" r="2.8" fill="var(--pl-signal-deep)" />
   </svg>
 );

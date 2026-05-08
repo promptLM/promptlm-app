@@ -1,29 +1,4 @@
-/* Copyright 2025 promptLM
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- */
-
-/* promptLM v2 design tokens — slate ink + electric signal.
- * Loaded by both @promptlm/web-ui (via main.tsx) and the storybook
- * preview. Fonts (Geist, JetBrains Mono) are loaded by the host app.
- *
- * Source of truth: design/handoff/brand/tokens.css (canonical brand drop,
- * mirrored at design/handoff/shared/tokens.css for the report mini-site).
- * Every --pl-* variable below is a 1:1 copy of the brand source; the only
- * intentional divergences are this Apache-2.0 header and the utility
- * classes / .pl-pulse keyframe at the bottom of this file (which the brand
- * canvas does not need but the live React app does). When the brand source
- * changes, propagate by re-running the BS-2 audit (see #111) before editing
- * --pl-* values here — the editor track (#98) and any in-flight PR
- * touching this file must rebase onto the change.
- *
- * The brand-only pink/purple gradient (#f973ff → #a855f7) is intentionally
- * NOT promoted into --pl-* tokens; it stays scoped to the marketing surface.
- */
+/* promptLM design tokens */
 :root {
   /* Slate / paper neutrals — cool */
   --pl-ink-900: oklch(0.16 0.02 250);

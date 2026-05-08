@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>promptLM — Brand & Site</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,400..600,30..100,0..1;1,9..144,400..600,30..100,0..1&family=EB+Garamond:ital,wght@0,400..600;1,400..600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="tokens.css" />
+  <style>
+    html, body { margin: 0; padding: 0; background: #f0eee9; }
+    body { font-family: 'Geist', system-ui, sans-serif; }
+  </style>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="design-canvas.jsx"></script>
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="logos.jsx"></script>
+  <script type="text/babel" src="logo-studio.jsx"></script>
+  <script type="text/babel" src="design-system.jsx"></script>
+  <script type="text/babel" src="site.jsx"></script>
+  <script type="text/babel" src="product.jsx"></script>
+  <script type="text/babel" src="product-v2.jsx"></script>
+  <script type="text/babel" src="product-report.jsx"></script>
+  <script type="text/babel" src="prompt-detail.jsx"></script>
+  <script type="text/babel" src="prompt-diff.jsx"></script>
+  <script type="text/babel" src="prompt-form.jsx"></script>
+  <script type="text/babel" src="dashboard.jsx"></script>
+
+  <script type="text/babel" data-presets="react">
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "palette": "electric",
+      "vibrancy": 1,
+      "paperWarmth": 0.25,
+      "colorfulSurfaces": true,
+      "gradientHero": true,
+      "rainbowMarks": true,
+      "ctaTreatment": "signal",
+      "darkSurface": "ink"
+    }/*EDITMODE-END*/;
+
+    // Palette presets — each defines [signal, accent2, accent3] hues (oklch h°)
+    // and a base chroma. Vibrancy multiplies chroma globally.
+    const PALETTES = {
+      monochrome: { name: 'Monochrome',  signal: 220, a2: 220, a3: 220, baseC: 0.04, label: 'slate only · no accents' },
+      electric:   { name: 'Electric',    signal: 220, a2: 155, a3: 25,  baseC: 0.16, label: 'cyan · lime · ember' },
+      sunset:     { name: 'Sunset',      signal: 35,  a2: 350, a3: 280, baseC: 0.16, label: 'amber · rose · violet' },
+      botanical:  { name: 'Botanical',   signal: 145, a2: 75,  a3: 195, baseC: 0.15, label: 'moss · ochre · teal' },
+      acid:       { name: 'Acid',        signal: 130, a2: 320, a3: 250, baseC: 0.20, label: 'lime · magenta · electric' },
+      candy:      { name: 'Candy',       signal: 280, a2: 200, a3: 25,  baseC: 0.17, label: 'violet · sky · ember' },
+    };
+
+    function applyTheme(t) {
+      const p = PALETTES[t.palette] || PALETTES.electric;
+      const v = t.vibrancy;
+      const c = (mult = 1) => (p.baseC * v * mult).toFixed(3);
+      const root = document.documentElement.style;
+
+      // Signal ramp — same hue, ladder of L
+      root.setProperty('--pl-signal-bright', `oklch(0.86 ${c(1.10)} ${p.signal})`);
+      root.setProperty('--pl-signal',        `oklch(0.78 ${c(1.00)} ${p.signal})`);
+      root.setProperty('--pl-signal-deep',   `oklch(0.55 ${c(1.10)} ${p.signal + 10})`);
+      root.setProperty('--pl-signal-ink',    `oklch(0.32 ${c(0.85)} ${p.signal + 15})`);
+
+      // Functional — borrow the palette accents as ok/warn/fail when colorful
+      root.setProperty('--pl-ok',   `oklch(0.74 ${(0.13 * v).toFixed(3)} ${p.a2})`);
+      root.setProperty('--pl-warn', `oklch(0.78 ${(0.13 * v).toFixed(3)} 75)`);
+      root.setProperty('--pl-fail', `oklch(0.66 ${(0.18 * v).toFixed(3)} ${p.a3})`);
+
+      // Paper warmth — shift hue of paper/canvas
+      const warmH = 240 - t.paperWarmth * 200; // 0 = cool 240, 1 = warm 40
+      const warmC = 0.003 + Math.abs(t.paperWarmth) * 0.012;
+      root.setProperty('--pl-paper',  `oklch(0.985 ${warmC.toFixed(3)} ${warmH})`);
+      root.setProperty('--pl-canvas', `oklch(0.975 ${(warmC + 0.002).toFixed(3)} ${warmH})`);
+      root.setProperty('--pl-ink-100', `oklch(0.965 ${(warmC + 0.001).toFixed(3)} ${warmH})`);
+      root.setProperty('--pl-ink-200', `oklch(0.92 ${(warmC + 0.003).toFixed(3)} ${warmH})`);
+
+      // Custom keys exposed to React for surface treatments
+      root.setProperty('--pl-accent-2', `oklch(0.74 ${c(0.95)} ${p.a2})`);
+      root.setProperty('--pl-accent-3', `oklch(0.66 ${c(1.10)} ${p.a3})`);
+      root.setProperty('--pl-accent-2-soft', `oklch(0.94 ${c(0.30)} ${p.a2})`);
+      root.setProperty('--pl-accent-3-soft', `oklch(0.94 ${c(0.30)} ${p.a3})`);
+      root.setProperty('--pl-signal-soft', `oklch(0.94 ${c(0.30)} ${p.signal})`);
+    }
+
+    function App() {
+      const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+      React.useEffect(() => { applyTheme(t); }, [t]);
+
+      // Cycle marks through palette colors when rainbowMarks is on
+      const p = PALETTES[t.palette];
+      const markAccents = t.rainbowMarks
+        ? ['var(--pl-signal-deep)', 'var(--pl-accent-2)', 'var(--pl-accent-3)']
+        : ['var(--pl-signal-deep)', 'var(--pl-signal-deep)', 'var(--pl-signal-deep)'];
+
+      return (
+        <>
+          <DesignCanvas>
+<DCSection id="logo-studio" title="Logo studio · round 2" subtitle="Refining Mark A (Bracket) & Mark C (Graph) — Brand v1">
+              <DCArtboard id="studio" label="Logo refinement" width={1280} height={2200}>
+                <LogoStudio />
+              </DCArtboard>
+            </DCSection>
+
+            <DCSection id="brand" title="Brand v1 · Bracket" subtitle="Original direction — slate + electric cyan, geist + jetbrains mono.">
+              <DCArtboard id="ds" label="Design system · v0.1" width={1280} height={2480}>
+                <DSPage tweaks={t} markAccents={markAccents} />
+              </DCArtboard>
+            </DCSection>
+
+            <DCSection id="site" title="promptlm.dev · v1" subtitle="Original landing, pricing, docs">
+              <DCArtboard id="landing" label="Landing · /" width={1280} height={2480}>
+                <Landing tweaks={t} />
+              </DCArtboard>
+              <DCArtboard id="pricing" label="Pricing · /pricing" width={1280} height={1900}>
+                <Pricing tweaks={t} />
+              </DCArtboard>
+              <DCArtboard id="docs" label="Docs · /docs/mcp-record-replay" width={1280} height={1700}>
+                <Docs tweaks={t} />
+              </DCArtboard>
+            </DCSection>
+
+            <DCSection id="product" title="Product UI · v1" subtitle="Catalog & detail — Brand v1">
+              <DCArtboard id="dashboard" label="Dashboard · /" width={1440} height={1100}>
+                <PromptDashboard />
+              </DCArtboard>
+              <DCArtboard id="catalog" label="Prompt catalog · /prompts" width={1280} height={1100}>
+                <PromptCatalog />
+              </DCArtboard>
+              <DCArtboard id="detail" label="Prompt detail · /prompts/mcp-tool-router" width={1280} height={1900}>
+                <PromptDetail />
+              </DCArtboard>
+              <DCArtboard id="detail-v2" label="Prompt detail · v1.1 (usability pass)" width={1440} height={1700}>
+                <PromptDetailV2 />
+              </DCArtboard>
+              <DCArtboard id="report" label="Corpus report · promptlm report" width={1280} height={3200}>
+                <ProductReport />
+              </DCArtboard>
+              <DCArtboard id="detail-page" label="Prompt detail + history · /prompts/doc-rag-answer" width={1280} height={2800}>
+                <PromptDetailPage />
+              </DCArtboard>
+              <DCArtboard id="diff" label="Prompt diff · promptlm diff" width={1440} height={2400}>
+                <PromptDiffPage />
+              </DCArtboard>
+              <DCArtboard id="form-edit" label="Prompt form · edit · /prompts/doc-rag-answer/edit" width={1440} height={1400}>
+                <PromptFormPage mode="edit" />
+              </DCArtboard>
+              <DCArtboard id="form-new" label="Prompt form · new · /prompts/new" width={1440} height={1400}>
+                <PromptFormPage key="new" mode="create" />
+              </DCArtboard>
+            </DCSection>
+          </DesignCanvas>
+
+          <TweaksPanel title="Tweaks · color">
+            <TweakSection label="Palette" />
+            <TweakSelect label="Theme" value={t.palette}
+              options={Object.keys(PALETTES).map(k => ({ value: k, label: PALETTES[k].name }))}
+              onChange={(v) => setTweak('palette', v)} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 4, marginTop: 2 }}>
+              {Object.entries(PALETTES).map(([k, pp]) => {
+                const active = k === t.palette;
+                return (
+                  <button key={k} onClick={() => setTweak('palette', k)} style={{
+                    padding: 0, border: active ? '1.5px solid #29261b' : '1px solid rgba(0,0,0,.1)',
+                    borderRadius: 6, height: 28, cursor: 'pointer', overflow: 'hidden',
+                    display: 'flex',
+                  }}>
+                    <span style={{ flex: 1, background: `oklch(0.78 ${pp.baseC} ${pp.signal})` }} />
+                    <span style={{ flex: 1, background: `oklch(0.74 ${pp.baseC * 0.95} ${pp.a2})` }} />
+                    <span style={{ flex: 1, background: `oklch(0.66 ${pp.baseC * 1.1} ${pp.a3})` }} />
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ fontSize: 10, color: 'rgba(41,38,27,.55)', marginTop: 2 }}>
+              {p.label}
+            </div>
+
+            <TweakSlider label="Vibrancy" value={t.vibrancy} min={0} max={1.6} step={0.05}
+              onChange={(v) => setTweak('vibrancy', v)} />
+            <TweakSlider label="Paper warmth" value={t.paperWarmth} min={-0.4} max={1} step={0.05}
+              onChange={(v) => setTweak('paperWarmth', v)} />
+
+            <TweakSection label="Surfaces" />
+            <TweakToggle label="Colorful surfaces" value={t.colorfulSurfaces}
+              onChange={(v) => setTweak('colorfulSurfaces', v)} />
+            <TweakToggle label="Gradient hero" value={t.gradientHero}
+              onChange={(v) => setTweak('gradientHero', v)} />
+            <TweakToggle label="Rainbow logo marks" value={t.rainbowMarks}
+              onChange={(v) => setTweak('rainbowMarks', v)} />
+
+            <TweakSection label="Treatments" />
+            <TweakRadio label="CTA section" value={t.ctaTreatment}
+              options={['ink', 'signal', 'gradient']}
+              onChange={(v) => setTweak('ctaTreatment', v)} />
+            <TweakRadio label="Dark surface" value={t.darkSurface}
+              options={['ink', 'signal', 'plum']}
+              onChange={(v) => setTweak('darkSurface', v)} />
+          </TweaksPanel>
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
