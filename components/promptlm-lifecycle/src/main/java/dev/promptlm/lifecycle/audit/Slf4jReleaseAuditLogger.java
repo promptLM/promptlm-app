@@ -44,23 +44,45 @@ public class Slf4jReleaseAuditLogger implements ReleaseAuditLogger {
 
     private static final Logger log = LoggerFactory.getLogger(AUDIT_LOGGER_NAME);
 
+    /**
+     * Operational fallback logger used when the audit emission itself fails (e.g. a
+     * misconfigured Logback encoder, an MDC error, or a custom appender that throws). The
+     * fallback prevents any audit-emission exception from escaping {@link #record} and
+     * so guarantees the {@link ReleaseAuditLogger} no-throw contract.
+     */
+    private static final Logger fallbackLog =
+            LoggerFactory.getLogger(Slf4jReleaseAuditLogger.class);
+
     @Override
     public void record(ReleaseAuditEvent event) {
         if (event == null) {
             return;
         }
-        log.atInfo()
-                .setMessage(AUDIT_MESSAGE)
-                .addKeyValue("outcome", event.outcome() == null ? null : event.outcome().name())
-                .addKeyValue("promptSpecId", event.promptSpecId())
-                .addKeyValue("mode", event.mode())
-                .addKeyValue("pullRequestReference", event.pullRequestReference())
-                .addKeyValue("correlationId", event.correlationId())
-                .addKeyValue("caller", event.caller())
-                .addKeyValue("onInfraFailure", event.onInfraFailure())
-                .addKeyValue("executionId", event.executionId())
-                .addKeyValue("exceptionType", event.exceptionType())
-                .addKeyValue("exceptionMessage", event.exceptionMessage())
-                .log();
+        try {
+            log.atInfo()
+                    .setMessage(AUDIT_MESSAGE)
+                    .addKeyValue("outcome", event.outcome() == null ? null : event.outcome().name())
+                    .addKeyValue("promptSpecId", event.promptSpecId())
+                    .addKeyValue("mode", event.mode())
+                    .addKeyValue("pullRequestReference", event.pullRequestReference())
+                    .addKeyValue("correlationId", event.correlationId())
+                    .addKeyValue("caller", event.caller())
+                    .addKeyValue("onInfraFailure", event.onInfraFailure())
+                    .addKeyValue("executionId", event.executionId())
+                    .addKeyValue("exceptionType", event.exceptionType())
+                    .addKeyValue("exceptionMessage", event.exceptionMessage())
+                    .log();
+        } catch (Exception e) {
+            // Honour the no-throw contract on ReleaseAuditLogger#record. We don't want a
+            // logging-framework hiccup (encoder misconfiguration, appender failure, MDC
+            // contention) to alter release behaviour. Errors (OOM, StackOverflowError) are
+            // intentionally allowed to propagate.
+            try {
+                fallbackLog.warn("Release audit emission failed; entry was lost.", e);
+            } catch (Exception ignored) {
+                // If the fallback logger also fails there's nothing useful to do — never
+                // throw out of #record.
+            }
+        }
     }
 }

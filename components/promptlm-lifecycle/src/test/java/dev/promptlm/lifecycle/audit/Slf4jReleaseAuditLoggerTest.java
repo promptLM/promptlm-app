@@ -19,6 +19,7 @@ package dev.promptlm.lifecycle.audit;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.AppenderBase;
 import ch.qos.logback.core.read.ListAppender;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,6 +30,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 /**
  * Verifies the actual SLF4J log entry shape produced by {@link Slf4jReleaseAuditLogger}.
@@ -164,6 +166,30 @@ class Slf4jReleaseAuditLoggerTest {
         Map<String, Object> kv = kvOf(appender.list.get(0));
         assertThat(kv).containsKey("outcome");
         assertThat(kv.get("outcome")).isNull();
+    }
+
+    @Test
+    void recordSwallowsExceptionsFromAFailingAppender() {
+        // Honour the no-throw contract on ReleaseAuditLogger#record. If a downstream
+        // appender or encoder throws (misconfiguration, MDC contention, etc.), the failure
+        // must not escape #record; otherwise it would propagate into the release path.
+        AppenderBase<ILoggingEvent> throwingAppender = new AppenderBase<>() {
+            @Override
+            protected void append(ILoggingEvent eventObject) {
+                throw new RuntimeException("appender boom");
+            }
+        };
+        throwingAppender.setContext(auditLogger.getLoggerContext());
+        throwingAppender.start();
+        auditLogger.addAppender(throwingAppender);
+        try {
+            assertThatCode(() -> sut.record(ReleaseAuditEvent.forSuccess(
+                    ReleaseAuditOutcome.RELEASED, "id", "direct", null, "corr-7", null, null)))
+                    .doesNotThrowAnyException();
+        } finally {
+            auditLogger.detachAppender(throwingAppender);
+            throwingAppender.stop();
+        }
     }
 
     @Test

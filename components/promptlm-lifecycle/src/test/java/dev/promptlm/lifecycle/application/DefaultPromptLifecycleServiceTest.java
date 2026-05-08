@@ -742,6 +742,84 @@ class DefaultPromptLifecycleServiceTest {
     }
 
     @Test
+    void releasePromptStillSucceedsWhenAuditLoggerThrowsOnSuccessPath() {
+        // If a third-party ReleaseAuditLogger violates its no-throw contract on the success
+        // path, the release pointer has already moved — the caller must still see success,
+        // not a RuntimeException leaked from the audit emission.
+        EvaluationResults successResults = new EvaluationResults(List.of(new EvaluationResult("eval", "type", 1.0, null, null)));
+        PromptSpec evaluated = basePromptSpec.withEvaluationResults(successResults);
+        PromptSpec released = evaluated.withReleaseMetadata(new ReleaseMetadata(
+                ReleaseMetadata.STATE_RELEASED,
+                ReleaseMetadata.MODE_DIRECT,
+                "1.0.0",
+                "group/name-v1.0.0",
+                "main",
+                null,
+                null,
+                false));
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
+        when(repository.requestRelease(evaluated)).thenReturn(released);
+        doThrow(new RuntimeException("audit boom")).when(auditLogger).record(any(ReleaseAuditEvent.class));
+
+        PromptSpec result = service.releasePrompt(PROMPT_ID);
+
+        // Release succeeded; audit failure was swallowed.
+        assertThat(result).isEqualTo(released);
+    }
+
+    @Test
+    void releasePromptPreservesOriginalExceptionWhenAuditLoggerThrowsOnBlockedPromptPath() {
+        // Inside the BLOCKED_PROMPT catch the original exception is "in flight". If the
+        // audit emission throws, it must not replace the original PromptReleaseException —
+        // root-cause information would be lost otherwise.
+        EvaluationResults failingResults = new EvaluationResults(List.of(new EvaluationResult("eval", "type", 0.0, null, null)));
+        PromptSpec evaluated = basePromptSpec.withEvaluationResults(failingResults);
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
+        doThrow(new RuntimeException("audit boom")).when(auditLogger).record(any(ReleaseAuditEvent.class));
+
+        assertThatThrownBy(() -> service.releasePrompt(PROMPT_ID))
+                .isInstanceOf(PromptReleaseException.class)
+                .hasMessageContaining("failing evaluation results");
+    }
+
+    @Test
+    void releasePromptPreservesOriginalExceptionWhenAuditLoggerThrowsOnBlockedInfraPath() {
+        // Same invariant on the BLOCKED_INFRA catch: the original RuntimeException from
+        // the store path must propagate, not the audit-emission failure.
+        EvaluationResults successResults = new EvaluationResults(List.of(new EvaluationResult("eval", "type", 1.0, null, null)));
+        PromptSpec evaluated = basePromptSpec.withEvaluationResults(successResults);
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
+        when(repository.requestRelease(evaluated))
+                .thenThrow(new RuntimeException("simulated infra failure"));
+        doThrow(new RuntimeException("audit boom")).when(auditLogger).record(any(ReleaseAuditEvent.class));
+
+        assertThatThrownBy(() -> service.releasePrompt(PROMPT_ID))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("simulated infra failure");
+    }
+
+    @Test
+    void completeReleasePromptStillSucceedsWhenAuditLoggerThrowsOnSuccessPath() {
+        PromptSpec existing = basePromptSpec.withId(PROMPT_ID);
+        PromptSpec released = existing.withReleaseMetadata(new ReleaseMetadata(
+                ReleaseMetadata.STATE_RELEASED,
+                ReleaseMetadata.MODE_PR_TWO_PHASE,
+                "1.0.0",
+                "group/name-v1.0.0",
+                "main",
+                11,
+                "https://github.com/promptLM/promptlm-app/pull/11",
+                false));
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(existing));
+        when(repository.completeRelease(PROMPT_ID, "11")).thenReturn(released);
+        doThrow(new RuntimeException("audit boom")).when(auditLogger).record(any(ReleaseAuditEvent.class));
+
+        PromptSpec result = service.completeReleasePrompt(PROMPT_ID, "11");
+
+        assertThat(result).isEqualTo(released);
+    }
+
+    @Test
     void releasePromptStillSucceedsWhenAuditContextThrows() {
         // A misbehaving ReleaseAuditContext must not break the release path. Use a custom
         // throwing context to drive the readAuditContext() defensive try/catch, then verify

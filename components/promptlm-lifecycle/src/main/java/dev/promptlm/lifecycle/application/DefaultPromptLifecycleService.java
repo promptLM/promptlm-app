@@ -220,7 +220,7 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
             ReleaseAuditOutcome outcome = metadata != null && metadata.isReleased()
                     ? ReleaseAuditOutcome.RELEASED
                     : ReleaseAuditOutcome.REQUESTED;
-            auditLogger.record(ReleaseAuditEvent.forSuccess(
+            safelyRecord(ReleaseAuditEvent.forSuccess(
                     outcome,
                     promptSpecId,
                     mode,
@@ -233,7 +233,7 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
             // currently throws it, but the wrap should still classify any future domain
             // assertion as BLOCKED_PROMPT rather than miscategorising it as infra.
         } catch (PromptReleaseException | IllegalStateException | IllegalArgumentException e) {
-            auditLogger.record(ReleaseAuditEvent.forFailure(
+            safelyRecord(ReleaseAuditEvent.forFailure(
                     ReleaseAuditOutcome.BLOCKED_PROMPT,
                     promptSpecId,
                     null,
@@ -244,7 +244,7 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
                     e));
             throw e;
         } catch (RuntimeException e) {
-            auditLogger.record(ReleaseAuditEvent.forFailure(
+            safelyRecord(ReleaseAuditEvent.forFailure(
                     ReleaseAuditOutcome.BLOCKED_INFRA,
                     promptSpecId,
                     null,
@@ -299,7 +299,7 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
             PromptSpec released = doCompleteReleasePrompt(promptSpecId, pullRequestReference);
             ReleaseMetadata metadata = released.getReleaseMetadata();
             String mode = metadata == null ? null : metadata.mode();
-            auditLogger.record(ReleaseAuditEvent.forSuccess(
+            safelyRecord(ReleaseAuditEvent.forSuccess(
                     ReleaseAuditOutcome.RELEASED,
                     promptSpecId,
                     mode,
@@ -309,7 +309,7 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
                     snapshot.executionId));
             return released;
         } catch (PromptReleaseException | IllegalStateException | IllegalArgumentException e) {
-            auditLogger.record(ReleaseAuditEvent.forFailure(
+            safelyRecord(ReleaseAuditEvent.forFailure(
                     ReleaseAuditOutcome.BLOCKED_PROMPT,
                     promptSpecId,
                     null,
@@ -320,7 +320,7 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
                     e));
             throw e;
         } catch (RuntimeException e) {
-            auditLogger.record(ReleaseAuditEvent.forFailure(
+            safelyRecord(ReleaseAuditEvent.forFailure(
                     ReleaseAuditOutcome.BLOCKED_INFRA,
                     promptSpecId,
                     null,
@@ -330,6 +330,21 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
                     snapshot.executionId,
                     e));
             throw e;
+        }
+    }
+
+    /**
+     * Emit an audit event without letting any failure escape. Belt-and-suspenders to the
+     * no-throw contract on {@link ReleaseAuditLogger#record}: a third-party implementation
+     * that violates the contract must not be able to (a) cause a successful release to
+     * surface as a caller-visible exception or (b) replace the original release-path
+     * exception inside a catch block. Errors (OOM, StackOverflowError) propagate.
+     */
+    private void safelyRecord(ReleaseAuditEvent event) {
+        try {
+            auditLogger.record(event);
+        } catch (RuntimeException auditEx) {
+            log.warn("Release audit emission failed; release behaviour preserved.", auditEx);
         }
     }
 
