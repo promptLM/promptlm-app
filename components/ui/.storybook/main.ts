@@ -17,6 +17,9 @@ import type { StorybookConfig } from '@storybook/react-vite';
 const config: StorybookConfig = {
   stories: ['../src/**/*.stories.@(ts|tsx)'],
   addons: ['@storybook/addon-essentials', '@storybook/addon-interactions'],
+  // Serve the brand favicon (referenced by manager-head.html) and any other
+  // chrome assets local to this Storybook. See #111 BS-5.
+  staticDirs: ['./static'],
   framework: {
     name: '@storybook/react-vite',
     options: {},

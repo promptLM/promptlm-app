@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  promptLM favicon master. Mark C2 (refined Graph) on transparent canvas.
+  Hex values resolved from the canonical pl-* oklch tokens:
+    pl-ink-900     oklch(0.16 0.02 250)  -> #070e16
+    pl-signal-deep oklch(0.55 0.18 235)  -> #007cca
+  Used to render favicon-32.png, favicon-192.png, favicon-512.png.
+  See #111 BS-5.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+  <line x1="7" y1="7" x2="17" y2="12" stroke="#070e16" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="7" y1="7" x2="7" y2="17" stroke="#070e16" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="7" y1="17" x2="17" y2="12" stroke="#007cca" stroke-width="1.75" stroke-linecap="round"/>
+  <circle cx="7" cy="7" r="2.6" fill="#070e16"/>
+  <circle cx="7" cy="17" r="2.6" fill="#070e16"/>
+  <circle cx="17" cy="12" r="2.8" fill="#007cca"/>
+</svg>
