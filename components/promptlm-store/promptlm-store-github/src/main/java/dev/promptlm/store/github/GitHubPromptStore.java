@@ -20,7 +20,10 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -39,6 +42,17 @@ import dev.promptlm.domain.promptspec.ChatCompletionRequest;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import dev.promptlm.domain.promptspec.ReleaseMetadata;
 import dev.promptlm.store.api.PromptStore;
+import dev.promptlm.store.api.Revision;
+import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.api.errors.NoHeadException;
+import org.eclipse.jgit.lib.ObjectId;
+import org.eclipse.jgit.lib.ObjectReader;
+import org.eclipse.jgit.lib.Ref;
+import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.revwalk.RevCommit;
+import org.eclipse.jgit.treewalk.TreeWalk;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
@@ -51,6 +65,10 @@ public class GitHubPromptStore implements PromptStore {
     private static final String RELEASE_BRANCH_PREFIX = "release/";
     private static final Pattern PR_REFERENCE_NUMBER = Pattern.compile("^(\\d+)$");
     private static final Pattern PR_REFERENCE_URL = Pattern.compile(".*/pull/(\\d+).*");
+    private static final Pattern SEMVER_TAG_PATTERN =
+            Pattern.compile("^v?\\d+\\.\\d+\\.\\d+(?:-[A-Za-z0-9.-]+)?$");
+
+    private static final Logger log = LoggerFactory.getLogger(GitHubPromptStore.class);
 
     private final ObjectMapper modelYamlMapper;
     private final GitFileNameStrategy fileNameStrategy;
@@ -686,6 +704,251 @@ public class GitHubPromptStore implements PromptStore {
         GitRepositoryMetadataFile.Version v = new GitRepositoryMetadataFile.Version();
         versions.add(v);
         return v;
+    }
+
+    /**
+     * Walks the active project's git history for the given prompt and returns
+     * a newest-first list of {@link Revision} entries.
+     *
+     * <p>Each entry corresponds to a commit that touched
+     * {@code prompts/<group>/<name>/promptlm.yml}. The {@code kind} is derived
+     * from the diff against the parent commit (rename detection enabled).
+     * The {@code spec} field carries the deserialized {@link PromptSpec}
+     * snapshot at that commit, or {@code null} if the historical YAML cannot
+     * be parsed against the current schema.
+     *
+     * @throws IllegalArgumentException if {@code group} or {@code name} contains
+     *         characters that are not safe as path segments (delegates to
+     *         {@link GitFileNameStrategy})
+     */
+    @Override
+    public List<Revision> listRevisions(String group, String name) {
+        String promptPath = fileNameStrategy.buildPromptPath(group, name);
+
+        if (appContext.getActiveProject() == null
+                || appContext.getActiveProject().getRepoDir() == null) {
+            return List.of();
+        }
+        Path repoDir = appContext.getActiveProject().getRepoDir().toAbsolutePath().normalize();
+        if (!Files.isDirectory(repoDir)) {
+            return List.of();
+        }
+
+        try (org.eclipse.jgit.api.Git jgit = org.eclipse.jgit.api.Git.open(repoDir.toFile())) {
+            Repository repository = jgit.getRepository();
+
+            Map<String, String> tagsBySha = collectSemverTags(jgit, repository);
+
+            List<RevCommit> commits;
+            try {
+                Iterable<RevCommit> iter = jgit.log().addPath(promptPath).call();
+                commits = new ArrayList<>();
+                iter.forEach(commits::add);
+            } catch (NoHeadException noHead) {
+                return List.of();
+            }
+
+            if (commits.isEmpty()) {
+                return List.of();
+            }
+
+            int total = commits.size();
+            List<Revision> revisions = new ArrayList<>(total);
+            for (int i = 0; i < total; i++) {
+                RevCommit commit = commits.get(i);
+                Revision.Kind kind = deriveKind(repository, commit, promptPath);
+                PromptSpec snapshot = readSnapshot(repository, commit, promptPath);
+                String tag = tagsBySha.get(commit.name());
+
+                String authorName = commit.getAuthorIdent() != null
+                        ? commit.getAuthorIdent().getName()
+                        : null;
+
+                revisions.add(new Revision(
+                        "r" + (total - i),
+                        tag,
+                        commit.name(),
+                        authorName,
+                        Instant.ofEpochSecond(commit.getCommitTime()),
+                        firstLine(commit.getFullMessage()),
+                        kind,
+                        snapshot
+                ));
+            }
+            return revisions;
+        } catch (IOException | GitAPIException e) {
+            throw new GitException(
+                    "Failed to read revision history for prompt %s/%s".formatted(group, name), e);
+        }
+    }
+
+    private Map<String, String> collectSemverTags(org.eclipse.jgit.api.Git jgit, Repository repository) {
+        Map<String, String> bySha = new HashMap<>();
+        try {
+            List<Ref> tags = jgit.tagList().call();
+            for (Ref ref : tags) {
+                String shortName = Repository.shortenRefName(ref.getName());
+                if (!SEMVER_TAG_PATTERN.matcher(shortName).matches()) {
+                    continue;
+                }
+                Ref peeled = repository.getRefDatabase().peel(ref);
+                ObjectId targetId = peeled.getPeeledObjectId() != null
+                        ? peeled.getPeeledObjectId()
+                        : peeled.getObjectId();
+                if (targetId != null) {
+                    bySha.putIfAbsent(targetId.name(), shortName);
+                }
+            }
+        } catch (GitAPIException | IOException e) {
+            log.warn("Failed to enumerate git tags; revisions will report tag=null", e);
+        }
+        return bySha;
+    }
+
+    /**
+     * Classifies a single commit by comparing the prompt-spec blob's presence
+     * at the commit and at its first parent.
+     *
+     * <p>Rename detection: when the file appears to be added on this path
+     * and an identical blob (same SHA) exists at a different path in the
+     * parent tree (and that other path is gone in this commit), we report
+     * {@link Revision.Kind#RENAME}. Symmetric for the old path. This is
+     * <em>exact</em> rename detection — only catches "move with no edit".
+     * Renames-with-edits still surface as ADD/REMOVE; that's a follow-up if
+     * needed.
+     */
+    private Revision.Kind deriveKind(Repository repository,
+                                     RevCommit commit,
+                                     String promptPath) {
+        ObjectId blobAtCommit = blobAtPath(repository, commit, promptPath);
+        boolean existsAtCommit = blobAtCommit != null;
+
+        // JGit's path-filtered LogCommand rewrites parent links. Use a fresh
+        // RevWalk to fetch the commit's real parents.
+        RevCommit unfilteredCommit;
+        try (org.eclipse.jgit.revwalk.RevWalk walk =
+                     new org.eclipse.jgit.revwalk.RevWalk(repository)) {
+            unfilteredCommit = walk.parseCommit(commit.getId());
+        } catch (IOException e) {
+            log.warn("Failed to re-parse commit {} for path {}",
+                    commit.name(), promptPath, e);
+            return existsAtCommit ? Revision.Kind.ADD : Revision.Kind.REMOVE;
+        }
+
+        if (unfilteredCommit.getParentCount() == 0) {
+            return existsAtCommit ? Revision.Kind.ADD : Revision.Kind.REMOVE;
+        }
+
+        RevCommit parent;
+        try (org.eclipse.jgit.revwalk.RevWalk walk =
+                     new org.eclipse.jgit.revwalk.RevWalk(repository)) {
+            parent = walk.parseCommit(unfilteredCommit.getParent(0).getId());
+        } catch (IOException e) {
+            log.warn("Failed to parse parent of commit {} for path {}",
+                    commit.name(), promptPath, e);
+            return Revision.Kind.EDIT;
+        }
+        ObjectId blobAtParent = blobAtPath(repository, parent, promptPath);
+        boolean existsAtParent = blobAtParent != null;
+
+        if (existsAtCommit && existsAtParent) {
+            return Revision.Kind.EDIT;
+        }
+
+        if (existsAtCommit) {
+            // ADD on this path: was the same blob present at a different path
+            // in the parent (and removed in this commit)? If so, it's a rename.
+            if (matchingBlobMissingFromCurrent(repository, parent, unfilteredCommit, blobAtCommit, promptPath)) {
+                return Revision.Kind.RENAME;
+            }
+            return Revision.Kind.ADD;
+        }
+
+        // REMOVE on this path: did the same blob reappear at a different path
+        // in the current commit (and was absent there in the parent)?
+        if (matchingBlobMissingFromCurrent(repository, unfilteredCommit, parent, blobAtParent, promptPath)) {
+            return Revision.Kind.RENAME;
+        }
+        return Revision.Kind.REMOVE;
+    }
+
+    /**
+     * Returns true if the {@code targetBlob} is present at some path (other
+     * than {@code excludePath}) in {@code searchTreeCommit} but absent at the
+     * same path in {@code requireMissingTreeCommit}. Used to detect that a
+     * rename pair surrounds {@code excludePath}.
+     */
+    private static boolean matchingBlobMissingFromCurrent(Repository repository,
+                                                          RevCommit searchTreeCommit,
+                                                          RevCommit requireMissingTreeCommit,
+                                                          ObjectId targetBlob,
+                                                          String excludePath) {
+        if (targetBlob == null) {
+            return false;
+        }
+        try (TreeWalk walk = new TreeWalk(repository)) {
+            walk.addTree(searchTreeCommit.getTree());
+            walk.setRecursive(true);
+            while (walk.next()) {
+                String candidatePath = walk.getPathString();
+                ObjectId blobAtCandidate = walk.getObjectId(0);
+                if (candidatePath.equals(excludePath)) {
+                    continue;
+                }
+                if (!targetBlob.equals(blobAtCandidate)) {
+                    continue;
+                }
+                ObjectId atOther = blobAtPath(repository, requireMissingTreeCommit, candidatePath);
+                if (!targetBlob.equals(atOther)) {
+                    return true;
+                }
+            }
+        } catch (IOException e) {
+            log.warn("Failed to scan tree of {} for rename detection of path {}",
+                    searchTreeCommit.name(), excludePath, e);
+        }
+        return false;
+    }
+
+    private PromptSpec readSnapshot(Repository repository, RevCommit commit, String promptPath) {
+        ObjectId blobId = blobAtPath(repository, commit, promptPath);
+        if (blobId == null) {
+            return null;
+        }
+        try (ObjectReader reader = repository.newObjectReader()) {
+            byte[] bytes = reader.open(blobId).getBytes();
+            return modelYamlMapper.readValue(bytes, PromptSpec.class);
+        } catch (IOException e) {
+            log.warn("Failed to read prompt-spec blob at commit {} for path {}",
+                    commit.name(), promptPath, e);
+            return null;
+        } catch (RuntimeException e) {
+            // Jackson 3 (`tools.jackson`) wraps parse errors in JacksonException
+            // which is a RuntimeException — soft-fail to spec=null per design.
+            log.warn("Failed to deserialize prompt-spec snapshot at commit {} for path {}: {}",
+                    commit.name(), promptPath, e.getMessage());
+            return null;
+        }
+    }
+
+    private static ObjectId blobAtPath(Repository repository, RevCommit commit, String promptPath) {
+        try (TreeWalk treeWalk = TreeWalk.forPath(repository, promptPath, commit.getTree())) {
+            return treeWalk == null ? null : treeWalk.getObjectId(0);
+        } catch (IOException e) {
+            log.warn("Failed to walk tree at commit {} for path {}",
+                    commit.name(), promptPath, e);
+            return null;
+        }
+    }
+
+    private static String firstLine(String message) {
+        if (message == null) {
+            return "";
+        }
+        int newline = message.indexOf('\n');
+        String head = newline < 0 ? message : message.substring(0, newline);
+        // Trim handles trailing CR (CRLF endings) and surrounding whitespace.
+        return head.trim();
     }
 
     @Override

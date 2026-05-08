@@ -21,6 +21,7 @@ import type { PromptSpec } from '../models/PromptSpec';
 import type { PromptSpecCreationRequest } from '../models/PromptSpecCreationRequest';
 import type { PromptStats } from '../models/PromptStats';
 import type { RepoHistoryPage } from '../models/RepoHistoryPage';
+import type { Revision } from '../models/Revision';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
@@ -263,6 +264,37 @@ export class PromptSpecificationsService {
             errors: {
                 400: `Invalid query parameters`,
                 404: `Prompt specification not found`,
+            },
+        });
+    }
+    /**
+     * List revisions for a prompt specification
+     * Returns a newest-first list of revisions for the given prompt, derived from the active project's git history. Each revision includes metadata (rev label, sha, author, when, msg, kind, optional tag) plus the full PromptSpec snapshot at that commit when it can be deserialized against the current schema (otherwise spec is null). Responses carry a weak ETag derived from the newest revision's commit SHA; clients can send `If-None-Match` to receive 304 Not Modified when the history is unchanged.
+     * @param group Prompt group
+     * @param name Prompt name
+     * @param ifNoneMatch
+     * @returns Revision Revisions list, newest first.
+     * @throws ApiError
+     */
+    public static getRevisionsByGroupAndName(
+        group: string,
+        name: string,
+        ifNoneMatch?: string,
+    ): CancelablePromise<Array<Revision>> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/prompts/{group}/{name}/revisions',
+            path: {
+                'group': group,
+                'name': name,
+            },
+            headers: {
+                'If-None-Match': ifNoneMatch,
+            },
+            errors: {
+                304: `Not Modified — the supplied If-None-Match matches the current ETag.`,
+                400: `Invalid prompt id (unsafe path segments).`,
+                404: `No revisions found for the given prompt.`,
             },
         });
     }

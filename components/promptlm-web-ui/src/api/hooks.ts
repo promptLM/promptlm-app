@@ -17,6 +17,7 @@ import React from 'react';
 import { toDisplayError } from '@api-common/apiError';
 import { useGeneratedApiClient } from '@api-common/generatedClientProvider';
 import { useProjectsContext } from '@api-common/projects/ProjectsContext';
+import { featureFlags } from '@/lib/featureFlags';
 import type {
   Capabilities,
   ModelCatalogResponse,
@@ -24,6 +25,7 @@ import type {
   PromptSpec,
   PromptSpecCreationRequest,
   PromptStats,
+  Revision,
 } from '@promptlm/api-client';
 
 export type PromptId = string;
@@ -140,6 +142,39 @@ export const usePromptDraftTemplate = (
   return useAsyncData(async () => {
     return promptSpecs.getDefaultTemplate();
   }, [promptSpecs], options);
+};
+
+/**
+ * Loads the git-history revisions for a prompt, newest first. Gated behind
+ * `featureFlags.revisionHistory` — when the flag is off the hook is a no-op
+ * (data stays null, isLoading stays false) so the caller renders the empty
+ * state without firing a network request. The hook also gates on the prompt's
+ * id being a `group/name` shape, to keep the call site lean.
+ */
+export const usePromptRevisions = (
+  id: PromptId | null | undefined,
+  options?: { enabled?: boolean },
+): AsyncState<Revision[]> => {
+  const { promptSpecs } = useGeneratedApiClient();
+  const flagEnabled = featureFlags.revisionHistory;
+  const callerEnabled = options?.enabled ?? true;
+  const slashIndex = typeof id === 'string' ? id.indexOf('/') : -1;
+  const validId =
+    typeof id === 'string'
+      && slashIndex > 0
+      && slashIndex < id.length - 1;
+  const enabled = flagEnabled && callerEnabled && validId;
+
+  const loader = React.useCallback(async () => {
+    if (!validId) {
+      return [] as Revision[];
+    }
+    const group = (id as string).slice(0, slashIndex);
+    const name = (id as string).slice(slashIndex + 1);
+    return promptSpecs.getRevisionsByGroupAndName(group, name);
+  }, [promptSpecs, id, slashIndex, validId]);
+
+  return useAsyncData(loader, [loader], { enabled });
 };
 
 export const useDashboardSummary = (): AsyncState<PromptStats> => {

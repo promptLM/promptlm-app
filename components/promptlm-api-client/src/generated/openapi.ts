@@ -294,6 +294,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/prompts/{group}/{name}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List revisions for a prompt specification
+         * @description Returns a newest-first list of revisions for the given prompt, derived from the active project's git history. Each revision includes metadata (rev label, sha, author, when, msg, kind, optional tag) plus the full PromptSpec snapshot at that commit when it can be deserialized against the current schema (otherwise spec is null). Responses carry a weak ETag derived from the newest revision's commit SHA; clients can send `If-None-Match` to receive 304 Not Modified when the history is unchanged.
+         */
+        get: operations["getRevisionsByGroupAndName"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/prompts/template": {
         parameters: {
             query?: never;
@@ -410,16 +430,13 @@ export interface components {
         };
         JsonNode: {
             container?: boolean;
-            pojo?: boolean;
+            string?: boolean;
             valueNode?: boolean;
+            missingNode?: boolean;
             object?: boolean;
             /** @enum {string} */
             nodeType?: "ARRAY" | "BINARY" | "BOOLEAN" | "MISSING" | "NULL" | "NUMBER" | "OBJECT" | "POJO" | "STRING";
-            integralNumber?: boolean;
-            floatingPointNumber?: boolean;
             short?: boolean;
-            int?: boolean;
-            long?: boolean;
             double?: boolean;
             bigDecimal?: boolean;
             bigInteger?: boolean;
@@ -427,13 +444,16 @@ export interface components {
             textual?: boolean;
             boolean?: boolean;
             binary?: boolean;
-            string?: boolean;
-            missingNode?: boolean;
             number?: boolean;
+            float?: boolean;
             array?: boolean;
             empty?: boolean;
             null?: boolean;
-            float?: boolean;
+            integralNumber?: boolean;
+            floatingPointNumber?: boolean;
+            pojo?: boolean;
+            int?: boolean;
+            long?: boolean;
             embeddedValue?: boolean;
         };
         /** @description Request payload for creating or updating a prompt specification */
@@ -857,15 +877,15 @@ export interface components {
              */
             promptCount?: number;
             /**
-             * @description Remote repository URL
-             * @example https://github.com/my-org/my-repo
-             */
-            repositoryUrl?: string;
-            /**
              * @description Local filesystem path where the repository is checked out
              * @example /Users/me/repos/my-repo
              */
             localPath?: string;
+            /**
+             * @description Remote repository URL
+             * @example https://github.com/my-org/my-repo
+             */
+            repositoryUrl?: string;
         };
         ConnectRepositoryRequest: {
             /** @description Absolute path to the repository on disk */
@@ -908,6 +928,46 @@ export interface components {
              * @example true
              */
             hasMore?: boolean;
+        };
+        /**
+         * @description How a revision changed the prompt spec file.
+         * @enum {string}
+         */
+        Kind: "add" | "edit" | "remove" | "rename";
+        /** @description A single entry in a prompt's revision history (one per git commit that touched the spec file). */
+        Revision: {
+            /**
+             * @description Sequential revision label, newest first (e.g. "r34").
+             * @example r34
+             */
+            rev?: string;
+            /**
+             * @description Semver-shaped git tag pointing at this commit, if any.
+             * @example v1.2.0
+             */
+            tag?: string | null;
+            /**
+             * @description Full git commit SHA. Stable identifier for this revision.
+             * @example 8f2c3a4...
+             */
+            sha?: string;
+            /**
+             * @description Display name of the commit author.
+             * @example Jane Doe
+             */
+            author?: string;
+            /**
+             * Format: date-time
+             * @description Commit timestamp as ISO-8601 instant.
+             * @example 2026-01-02T03:04:05Z
+             */
+            when?: string;
+            /** @description First line of the commit message. */
+            msg?: string;
+            /** @description How this commit changed the prompt spec file. */
+            kind?: components["schemas"]["Kind"];
+            /** @description Full prompt-spec snapshot at this revision; null if the historical YAML cannot be deserialized. */
+            spec?: components["schemas"]["PromptSpec"];
         };
         PromptStats: {
             /** Format: int32 */
@@ -1539,6 +1599,60 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["RepoHistoryPage"];
+                };
+            };
+        };
+    };
+    getRevisionsByGroupAndName: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-None-Match"?: string;
+            };
+            path: {
+                /** @description Prompt group */
+                group: string;
+                /** @description Prompt name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revisions list, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Revision"][];
+                };
+            };
+            /** @description Not Modified — the supplied If-None-Match matches the current ETag. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Revision"][];
+                };
+            };
+            /** @description Invalid prompt id (unsafe path segments). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Revision"][];
+                };
+            };
+            /** @description No revisions found for the given prompt. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Revision"][];
                 };
             };
         };

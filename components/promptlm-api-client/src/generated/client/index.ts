@@ -36,6 +36,7 @@ export type { ExecutePromptRequest } from './models/ExecutePromptRequest';
 export { Execution } from './models/Execution';
 export { ImagesGenerationsRequest } from './models/ImagesGenerationsRequest';
 export { JsonNode } from './models/JsonNode';
+export { Kind } from './models/Kind';
 export type { Message } from './models/Message';
 export type { ModelCatalogModel } from './models/ModelCatalogModel';
 export type { ModelCatalogResponse } from './models/ModelCatalogResponse';
@@ -52,6 +53,7 @@ export type { RepoHistoryPage } from './models/RepoHistoryPage';
 export { RepositoryOwner } from './models/RepositoryOwner';
 export type { Request } from './models/Request';
 export type { Response } from './models/Response';
+export type { Revision } from './models/Revision';
 export type { Usage } from './models/Usage';
 export type { VendorAndModel } from './models/VendorAndModel';
 
