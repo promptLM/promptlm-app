@@ -14,17 +14,12 @@
  * limitations under the License.
  */
 
-package dev.promptlm.release;
+package dev.promptlm.domain.promptspec;
 
-/**
- * Checked exception thrown when a prompt cannot be released.
- */
-public class PromptReleaseException extends RuntimeException {
-    public PromptReleaseException(String message) {
-        super(message);
-    }
+import io.swagger.v3.oas.annotations.media.Schema;
 
-    public PromptReleaseException(String message, Throwable cause) {
-        super(message, cause);
-    }
+@Schema(description = "Classification of a failed Execution. PROMPT covers schema/validation/tool-call/evaluator failures (hard-block at release); INFRASTRUCTURE covers vendor 5xx, timeouts, and network outages (soft-block, optionally overridable at release).")
+public enum FailureClass {
+    PROMPT,
+    INFRASTRUCTURE
 }

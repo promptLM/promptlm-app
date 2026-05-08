@@ -17,14 +17,11 @@
 package dev.promptlm.release;
 
 /**
- * Checked exception thrown when a prompt cannot be released.
+ * Caller intent for the pre-release-execute gate when an infrastructure-class failure occurs
+ * (LLM 5xx, network timeout, vendor outage). REJECT (default) soft-blocks the release;
+ * RECORD captures the failed Execution and proceeds with the release.
  */
-public class PromptReleaseException extends RuntimeException {
-    public PromptReleaseException(String message) {
-        super(message);
-    }
-
-    public PromptReleaseException(String message, Throwable cause) {
-        super(message, cause);
-    }
+public enum OnInfraFailure {
+    REJECT,
+    RECORD
 }

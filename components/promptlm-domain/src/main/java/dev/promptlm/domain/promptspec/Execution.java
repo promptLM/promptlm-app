@@ -76,9 +76,15 @@ public class Execution {
     @Schema(description = "Failure message captured when ok is false")
     private String error;
 
+    @Schema(description = "Origin of this execution; null reads as MANUAL for back-compat")
+    private ExecutionKind kind;
+
+    @Schema(description = "Failure classification; null when ok is true")
+    private FailureClass failureClass;
+
     public Execution(String id, Instant timestamp, Response response, List<Placeholder> placeholders, List<EvaluationResult> evaluations) {
 
-        this(id, timestamp, response, placeholders, evaluations, null, null, null, null, null, null, null, null, null);
+        this(id, timestamp, response, placeholders, evaluations, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     public Execution(
@@ -97,6 +103,27 @@ public class Execution {
             Boolean ok,
             String error) {
 
+        this(id, timestamp, response, placeholders, evaluations, latencyMs, tokensIn, tokensOut, fixturePath, context, revision, author, ok, error, null, null);
+    }
+
+    public Execution(
+            String id,
+            Instant timestamp,
+            Response response,
+            List<Placeholder> placeholders,
+            List<EvaluationResult> evaluations,
+            Long latencyMs,
+            Integer tokensIn,
+            Integer tokensOut,
+            String fixturePath,
+            String context,
+            String revision,
+            String author,
+            Boolean ok,
+            String error,
+            ExecutionKind kind,
+            FailureClass failureClass) {
+
         this.id = id;
         this.timestamp = timestamp;
         this.response = response;
@@ -111,6 +138,8 @@ public class Execution {
         this.author = author;
         this.ok = ok;
         this.error = error;
+        this.kind = kind;
+        this.failureClass = failureClass;
     }
 
     public Execution() {
@@ -221,6 +250,27 @@ public class Execution {
         return this.error;
     }
 
+    /**
+     * Origin of this execution. Returns null for older serialized runs that pre-date the
+     * field; consumers wanting a default should use {@link #kindOrManual()}.
+     */
+    public ExecutionKind getKind() {
+
+        return this.kind;
+    }
+
+    /** Returns {@link #getKind()} or {@link ExecutionKind#MANUAL} when null. */
+    @JsonIgnore
+    public ExecutionKind kindOrManual() {
+
+        return this.kind != null ? this.kind : ExecutionKind.MANUAL;
+    }
+
+    public FailureClass getFailureClass() {
+
+        return this.failureClass;
+    }
+
     public void setId(String id) {
 
         this.id = id;
@@ -292,6 +342,16 @@ public class Execution {
         this.error = error;
     }
 
+    public void setKind(ExecutionKind kind) {
+
+        this.kind = kind;
+    }
+
+    public void setFailureClass(FailureClass failureClass) {
+
+        this.failureClass = failureClass;
+    }
+
     public boolean equals(final Object o) {
 
         if (o == this)
@@ -329,6 +389,10 @@ public class Execution {
             return false;
         if (!Objects.equals(this.error, other.error))
             return false;
+        if (!Objects.equals(this.kind, other.kind))
+            return false;
+        if (!Objects.equals(this.failureClass, other.failureClass))
+            return false;
         return true;
     }
 
@@ -353,7 +417,9 @@ public class Execution {
                 revision,
                 author,
                 ok,
-                error);
+                error,
+                kind,
+                failureClass);
     }
 
     public String toString() {
@@ -372,6 +438,8 @@ public class Execution {
                 + ", author=" + this.author
                 + ", ok=" + this.ok
                 + ", error=" + this.error
+                + ", kind=" + this.kind
+                + ", failureClass=" + this.failureClass
                 + ")";
     }
 

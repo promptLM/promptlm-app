@@ -16,8 +16,11 @@
 
 package dev.promptlm.web;
 
+import dev.promptlm.release.PreReleaseInfrastructureFailure;
+import dev.promptlm.release.PreReleasePromptFailure;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -46,6 +49,36 @@ class PromptExecutionExceptionHandler {
                 .body(detail);
     }
 
+    @ExceptionHandler(PreReleasePromptFailure.class)
+    ResponseEntity<ProblemDetail> handlePreReleasePromptFailure(PreReleasePromptFailure exception) {
+        String message = resolveMessage(exception);
+        log.warn("Pre-release prompt failure: {}", message, exception);
+        ProblemDetail detail = ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, message);
+        detail.setTitle("Pre-release prompt failure");
+        detail.setProperty("code", exception.code());
+        if (exception.failedExecution() != null) {
+            detail.setProperty("failedExecutionId", exception.failedExecution().getId());
+        }
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(detail);
+    }
+
+    @ExceptionHandler(PreReleaseInfrastructureFailure.class)
+    ResponseEntity<ProblemDetail> handlePreReleaseInfrastructureFailure(PreReleaseInfrastructureFailure exception) {
+        String message = resolveMessage(exception);
+        log.warn("Pre-release infrastructure failure: {}", message, exception);
+        ProblemDetail detail = ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, message);
+        detail.setTitle("Pre-release infrastructure failure");
+        detail.setProperty("code", exception.code());
+        if (exception.failedExecution() != null) {
+            detail.setProperty("failedExecutionId", exception.failedExecution().getId());
+        }
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(detail);
+    }
+
     private String resolveMessage(PromptExecutionException exception) {
         Throwable cause = exception.getCause();
         if (cause != null && StringUtils.hasText(cause.getMessage())) {
@@ -55,5 +88,16 @@ class PromptExecutionExceptionHandler {
             return exception.getMessage();
         }
         return "Prompt execution failed";
+    }
+
+    private String resolveMessage(RuntimeException exception) {
+        Throwable cause = exception.getCause();
+        if (cause != null && StringUtils.hasText(cause.getMessage())) {
+            return cause.getMessage();
+        }
+        if (StringUtils.hasText(exception.getMessage())) {
+            return exception.getMessage();
+        }
+        return "Pre-release execution failed";
     }
 }

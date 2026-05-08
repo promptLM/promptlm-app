@@ -25,6 +25,10 @@ import dev.promptlm.domain.promptspec.EvaluationResults;
 import dev.promptlm.domain.promptspec.EvaluationStatus;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import dev.promptlm.domain.promptspec.ReleaseMetadata;
+import dev.promptlm.release.OnInfraFailure;
+import dev.promptlm.release.PreReleaseExecuteGate;
+import dev.promptlm.release.PreReleaseInfrastructureFailure;
+import dev.promptlm.release.PreReleasePromptFailure;
 import dev.promptlm.release.PromptReleaseException;
 import dev.promptlm.release.PromptReleasePolicy;
 import org.junit.jupiter.api.BeforeEach;
@@ -74,6 +78,9 @@ class DefaultPromptLifecycleServiceTest {
 
     @Mock
     private PromptReleasePolicy releasePolicy;
+
+    @Mock
+    private PreReleaseExecuteGate preReleaseExecuteGate;
 
     @InjectMocks
     private DefaultPromptLifecycleService service;
@@ -490,6 +497,108 @@ class DefaultPromptLifecycleServiceTest {
         ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
         verify(eventPublisher).publishEvent(eventCaptor.capture());
         assertThat(eventCaptor.getValue()).isInstanceOf(PromptReleasedEvent.class);
+    }
+
+    @Test
+    void releasePromptRunsPreReleaseGateWhenEnabled() {
+        EvaluationResults successResults = new EvaluationResults(List.of(new EvaluationResult("eval", "type", 1.0, null, null)));
+        PromptSpec evaluated = basePromptSpec.withEvaluationResults(successResults);
+        PromptSpec gated = evaluated.withResponse(null);
+        PromptSpec released = gated
+                .withVersion("1.0.0")
+                .withReleaseMetadata(new ReleaseMetadata(
+                        ReleaseMetadata.STATE_RELEASED,
+                        ReleaseMetadata.MODE_DIRECT,
+                        "1.0.0",
+                        "group/name-v1.0.0",
+                        "main",
+                        null,
+                        null,
+                        false));
+
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
+        when(preReleaseExecuteGate.isEnabled()).thenReturn(true);
+        when(preReleaseExecuteGate.runOrThrow(evaluated, OnInfraFailure.REJECT)).thenReturn(gated);
+        when(repository.requestRelease(gated)).thenReturn(released);
+
+        PromptSpec result = service.releasePrompt(PROMPT_ID);
+
+        assertThat(result).isEqualTo(released);
+        verify(preReleaseExecuteGate).runOrThrow(evaluated, OnInfraFailure.REJECT);
+        verify(repository).requestRelease(gated);
+    }
+
+    @Test
+    void releasePromptAbortsBeforeStoreOnPromptFailure() {
+        EvaluationResults successResults = new EvaluationResults(List.of(new EvaluationResult("eval", "type", 1.0, null, null)));
+        PromptSpec evaluated = basePromptSpec.withEvaluationResults(successResults);
+
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
+        when(preReleaseExecuteGate.isEnabled()).thenReturn(true);
+        when(preReleaseExecuteGate.runOrThrow(evaluated, OnInfraFailure.REJECT))
+                .thenThrow(new PreReleasePromptFailure(PROMPT_ID, null, new IllegalArgumentException("bad")));
+
+        assertThatThrownBy(() -> service.releasePrompt(PROMPT_ID))
+                .isInstanceOf(PreReleasePromptFailure.class);
+
+        verify(preReleaseExecuteGate).runOrThrow(evaluated, OnInfraFailure.REJECT);
+        verify(repository).getLatestVersion(PROMPT_ID);
+        verifyNoMoreInteractions(repository);
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void releasePromptForwardsOnInfraFailureToGate() {
+        EvaluationResults successResults = new EvaluationResults(List.of(new EvaluationResult("eval", "type", 1.0, null, null)));
+        PromptSpec evaluated = basePromptSpec.withEvaluationResults(successResults);
+        PromptSpec gated = evaluated.withResponse(null);
+        PromptSpec released = gated
+                .withVersion("1.0.0")
+                .withReleaseMetadata(new ReleaseMetadata(
+                        ReleaseMetadata.STATE_RELEASED,
+                        ReleaseMetadata.MODE_DIRECT,
+                        "1.0.0",
+                        "group/name-v1.0.0",
+                        "main",
+                        null,
+                        null,
+                        false));
+
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
+        when(preReleaseExecuteGate.isEnabled()).thenReturn(true);
+        when(preReleaseExecuteGate.runOrThrow(evaluated, OnInfraFailure.RECORD)).thenReturn(gated);
+        when(repository.requestRelease(gated)).thenReturn(released);
+
+        service.releasePrompt(PROMPT_ID, OnInfraFailure.RECORD);
+
+        verify(preReleaseExecuteGate).runOrThrow(evaluated, OnInfraFailure.RECORD);
+    }
+
+    @Test
+    void releasePromptSkipsGateWhenDisabled() {
+        EvaluationResults successResults = new EvaluationResults(List.of(new EvaluationResult("eval", "type", 1.0, null, null)));
+        PromptSpec evaluated = basePromptSpec.withEvaluationResults(successResults);
+        PromptSpec released = evaluated
+                .withVersion("1.0.0")
+                .withReleaseMetadata(new ReleaseMetadata(
+                        ReleaseMetadata.STATE_RELEASED,
+                        ReleaseMetadata.MODE_DIRECT,
+                        "1.0.0",
+                        "group/name-v1.0.0",
+                        "main",
+                        null,
+                        null,
+                        false));
+
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
+        when(preReleaseExecuteGate.isEnabled()).thenReturn(false);
+        when(repository.requestRelease(evaluated)).thenReturn(released);
+
+        service.releasePrompt(PROMPT_ID);
+
+        verify(preReleaseExecuteGate).isEnabled();
+        verifyNoMoreInteractions(preReleaseExecuteGate);
+        verify(repository).requestRelease(evaluated);
     }
 
     @Test
