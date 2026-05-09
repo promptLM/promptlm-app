@@ -2,7 +2,13 @@
 <!--
   promptLM Open Graph card master. 1200x630 (Twitter / Facebook / LinkedIn
   standard share aspect 1.91:1). Uses the canonical Mark C2 (refined Graph)
-  silhouette and the brand canvas hero copy.
+  silhouette, the brand canvas hero, and the shipped-reality subhead.
+
+  Subhead copy was rewritten under #131 to match what the live shell
+  actually does (managing/versioning/releasing prompts) instead of the
+  brand canvas's aspirational MCP-testing positioning. Keep this card,
+  the webapp index.html meta description, and the JSON-LD description
+  in sync.
 
   Hex values from the canonical pl-* oklch tokens:
     pl-ink-900      oklch(0.16  0.02 250)  -> #070e16  (headline + ink edges)
@@ -62,10 +68,14 @@
   <text x="80" y="430" font-family="'Geist', ui-sans-serif, system-ui, sans-serif"
         font-size="72" font-weight="400" letter-spacing="-2.9" fill="#070e16">under instrument.</text>
 
-  <!-- subhead -->
-  <text x="80" y="490" font-family="'Geist', ui-sans-serif, system-ui, sans-serif"
+  <!-- subhead (two lines; matches the webapp meta description + JSON-LD body) -->
+  <text x="80" y="480" font-family="'Geist', ui-sans-serif, system-ui, sans-serif"
         font-size="22" font-weight="400" letter-spacing="-0.3" fill="#5a626d">
-    A developer tool for testing LLM clients, mocking model behavior, and inspecting MCP traffic.
+    Open-source framework for managing, versioning, and releasing LLM prompts.
+  </text>
+  <text x="80" y="510" font-family="'Geist', ui-sans-serif, system-ui, sans-serif"
+        font-size="22" font-weight="400" letter-spacing="-0.3" fill="#5a626d">
+    Track revisions, capture dev-run telemetry, ship prompts as code.
   </text>
 
   <!-- bottom hairline + install line -->
