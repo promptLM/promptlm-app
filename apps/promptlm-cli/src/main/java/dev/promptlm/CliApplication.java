@@ -45,6 +45,15 @@ public class CliApplication {
                         "debug=false",
                         "spring.main.banner-mode=off",
                         "promptlm.cli.runner.enabled=true",
+                        // Suppress Spring Shell's built-in InteractiveShellRunner /
+                        // NonInteractiveShellRunner ApplicationRunners — we drive
+                        // command dispatch ourselves via cliShellApplicationRunner.
+                        // If the built-in runners are left enabled they emit a stray
+                        // "Running in interactive mode, arguments will be ignored"
+                        // WARN onto stdout, which corrupts CLI output capture in
+                        // smoke tests (NativeCliSmokeTest#shouldRunPromptReleaseCommand).
+                        "spring.shell.interactive.enabled=false",
+                        "spring.shell.noninteractive.enabled=false",
                         "logging.level.dev.promptlm.infrastructure.config.SerializingAppContext=ERROR",
                         "spring.autoconfigure.exclude="
                                 + "org.springframework.boot.micrometer.metrics.autoconfigure.jvm.JvmMetricsAutoConfiguration"
