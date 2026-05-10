@@ -82,12 +82,60 @@ export const SAMPLE_HISTORY: PromptRevision[] = [
 ];
 
 export const SAMPLE_EXECUTIONS: PromptDetailExecution[] = [
-  { id: 'exec_4f9c', when: '3 min ago', rev: 'r34', author: 'j.santos', context: 'CI · pre-merge', ms: 1740, tin: 4120, tout: 287, ok: true, fixture: 'fx/refund-window.json' },
-  { id: 'exec_4f9b', when: '4 min ago', rev: 'r34', author: 'j.santos', context: 'CI · pre-merge', ms: 1980, tin: 4220, tout: 312, ok: true, fixture: 'fx/contradicting-docs.json' },
-  { id: 'exec_4f9a', when: '4 min ago', rev: 'r34', author: 'j.santos', context: 'CI · pre-merge', ms: 2100, tin: 4380, tout: 348, ok: true, fixture: 'fx/ambiguous-question.json' },
-  { id: 'exec_4f8c', when: '12 min ago', rev: 'r34', author: 'j.santos', context: 'local · promptlm run', ms: 1620, tin: 3980, tout: 264, ok: true, fixture: 'fx/refund-window.json' },
-  { id: 'exec_4f87', when: '14 min ago', rev: 'r34', author: 'j.santos', context: 'local · promptlm run', ms: 1840, tin: 4020, tout: 281, ok: true, fixture: 'fx/no-context.json' },
-  { id: 'exec_4f81', when: '32 min ago', rev: 'r34', author: 'j.santos', context: 'local · promptlm run', ms: 4310, tin: 4180, tout: 401, ok: true, fixture: 'fx/long-doc.json' },
-  { id: 'exec_4f72', when: '5 hr ago', rev: 'r33', author: 's.weber', context: 'CI · main', ms: 1610, tin: 3120, tout: 290, ok: true, fixture: 'fx/refund-window.json' },
-  { id: 'exec_4f58', when: '14 hr ago', rev: 'r33', author: 'l.kim', context: 'local · promptlm run', ms: 5240, tin: 3320, tout: 412, ok: false, fixture: 'fx/edge-case-empty.json', error: 'context is insufficient' },
+  {
+    id: 'exec_4f9c', when: '3 min ago', rev: 'r34', author: 'j.santos',
+    context: 'CI · pre-merge', ms: 1740, tin: 4120, tout: 287, ok: true,
+    fixture: 'fx/refund-window.json',
+    input: 'What is the refund window for an order that shipped already?',
+    response: 'Our refund window is **30 days from delivery** for unopened items, and **14 days** once an item has been opened or used [policy:refunds.section-2].\n\nFor your case — an order that has shipped but not yet been delivered — the clock has not started yet. You can still cancel the shipment for a full refund up until the carrier marks it delivered [policy:refunds.section-3, ops:returns.shipping-rules].',
+  },
+  {
+    id: 'exec_4f9b', when: '4 min ago', rev: 'r34', author: 'j.santos',
+    context: 'CI · pre-merge', ms: 1980, tin: 4220, tout: 312, ok: true,
+    fixture: 'fx/contradicting-docs.json',
+    input: 'Does the final-sale policy apply to damaged items?',
+    response: 'Yes — damage on arrival overrides final-sale status [policy:refunds.section-5]. The newer policy doc (effective Mar 2025) makes this explicit and supersedes the older "final sale = no returns" wording in the FAQ [policy:refunds.section-5, faq:returns.q12].',
+  },
+  {
+    id: 'exec_4f9a', when: '4 min ago', rev: 'r34', author: 'j.santos',
+    context: 'CI · pre-merge', ms: 2100, tin: 4380, tout: 348, ok: true,
+    fixture: 'fx/ambiguous-question.json',
+    input: 'How long does it take?',
+    response: 'Could you clarify which step you mean? "How long does it take" could refer to:\n\n  · shipping time (3–5 business days standard, 1–2 expedited)\n  · refund processing once we receive the return (5–7 business days)\n  · the return-by-mail label arriving in your inbox (under 10 minutes)\n\nLet me know which one and I can give you the exact window.',
+  },
+  {
+    id: 'exec_4f8c', when: '12 min ago', rev: 'r34', author: 'j.santos',
+    context: 'local · promptlm run', ms: 1620, tin: 3980, tout: 264, ok: true,
+    fixture: 'fx/refund-window.json',
+    input: 'When does the refund window start?',
+    response: 'The refund window starts on the **delivery date** shown on the carrier\'s tracking page, not the order date [policy:refunds.section-2]. You then have 30 days for unopened items, 14 days for opened items.',
+  },
+  {
+    id: 'exec_4f87', when: '14 min ago', rev: 'r34', author: 'j.santos',
+    context: 'local · promptlm run', ms: 1840, tin: 4020, tout: 281, ok: true,
+    fixture: 'fx/no-context.json',
+    input: 'Can you ship to Australia?',
+    response: 'I don\'t have enough context to answer this confidently — the retrieved chunks cover domestic returns only, with no information on international shipments. I\'d rather not guess at policy that affects refunds.\n\nA human agent on the international team can confirm.',
+  },
+  {
+    id: 'exec_4f81', when: '32 min ago', rev: 'r34', author: 'j.santos',
+    context: 'local · promptlm run', ms: 4310, tin: 4180, tout: 401, ok: true,
+    fixture: 'fx/long-doc.json',
+    input: 'Walk me through the full return process step by step.',
+    response: 'Sure — here\'s the end-to-end flow [policy:refunds.section-1, ops:returns.flow]:\n\n  1. Start a return from your order page; pick a reason.\n  2. We email a prepaid label within 10 minutes.\n  3. Drop the package at any carrier point — keep the receipt.\n  4. Once we receive it (typically 3–5 business days), inspection takes up to 48 hours.\n  5. Refund issues to your original payment method within 5–7 business days of inspection.',
+  },
+  {
+    id: 'exec_4f72', when: '5 hr ago', rev: 'r33', author: 's.weber',
+    context: 'CI · main', ms: 1610, tin: 3120, tout: 290, ok: true,
+    fixture: 'fx/refund-window.json',
+    input: 'What is the refund window?',
+    response: '30 days from delivery for unopened items, 14 days once opened [refunds.section-2]. The clock starts when the carrier marks the package delivered.',
+  },
+  {
+    id: 'exec_4f58', when: '14 hr ago', rev: 'r33', author: 'l.kim',
+    context: 'local · promptlm run', ms: 5240, tin: 3320, tout: 412, ok: false,
+    fixture: 'fx/edge-case-empty.json', error: 'context is insufficient',
+    input: 'What is the return policy for international orders?',
+    response: 'I don\'t have enough context to answer this — no documents were retrieved for the question.\n\n[refusal: context is insufficient]',
+  },
 ];

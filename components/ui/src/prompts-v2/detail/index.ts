@@ -26,6 +26,9 @@ export { RevisionHistoryTable } from './RevisionHistoryTable';
 export type { RevisionHistoryTableProps } from './RevisionHistoryTable';
 export { ExecutionsTable, executionRowDomId } from './ExecutionsTable';
 export type { ExecutionsTableProps } from './ExecutionsTable';
+export { LatestResponse } from './LatestResponse';
+export type { LatestResponseProps } from './LatestResponse';
+export { renderResponseText } from './ResponseText';
 export { PromptDetailHeader } from './PromptDetailHeader';
 export type { PromptDetailHeaderProps, PreReleaseExecutionBadge } from './PromptDetailHeader';
 export type {

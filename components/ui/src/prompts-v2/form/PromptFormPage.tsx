@@ -28,6 +28,7 @@ import { TabStrip, type FormTabId } from './TabStrip';
 import { ReleaseRail, type ReleaseRailProps, type ReleaseRailState } from './release/ReleaseRail';
 import { TestTab } from './test/TestTab';
 import type { TestRunRecord, RepoHistoryItem } from './test/types';
+import { RunResponsePanel, type EditorRunRecord } from './RunResponsePanel';
 import type {
   FormEvaluation,
   FormMessage,
@@ -98,6 +99,12 @@ export interface PromptFormPageProps extends PromptFormReleaseFlowProps {
   onContentSelectionChange?: (
     selection: { messageIndex: number; selectionStart: number; selectionEnd: number } | null,
   ) => void;
+  /** Editor-tab inline run — executes the prompt and populates the response panel. */
+  onEditorRun?: () => void;
+  /** Current state of the editor-tab run. */
+  editorRunState?: 'idle' | 'running';
+  /** Last completed run record for the editor-tab response panel. */
+  lastEditorRun?: EditorRunRecord | null;
 }
 
 const HEADER_HEIGHT = 56;
@@ -157,6 +164,8 @@ const StickyHeader: React.FC<{
   onSubmit: () => void;
   releaseFlowEnabled: boolean;
   releaseDisabledReason: string | null;
+  onEditorRun?: () => void;
+  isEditorRunning?: boolean;
 }> = ({
   mode,
   draft,
@@ -169,6 +178,8 @@ const StickyHeader: React.FC<{
   onSubmit,
   releaseFlowEnabled,
   releaseDisabledReason,
+  onEditorRun,
+  isEditorRunning,
 }) => {
   const isCreate = mode === 'create';
   const totalErrors =
@@ -260,6 +271,12 @@ const StickyHeader: React.FC<{
       >
         {errors.hasErrors ? <>! {totalErrors} errors</> : '✓ ready to save'}
       </FormMono>
+      {onEditorRun && (
+        <GhostButton onClick={onEditorRun} disabled={isBusy || isEditorRunning}>
+          <span style={{ fontFamily: 'var(--pl-mono)', fontSize: 11, marginRight: 5 }}>▷</span>
+          {isEditorRunning ? 'Running…' : 'Run'}
+        </GhostButton>
+      )}
       <GhostButton onClick={onCancel} disabled={isBusy}>
         Cancel
       </GhostButton>
@@ -332,6 +349,9 @@ export const PromptFormPage: React.FC<PromptFormPageProps> = ({
   onReleaseRailRetry,
   placeholderShapeDirty = false,
   nextVersion,
+  onEditorRun,
+  editorRunState = 'idle',
+  lastEditorRun = null,
 }) => {
   const errors = React.useMemo(
     () => validateDraft(draft, evalEnabled),
@@ -436,6 +456,8 @@ export const PromptFormPage: React.FC<PromptFormPageProps> = ({
         releaseDisabledReason={
           releaseFlowEnabled && !gatesEval.canRelease ? gatesEval.blockingTooltip : null
         }
+        onEditorRun={onEditorRun}
+        isEditorRunning={editorRunState === 'running'}
       />
 
       {releaseFlowEnabled ? (
@@ -494,6 +516,13 @@ export const PromptFormPage: React.FC<PromptFormPageProps> = ({
               onChange={setMessages}
               onContentSelectionChange={onContentSelectionChange}
             />
+            {onEditorRun && (
+              <RunResponsePanel
+                runState={editorRunState}
+                lastRun={lastEditorRun}
+                modelLabel={`${draft.request.vendor}/${draft.request.model}`}
+              />
+            )}
           </div>
         </main>
 
