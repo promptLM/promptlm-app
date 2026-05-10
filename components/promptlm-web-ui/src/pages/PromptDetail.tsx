@@ -19,6 +19,7 @@ import {
   ExecutionsTable,
   executionRowDomId,
   KV,
+  LatestResponse,
   MessageBlock,
   MetricsStrip,
   Mono,
@@ -212,6 +213,13 @@ export default function PromptDetail() {
 
   const editTo = `/prompts/${id}/edit`;
   const showMetrics = featureFlags.executionMetrics && view.metrics !== null;
+  const showExecutions = featureFlags.executionMetrics && view.executions.length > 0;
+  const latestExec = view.executions[0] ?? null;
+  const showLatestResponse = showExecutions && latestExec !== null;
+
+  // §-numbers are sequential over visible sections.
+  let sectionNum = 0;
+  const nextNum = () => String(++sectionNum).padStart(2, '0');
 
   return (
     <div
@@ -240,18 +248,18 @@ export default function PromptDetail() {
           // Issue #98: surface the gating execution badge for released
           // revisions. PR 1 mocks the link via `view.executions[0]`; PR 2
           // will derive the gating execution id from the release record.
-          featureFlags.releaseFlow && view.status === 'production' && view.executions[0]
+          featureFlags.releaseFlow && view.status === 'production' && latestExec
             ? {
-                status: view.executions[0].ok ? 'ok' : 'error',
-                tooltip: `View pre-release run ${view.executions[0].id}`,
-                onClick: () => focusExecution(view.executions[0].id),
+                status: latestExec.ok ? 'ok' : 'error',
+                tooltip: `View pre-release run ${latestExec.id}`,
+                onClick: () => focusExecution(latestExec.id),
               }
             : undefined
         }
       />
 
       {showMetrics && (
-        <DetailSection num="01" title="Dev execution metrics" anchor="metrics">
+        <DetailSection num={nextNum()} title="Dev execution metrics" anchor="metrics">
           <p
             style={{
               margin: '0 0 20px',
@@ -269,7 +277,7 @@ export default function PromptDetail() {
         </DetailSection>
       )}
 
-      <DetailSection num={showMetrics ? '02' : '01'} title="Spec" anchor="spec">
+      <DetailSection num={nextNum()} title="Spec" anchor="spec">
         <SpecBlock title="request">
           <KV k="vendor" v={view.request.vendor} />
           <KV k="model" v={view.request.model} />
@@ -305,9 +313,30 @@ export default function PromptDetail() {
         )}
       </DetailSection>
 
-      {featureFlags.executionMetrics && view.executions.length > 0 && (
+      {showLatestResponse && latestExec && (
+        <DetailSection num={nextNum()} title="Latest response" anchor="latest-response">
+          <p
+            style={{
+              margin: '0 0 20px',
+              fontSize: 13.5,
+              lineHeight: 1.6,
+              color: 'var(--pl-ink-700)',
+              maxWidth: 720,
+            }}
+          >
+            The exact text the model produced on the most recent dev run. Stored alongside the
+            execution so it can be diffed against later revisions.
+          </p>
+          <LatestResponse
+            exec={latestExec}
+            model={`${view.vendor}/${view.model}`}
+          />
+        </DetailSection>
+      )}
+
+      {showExecutions && (
         <DetailSection
-          num={showMetrics ? '03' : '02'}
+          num={nextNum()}
           title="Recent dev executions"
           anchor="executions"
         >
@@ -321,6 +350,7 @@ export default function PromptDetail() {
             }}
           >
             Last <Mono color="var(--pl-ink-900)">{view.executions.length}</Mono> recorded runs.
+            Click any row to expand the full input and response.
           </p>
           <ExecutionsTable
             rows={view.executions}

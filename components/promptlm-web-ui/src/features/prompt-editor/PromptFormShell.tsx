@@ -34,6 +34,7 @@ import { useNavigate } from 'react-router-dom';
 
 import {
   PromptFormPage,
+  type EditorRunRecord,
   type PromptFormContext,
   type PromptFormDraft,
   type PromptFormToolConfig,
@@ -48,6 +49,7 @@ import {
 import { releasePromptAction, savePromptDraftAction } from './editorActions';
 import { usePromptEditorData } from './usePromptEditorData';
 import { useCapabilities } from '@/api/hooks';
+import { useGeneratedApiClient } from '@api-common/generatedClientProvider';
 import { featureFlags } from '@/lib/featureFlags';
 import type { PromptDraftInput } from '@/api/promptPayloads';
 
@@ -178,10 +180,13 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
   const capabilities = useCapabilities();
   const editor = usePromptEditorDraft(useMemo(() => createEmptyPromptDraft(), []));
   const { replaceState, setRepositoryUrl } = editor;
+  const { promptSpecs } = useGeneratedApiClient();
   const [createdPromptId, setCreatedPromptId] = useState<string | null>(null);
   const [isReleasing, setIsReleasing] = useState(false);
   const [validationRequested, setValidationRequested] = useState(false);
   const [toolConfigs, setToolConfigs] = useState<PromptFormToolConfig[]>([]);
+  const [editorRunState, setEditorRunState] = useState<'idle' | 'running'>('idle');
+  const [lastEditorRun, setLastEditorRun] = useState<EditorRunRecord | null>(null);
 
   // Hydrate draft on load. Depend only on the replaceState callback (stable
   // reference from the useReducer dispatch) — depending on `editor` triggers
@@ -339,6 +344,45 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
     }
   }, [createdPromptId, data, editor, mode, navigate, persistDraft]);
 
+  const effectivePromptId = data.promptId ?? createdPromptId;
+
+  const handleEditorRun = useCallback(async () => {
+    if (!effectivePromptId || editorRunState === 'running') return;
+    setEditorRunState('running');
+    const startMs = Date.now();
+    try {
+      const result = await promptSpecs.executeStoredPrompt(effectivePromptId);
+      const exec = result?.executions?.[0];
+      const ms = Date.now() - startMs;
+      const userMessagePh = (exec?.placeholders ?? []).find((ph) => ph.name === 'user_message');
+      setLastEditorRun({
+        when: 'just now',
+        kind: 'run',
+        ms: exec?.latencyMs ?? ms,
+        tin: exec?.tokensIn ?? exec?.response?.usage?.input_tokens ?? 0,
+        tout: exec?.tokensOut ?? exec?.response?.usage?.output_tokens ?? 0,
+        ok: typeof exec?.ok === 'boolean' ? exec.ok : exec?.response !== undefined,
+        rev: formContext.revision,
+        input: userMessagePh?.defaultValue ?? (exec?.placeholders ?? [])[0]?.defaultValue,
+        response: exec?.response?.content,
+        error: exec?.error,
+      });
+    } catch {
+      setLastEditorRun({
+        when: 'just now',
+        kind: 'run',
+        ms: Date.now() - startMs,
+        tin: 0,
+        tout: 0,
+        ok: false,
+        rev: formContext.revision,
+        error: 'execution failed',
+      });
+    } finally {
+      setEditorRunState('idle');
+    }
+  }, [effectivePromptId, editorRunState, promptSpecs, formContext.revision]);
+
   if (data.promptError) {
     return (
       <div
@@ -388,6 +432,9 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
       onSaveDraft={handleSaveDraft}
       onSubmit={handleSubmit}
       releaseFlowEnabled={featureFlags.releaseFlow}
+      onEditorRun={effectivePromptId ? handleEditorRun : undefined}
+      editorRunState={editorRunState}
+      lastEditorRun={lastEditorRun}
     />
   );
 };

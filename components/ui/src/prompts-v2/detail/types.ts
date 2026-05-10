@@ -88,4 +88,8 @@ export interface PromptDetailExecution {
   tout: number;
   ok: boolean;
   error?: string;
+  /** Assistant response text captured during the run. */
+  response?: string;
+  /** User message / primary input used for the run (extracted from placeholders). */
+  input?: string;
 }

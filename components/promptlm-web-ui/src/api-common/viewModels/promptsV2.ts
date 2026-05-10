@@ -260,19 +260,32 @@ const mapPlaceholders = (spec: PromptSpec): PromptDetailPlaceholder[] => {
 
 const mapExecutions = (spec: PromptSpec): PromptDetailExecution[] => {
   const list = spec.executions ?? [];
-  return list.map((execution) => ({
-    id: execution.id ?? `exec-${execution.timestamp ?? 'unknown'}`,
-    when: formatRelative(execution.timestamp),
-    rev: execution.revision ?? '—',
-    author: execution.author ?? '—',
-    context: execution.context ?? 'capture',
-    fixture: execution.fixturePath ?? '—',
-    ms: latencyMsFor(execution) ?? 0,
-    tin: tokensInFor(execution) ?? 0,
-    tout: tokensOutFor(execution) ?? 0,
-    ok: isExecutionOk(execution),
-    error: execution.error,
-  }));
+  return list.map((execution) => {
+    // Extract the user_message placeholder value as the human-readable input.
+    const userMessagePh = (execution.placeholders ?? []).find(
+      (ph) => ph.name === 'user_message',
+    );
+    const input =
+      userMessagePh?.defaultValue ??
+      (execution.placeholders ?? [])[0]?.defaultValue ??
+      undefined;
+
+    return {
+      id: execution.id ?? `exec-${execution.timestamp ?? 'unknown'}`,
+      when: formatRelative(execution.timestamp),
+      rev: execution.revision ?? '—',
+      author: execution.author ?? '—',
+      context: execution.context ?? 'capture',
+      fixture: execution.fixturePath ?? '—',
+      ms: latencyMsFor(execution) ?? 0,
+      tin: tokensInFor(execution) ?? 0,
+      tout: tokensOutFor(execution) ?? 0,
+      ok: isExecutionOk(execution),
+      error: execution.error,
+      response: execution.response?.content ?? undefined,
+      input,
+    };
+  });
 };
 
 const computeMetrics = (
