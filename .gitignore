@@ -10,7 +10,6 @@ build/
 !**/src/test/**/build/
 dist/
 output/
-
 ### IntelliJ IDEA ###
 .idea/
 *.iws
@@ -58,9 +57,11 @@ docker/data/
 ### Misc ###
 .git.bck
 .playwright-cli/
+.playwright-mcp/
 .tmp/
 .claude/worktrees/
 
 ### Agent / Claude scratch (temporary — drop when no longer noisy) ###
 .claude/
 .agents/
+.windsurf/
