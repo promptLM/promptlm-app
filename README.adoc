@@ -1,8 +1,22 @@
+ifdef::env-github[]
+:tip-caption: :bulb:
+:note-caption: :information_source:
+:important-caption: :heavy_exclamation_mark:
+:caution-caption: :fire:
+:warning-caption: :warning:
+endif::[]
 = promptLM
 
 promptLM is an open-source framework designed to help you manage, version, and release prompts.
 
 With the client SDKs, you can fetch released prompt specifications and use them in your application.
+
+[WARNING]
+====
+Clone or fork at your own risk.
+
+The `main` branch may be force-pushed at any time, which can rewrite history and invalidate existing clones, forks, or commit references.
+====
 
 == Introduction
 - Why, what, how, ...
