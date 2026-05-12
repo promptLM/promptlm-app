@@ -24,6 +24,9 @@ import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.WaitForSelectorState;
 import dev.promptlm.domain.ObjectMapperFactory;
 import dev.promptlm.domain.promptspec.ChatCompletionRequest;
+import dev.promptlm.domain.promptspec.ChatCompletionResponse;
+import dev.promptlm.domain.promptspec.Execution;
+import dev.promptlm.domain.promptspec.ExecutionKind;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import dev.promptlm.test.support.ArtifactoryStorageHelper;
 import dev.promptlm.test.support.GiteaRepositoryHelper;
@@ -228,6 +231,48 @@ public class HappyPathUserJourneyTest {
     }
 
     @Test
+    @Order(25)
+    @DisplayName("Run prompt from editor and persist a MANUAL execution (#140)")
+    @Timeout(value = 5, unit = TimeUnit.MINUTES)
+    void runPromptPersistsManualExecution() {
+        // Reach the editor for the prompt created in @Order(20). The catalog row
+        // opens the read view; "Edit" navigates to /prompts/:id/edit.
+        navigateToApplication();
+        navigateToPath("/prompts");
+        page.getByTestId("prompt-card-%s-action".formatted(PROMPT_NAME)).click();
+        page.getByTestId("prompt-edit-action").click();
+        page.getByTestId("prompt-editor-heading").waitFor();
+
+        // Click Run and wait for the execute response so we know the panel has
+        // had a chance to update. The acceptance Spring profile installs
+        // AcceptanceTestStubGateway, so the call returns a deterministic
+        // response without needing an LLM API key.
+        page.waitForResponse(
+                response -> response.url().contains("/execute")
+                        && "POST".equalsIgnoreCase(response.request().method()),
+                () -> page.getByTestId("prompt-editor-run-action").click());
+
+        // UI surface: the run response container should render with the stub
+        // content. We assert non-empty rather than the literal stub string so
+        // the test stays decoupled from the stub's exact payload format.
+        Locator runResponse = page.getByTestId("prompt-editor-run-response");
+        runResponse.waitFor();
+        assertThat(runResponse.textContent()).isNotBlank();
+
+        // YAML surface: the dev run should append a MANUAL Execution with the
+        // response content. Refetch the development-branch YAML and assert.
+        PromptSpec afterRun = waitForPromptSpec("development", Duration.ofMinutes(2));
+        assertThat(afterRun.getExecutions())
+                .as("dev-run must append at least one Execution to spec.executions[]")
+                .isNotNull()
+                .isNotEmpty();
+        Execution latest = afterRun.getExecutions().get(0);
+        assertThat(latest.kindOrManual()).isEqualTo(ExecutionKind.MANUAL);
+        assertThat(latest.getResponse()).isInstanceOf(ChatCompletionResponse.class);
+        assertThat(((ChatCompletionResponse) latest.getResponse()).getContent()).isNotBlank();
+    }
+
+    @Test
     @Order(30)
     @DisplayName("release prompt")
     @Timeout(value = 10, unit = TimeUnit.MINUTES)
@@ -267,6 +312,20 @@ public class HappyPathUserJourneyTest {
 
         // Verify deployed prompt in Gitea
         verifyPromptVersion("main", expectedReleaseVersion);
+
+        // Per #140: the pre-release-execute gate runs the spec server-side before
+        // promotion and appends a PRE_RELEASE Execution to spec.executions[]. The
+        // released YAML on main must carry that record with the stub's response.
+        PromptSpec releasedSpec = waitForPromptSpec("main", expectedReleaseVersion, Duration.ofMinutes(2));
+        assertThat(releasedSpec.getExecutions())
+                .as("released YAML must contain executions[] from the pre-release-execute gate")
+                .isNotNull()
+                .isNotEmpty();
+        assertThat(releasedSpec.getExecutions())
+                .anyMatch(execution -> execution.kindOrManual() == ExecutionKind.PRE_RELEASE
+                        && execution.getResponse() instanceof ChatCompletionResponse chat
+                        && chat.getContent() != null
+                        && !chat.getContent().isBlank());
     }
 
     @Test

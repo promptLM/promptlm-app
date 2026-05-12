@@ -272,7 +272,11 @@ const StickyHeader: React.FC<{
         {errors.hasErrors ? <>! {totalErrors} errors</> : '✓ ready to save'}
       </FormMono>
       {onEditorRun && (
-        <GhostButton onClick={onEditorRun} disabled={isBusy || isEditorRunning}>
+        <GhostButton
+          onClick={onEditorRun}
+          disabled={isBusy || isEditorRunning}
+          testId="prompt-editor-run-action"
+        >
           <span style={{ fontFamily: 'var(--pl-mono)', fontSize: 11, marginRight: 5 }}>▷</span>
           {isEditorRunning ? 'Running…' : 'Run'}
         </GhostButton>

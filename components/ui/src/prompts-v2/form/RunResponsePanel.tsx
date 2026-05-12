@@ -240,18 +240,21 @@ export const RunResponsePanel: React.FC<RunResponsePanelProps> = ({
                 <FormMono size={10.5} color="var(--pl-ink-500)">{lastRun.tout} tok</FormMono>
               </div>
 
-              <div style={{
-                padding: '12px 14px',
-                background: 'var(--pl-canvas)',
-                border: '1px solid var(--pl-ink-200)',
-                borderRadius: 6,
-                fontFamily: 'var(--pl-display)',
-                fontSize: 13,
-                lineHeight: 1.6,
-                color: 'var(--pl-ink-900)',
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-              }}>
+              <div
+                data-testid="prompt-editor-run-response"
+                style={{
+                  padding: '12px 14px',
+                  background: 'var(--pl-canvas)',
+                  border: '1px solid var(--pl-ink-200)',
+                  borderRadius: 6,
+                  fontFamily: 'var(--pl-display)',
+                  fontSize: 13,
+                  lineHeight: 1.6,
+                  color: 'var(--pl-ink-900)',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                }}
+              >
                 {lastRun.response
                   ? renderResponseText(lastRun.response)
                   : <FormMono size={11} color={lastRun.ok ? 'var(--pl-ink-500)' : 'oklch(0.45 0.13 25)'}>
