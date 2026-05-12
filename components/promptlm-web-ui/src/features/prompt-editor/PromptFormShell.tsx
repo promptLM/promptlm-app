@@ -355,6 +355,9 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
       const exec = result?.executions?.[0];
       const ms = Date.now() - startMs;
       const userMessagePh = (exec?.placeholders ?? []).find((ph) => ph.name === 'user_message');
+      const lastUserMessage = [...(result?.request?.messages ?? [])]
+        .reverse()
+        .find((m) => m.role === 'user');
       setLastEditorRun({
         when: 'just now',
         kind: 'run',
@@ -363,7 +366,10 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
         tout: exec?.tokensOut ?? exec?.response?.usage?.output_tokens ?? 0,
         ok: typeof exec?.ok === 'boolean' ? exec.ok : exec?.response !== undefined,
         rev: formContext.revision,
-        input: userMessagePh?.defaultValue ?? (exec?.placeholders ?? [])[0]?.defaultValue,
+        input:
+          userMessagePh?.defaultValue ??
+          (exec?.placeholders ?? [])[0]?.defaultValue ??
+          lastUserMessage?.content,
         response: exec?.response?.content,
         error: exec?.error,
       });

@@ -18,6 +18,7 @@ package dev.promptlm.lifecycle;
 
 import dev.promptlm.lifecycle.application.PromptLifecycleService;
 import dev.promptlm.domain.promptspec.ChatCompletionRequest;
+import dev.promptlm.domain.promptspec.Execution;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import dev.promptlm.release.OnInfraFailure;
 import tools.jackson.databind.JsonNode;
@@ -70,5 +71,9 @@ public class PromptLifecycleFacade {
 
     public PromptSpec completeRelease(String id, String pullRequestReference) {
         return lifecycleService.completeReleasePrompt(id, pullRequestReference);
+    }
+
+    public PromptSpec recordExecution(String promptSpecId, Execution execution) {
+        return lifecycleService.recordExecution(promptSpecId, execution);
     }
 }

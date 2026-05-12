@@ -23,6 +23,7 @@ import dev.promptlm.domain.promptspec.ChatCompletionResponse;
 import dev.promptlm.domain.promptspec.EvaluationResult;
 import dev.promptlm.domain.promptspec.EvaluationResults;
 import dev.promptlm.domain.promptspec.EvaluationStatus;
+import dev.promptlm.domain.promptspec.Execution;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import dev.promptlm.domain.promptspec.ReleaseMetadata;
 import dev.promptlm.lifecycle.audit.NoOpReleaseAuditContext;
@@ -46,9 +47,11 @@ import dev.promptlm.domain.events.PromptCreatedEvent;
 import dev.promptlm.domain.events.PromptReleaseRequestedEvent;
 import dev.promptlm.domain.events.PromptReleasedEvent;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -1042,5 +1045,119 @@ class DefaultPromptLifecycleServiceTest {
 
         verify(auditLogger).record(any(ReleaseAuditEvent.class));
         verifyNoMoreInteractions(auditLogger);
+    }
+
+    @Test
+    void updatePromptClearsExecutionsWhenRevisionBumps() {
+        Execution prior = new Execution(
+                "exec-prior",
+                Instant.parse("2026-05-12T10:00:00Z"),
+                new ChatCompletionResponse(10L, null, "old"),
+                null, null);
+        PromptSpec existing = basePromptSpec.withRevision(3).withExecutions(List.of(prior));
+        PromptSpec updating = existing.withRequest(ChatCompletionRequest.builder()
+                .withVendor("openai")
+                .withModel("gpt-4")
+                .withMessages(List.of(ChatCompletionRequest.Message.builder()
+                        .withRole("user")
+                        .withContent("revised")
+                        .build()))
+                .build());
+
+        assertThat(updating.hasSemanticChangesComparedTo(existing)).isTrue();
+
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(existing));
+        when(repository.storePrompt(any(PromptSpec.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PromptSpec result = service.updatePrompt(PROMPT_ID, updating);
+
+        assertThat(result.getRevision()).isEqualTo(4);
+        assertThat(result.getExecutions()).isEmpty();
+    }
+
+    @Test
+    void updatePromptKeepsExecutionsWhenOnlyMetadataChanged() {
+        Execution prior = new Execution(
+                "exec-prior",
+                Instant.parse("2026-05-12T10:00:00Z"),
+                new ChatCompletionResponse(10L, null, "kept"),
+                null, null);
+        PromptSpec existing = basePromptSpec.withRevision(3).withExecutions(List.of(prior));
+        PromptSpec updating = existing.withDescription("new-desc");
+
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(existing));
+        when(repository.storePrompt(any(PromptSpec.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PromptSpec result = service.updatePrompt(PROMPT_ID, updating);
+
+        assertThat(result.getRevision()).isEqualTo(3);
+        assertThat(result.getExecutions()).hasSize(1);
+        assertThat(result.getExecutions().get(0).getId()).isEqualTo("exec-prior");
+    }
+
+    @Test
+    void recordExecutionAppendsAndPersists() {
+        PromptSpec existing = basePromptSpec.withRevision(3);
+        Execution toRecord = new Execution(
+                "exec-new",
+                Instant.parse("2026-05-12T12:00:00Z"),
+                new ChatCompletionResponse(10L, null, "fresh"),
+                null, null);
+
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(existing));
+        when(repository.storePrompt(any(PromptSpec.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PromptSpec result = service.recordExecution(PROMPT_ID, toRecord);
+
+        assertThat(result.getRevision()).isEqualTo(3);
+        assertThat(result.getExecutions()).hasSize(1);
+        assertThat(result.getExecutions().get(0).getId()).isEqualTo("exec-new");
+        assertThat(((ChatCompletionResponse) result.getResponse()).getContent()).isEqualTo("fresh");
+
+        verify(repository).storePrompt(result);
+    }
+
+    @Test
+    void recordExecutionCapsListAtMaximumDropsOldest() {
+        List<Execution> sixExisting = IntStream.range(0, 6)
+                .mapToObj(i -> new Execution(
+                        "exec-" + i,
+                        Instant.parse("2026-05-12T10:00:00Z").plusSeconds(i),
+                        new ChatCompletionResponse(10L, null, "n-" + i),
+                        null, null))
+                .toList();
+        PromptSpec existing = basePromptSpec.withRevision(3).withExecutions(sixExisting);
+
+        Execution incoming = new Execution(
+                "exec-newest",
+                Instant.parse("2026-05-12T13:00:00Z"),
+                new ChatCompletionResponse(10L, null, "newest"),
+                null, null);
+
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(existing));
+        when(repository.storePrompt(any(PromptSpec.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PromptSpec result = service.recordExecution(PROMPT_ID, incoming);
+
+        // Cap is 5; six existing + new = 7 → drop two oldest, keep last 5.
+        assertThat(result.getExecutions()).hasSize(PromptLifecycleService.MAX_DEV_EXECUTIONS);
+        assertThat(result.getExecutions())
+                .extracting(Execution::getId)
+                .containsExactly("exec-2", "exec-3", "exec-4", "exec-5", "exec-newest");
+    }
+
+    @Test
+    void recordExecutionRejectsNull() {
+        assertThatThrownBy(() -> service.recordExecution(PROMPT_ID, null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void recordExecutionThrowsWhenPromptMissing() {
+        Execution exec = new Execution(
+                "exec-x", Instant.now(), null, null, null);
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.recordExecution(PROMPT_ID, exec))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

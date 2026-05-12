@@ -446,7 +446,7 @@ class PromptSpecControllerWebMvcTest {
     }
 
     @Test
-    void executeStoredPromptPersistsCapturedResponse() throws Exception {
+    void executeStoredPromptRecordsExecutionAndReturnsPersistedSpec() throws Exception {
         String promptId = "prompt-a";
 
         ChatCompletionRequest requestPayload = ChatCompletionRequest.builder()
@@ -481,12 +481,22 @@ class PromptSpecControllerWebMvcTest {
                 .build()
                 .withId(promptId);
 
-        PromptSpec executedPrompt = storedPrompt.withResponse(new ChatCompletionResponse(10L, null, "Pong"));
-        PromptSpec persistedPrompt = storedPrompt.withResponse(executedPrompt.getResponse());
+        ChatCompletionResponse response = new ChatCompletionResponse(10L, null, "Pong");
+        PromptSpec executedPrompt = storedPrompt.withResponse(response);
+        Execution recorded = new Execution(
+                "exec-uuid",
+                Instant.parse("2026-05-12T12:00:00Z"),
+                response,
+                null,
+                null);
+        PromptSpec persistedPrompt = storedPrompt
+                .withResponse(response)
+                .withExecutions(List.of(recorded));
 
         when(promptExecutor.runPromptAndAttachResponse(any(PromptSpec.class))).thenReturn(executedPrompt);
         when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(storedPrompt));
-        when(promptLifecycleFacade.updatePrompt(eq(promptId), any(PromptSpec.class))).thenReturn(persistedPrompt);
+        when(promptLifecycleFacade.recordExecution(eq(promptId), any(Execution.class)))
+                .thenReturn(persistedPrompt);
 
         ExecutePromptRequest executePromptRequest = new ExecutePromptRequest(requestBodyPrompt);
 
@@ -495,7 +505,9 @@ class PromptSpecControllerWebMvcTest {
                         .content(objectMapper.writeValueAsString(executePromptRequest)))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith("application/json"))
-                .andExpect(jsonPath("$.response.content").value("Pong"));
+                .andExpect(jsonPath("$.response.content").value("Pong"))
+                .andExpect(jsonPath("$.executions[0].id").value("exec-uuid"))
+                .andExpect(jsonPath("$.executions[0].response.content").value("Pong"));
 
         ArgumentCaptor<PromptSpec> executedPromptCaptor = ArgumentCaptor.forClass(PromptSpec.class);
         verify(promptExecutor).runPromptAndAttachResponse(executedPromptCaptor.capture());
@@ -504,14 +516,118 @@ class PromptSpecControllerWebMvcTest {
         assertThat(executedPromptCaptor.getValue().getVersion()).isEqualTo("1.0.0");
         assertThat(executedPromptCaptor.getValue().getRevision()).isEqualTo(3);
 
-        ArgumentCaptor<PromptSpec> updatedPromptCaptor = ArgumentCaptor.forClass(PromptSpec.class);
-        verify(promptLifecycleFacade).updatePrompt(eq(promptId), updatedPromptCaptor.capture());
-        assertThat(((ChatCompletionResponse) updatedPromptCaptor.getValue().getResponse()).getContent())
-                .isEqualTo("Pong");
-        assertThat(updatedPromptCaptor.getValue().getGroup()).isEqualTo("support");
-        assertThat(updatedPromptCaptor.getValue().getName()).isEqualTo("prompt-a");
-        assertThat(updatedPromptCaptor.getValue().getVersion()).isEqualTo("1.0.0");
-        assertThat(updatedPromptCaptor.getValue().getRevision()).isEqualTo(3);
+        ArgumentCaptor<Execution> executionCaptor = ArgumentCaptor.forClass(Execution.class);
+        verify(promptLifecycleFacade).recordExecution(eq(promptId), executionCaptor.capture());
+        Execution captured = executionCaptor.getValue();
+        assertThat(captured.getId()).isNotBlank();
+        assertThat(captured.getKind()).isEqualTo(dev.promptlm.domain.promptspec.ExecutionKind.MANUAL);
+        assertThat(captured.getOk()).isTrue();
+        assertThat(captured.getRevision()).isEqualTo("3");
+        assertThat(((ChatCompletionResponse) captured.getResponse()).getContent()).isEqualTo("Pong");
+    }
+
+    @Test
+    void executeStoredPromptReturnsExecutionsSortedNewestFirst() throws Exception {
+        String promptId = "prompt-sort";
+
+        ChatCompletionRequest requestPayload = ChatCompletionRequest.builder()
+                .withVendor("openai")
+                .withModel("gpt-4o")
+                .withMessages(List.of(
+                        ChatCompletionRequest.Message.builder()
+                                .withRole("user")
+                                .withContent("Ping")
+                                .build()
+                ))
+                .withParameters(Map.of())
+                .build();
+
+        PromptSpec storedPrompt = PromptSpec.builder()
+                .withGroup("support")
+                .withName("prompt-sort")
+                .withVersion("1.0.0")
+                .withRevision(1)
+                .withDescription("desc")
+                .withRequest(requestPayload)
+                .build()
+                .withId(promptId);
+
+        ChatCompletionResponse responseLatest = new ChatCompletionResponse(10L, null, "latest");
+        // Store-order: oldest first. API view must flip to newest first.
+        Execution older = new Execution(
+                "exec-older",
+                Instant.parse("2026-05-12T10:00:00Z"),
+                new ChatCompletionResponse(10L, null, "older"),
+                null, null);
+        Execution newer = new Execution(
+                "exec-newer",
+                Instant.parse("2026-05-12T12:00:00Z"),
+                responseLatest,
+                null, null);
+
+        PromptSpec persisted = storedPrompt
+                .withResponse(responseLatest)
+                .withExecutions(List.of(older, newer));
+
+        when(promptExecutor.runPromptAndAttachResponse(any(PromptSpec.class)))
+                .thenReturn(storedPrompt.withResponse(responseLatest));
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(storedPrompt));
+        when(promptLifecycleFacade.recordExecution(eq(promptId), any(Execution.class))).thenReturn(persisted);
+
+        ExecutePromptRequest executePromptRequest = new ExecutePromptRequest(null);
+
+        mockMvc.perform(post("/api/prompts/{promptSpecId}/execute", promptId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(executePromptRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.executions[0].id").value("exec-newer"))
+                .andExpect(jsonPath("$.executions[1].id").value("exec-older"));
+    }
+
+    @Test
+    void getByIdReturnsExecutionsSortedNewestFirst() throws Exception {
+        String promptId = "prompt-get";
+
+        ChatCompletionRequest requestPayload = ChatCompletionRequest.builder()
+                .withVendor("openai")
+                .withModel("gpt-4o")
+                .withMessages(List.of(
+                        ChatCompletionRequest.Message.builder()
+                                .withRole("user")
+                                .withContent("Ping")
+                                .build()
+                ))
+                .withParameters(Map.of())
+                .build();
+
+        Execution older = new Execution(
+                "exec-older",
+                Instant.parse("2026-05-12T10:00:00Z"),
+                new ChatCompletionResponse(10L, null, "older"),
+                null, null);
+        Execution newer = new Execution(
+                "exec-newer",
+                Instant.parse("2026-05-12T12:00:00Z"),
+                new ChatCompletionResponse(10L, null, "newer"),
+                null, null);
+
+        PromptSpec stored = PromptSpec.builder()
+                .withGroup("support")
+                .withName("prompt-get")
+                .withVersion("1.0.0")
+                .withRevision(1)
+                .withDescription("desc")
+                .withRequest(requestPayload)
+                .build()
+                .withId(promptId)
+                .withExecutions(List.of(older, newer));
+
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(stored));
+
+        mockMvc.perform(get("/api/prompts/{promptSpecId}", promptId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.executions[0].id").value("exec-newer"))
+                .andExpect(jsonPath("$.executions[1].id").value("exec-older"));
     }
 
     @Test

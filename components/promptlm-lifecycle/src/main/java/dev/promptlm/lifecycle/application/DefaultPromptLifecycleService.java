@@ -41,6 +41,7 @@ import org.slf4j.LoggerFactory;
 import tools.jackson.databind.JsonNode;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -212,10 +213,44 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
         }
 
         boolean semanticChanged = updated.hasSemanticChangesComparedTo(promptSpec);
-        PromptSpec versioned = semanticChanged ? increaseRevision(updated) : updated;
+        // A semantic change (request shape, placeholders, ...) invalidates prior responses;
+        // clear executions[] in the same branch that bumps revision so the invariant
+        // holds across all update paths (editor save, API PUT, YAML reload). See #140.
+        PromptSpec versioned = semanticChanged
+                ? increaseRevision(updated).withExecutions(List.of())
+                : updated;
         PromptSpec hashed = versioned.withSemanticHashComputed();
         repository.storePrompt(hashed);
         return hashed;
+    }
+
+    @Override
+    public PromptSpec recordExecution(String promptSpecId, Execution execution) {
+        if (execution == null) {
+            throw new IllegalArgumentException("execution must not be null");
+        }
+        PromptSpec stored = repository.getLatestVersion(promptSpecId)
+                .orElseThrow(() -> new IllegalArgumentException("Prompt " + promptSpecId + " does not exist"));
+
+        List<Execution> next = appendCapped(stored.getExecutions(), execution, MAX_DEV_EXECUTIONS);
+        PromptSpec updated = stored.withExecutions(next);
+        if (execution.getResponse() != null) {
+            updated = updated.withResponse(execution.getResponse());
+        }
+        // Recompute the semantic hash defensively; executions and response don't
+        // contribute to it but other callers may have left a stale hash.
+        PromptSpec hashed = updated.withSemanticHashComputed();
+        repository.storePrompt(hashed);
+        return hashed;
+    }
+
+    private static List<Execution> appendCapped(List<Execution> existing, Execution toAdd, int cap) {
+        List<Execution> merged = existing == null ? new ArrayList<>() : new ArrayList<>(existing);
+        merged.add(toAdd);
+        while (merged.size() > cap) {
+            merged.remove(0);
+        }
+        return merged;
     }
 
     @Override

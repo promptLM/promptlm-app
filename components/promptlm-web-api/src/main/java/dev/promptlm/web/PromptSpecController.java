@@ -21,6 +21,8 @@ import dev.promptlm.domain.projectspec.ProjectSpec;
 import dev.promptlm.lifecycle.PromptLifecycleFacade;
 import dev.promptlm.execution.PromptExecutor;
 import dev.promptlm.domain.promptspec.ChatCompletionRequest;
+import dev.promptlm.domain.promptspec.Execution;
+import dev.promptlm.domain.promptspec.ExecutionKind;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import dev.promptlm.domain.promptspec.ReleaseMetadata;
 import dev.promptlm.domain.promptspec.Request;
@@ -59,6 +61,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
@@ -98,10 +101,10 @@ public class PromptSpecController {
     })
     @GetMapping(path = "/{promptSpecId}")
     public ResponseEntity<PromptSpec> getById(
-            @Parameter(description = "Unique identifier of the prompt specification") 
+            @Parameter(description = "Unique identifier of the prompt specification")
             @PathVariable(name = "promptSpecId") String promptSpecId) {
         Optional<PromptSpec> latestVersion = promptStore.getLatestVersion(promptSpecId);
-        return ResponseEntity.of(latestVersion);
+        return ResponseEntity.of(latestVersion.map(PromptSpecApiView::toApiView));
     }
 
     /**
@@ -116,7 +119,7 @@ public class PromptSpecController {
     @GetMapping
     public ResponseEntity<List<PromptSpec>> listPromptSpecs() {
         List<PromptSpec> prompts = promptStore.listAllPrompts();
-        return ResponseEntity.ok(prompts);
+        return ResponseEntity.ok(PromptSpecApiView.toApiView(prompts));
     }
     
     /**
@@ -143,7 +146,7 @@ public class PromptSpecController {
 
         try {
             PromptSpec created = promptLifecycleFacade.createPromptSpec(promptSpec);
-            return ResponseEntity.ok(created);
+            return ResponseEntity.ok(PromptSpecApiView.toApiView(created));
         } catch (PromptSpecAlreadyExistsException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage(), e);
         }
@@ -179,7 +182,7 @@ public class PromptSpecController {
         }
         
         PromptSpec spec = promptLifecycleFacade.updatePrompt(promptSpecId, promptSpec);
-        return ResponseEntity.ok(spec);
+        return ResponseEntity.ok(PromptSpecApiView.toApiView(spec));
     }
 
     @Operation(
@@ -659,7 +662,7 @@ public class PromptSpecController {
         PromptSpec promptSpec = request.getPromptSpec();
         try {
             PromptSpec executedSpec = promptExecutor.runPromptAndAttachResponse(promptSpec);
-            return ResponseEntity.ok(executedSpec);
+            return ResponseEntity.ok(PromptSpecApiView.toApiView(executedSpec));
         } catch (RuntimeException exception) {
             throw mapPromptExecutionException(promptSpec.getId(), exception);
         }
@@ -705,14 +708,37 @@ public class PromptSpecController {
         if (promptSpecToExecute.getId() == null || promptSpecToExecute.getId().isBlank()) {
             promptSpecToExecute = promptSpecToExecute.withId(promptSpecId);
         }
+        Instant runStart = Instant.now();
         try {
             PromptSpec executedSpec = promptExecutor.runPromptAndAttachResponse(promptSpecToExecute);
-            PromptSpec persistedUpdate = latestStoredSpec.get().withResponse(executedSpec.getResponse());
-            promptLifecycleFacade.updatePrompt(promptSpecId, persistedUpdate);
-            return ResponseEntity.ok(executedSpec);
+            Execution devRun = buildDevExecution(executedSpec, runStart);
+            PromptSpec persisted = promptLifecycleFacade.recordExecution(promptSpecId, devRun);
+            return ResponseEntity.ok(PromptSpecApiView.toApiView(persisted));
         } catch (RuntimeException exception) {
             throw mapPromptExecutionException(promptSpecId, exception);
         }
+    }
+
+    private static Execution buildDevExecution(PromptSpec executedSpec, Instant runStart) {
+        Instant now = Instant.now();
+        long latencyMs = java.time.Duration.between(runStart, now).toMillis();
+        return new Execution(
+                UUID.randomUUID().toString(),
+                now,
+                executedSpec.getResponse(),
+                null,
+                null,
+                latencyMs,
+                null,
+                null,
+                null,
+                null,
+                Integer.toString(executedSpec.getRevision()),
+                null,
+                true,
+                null,
+                ExecutionKind.MANUAL,
+                null);
     }
 
     /**
