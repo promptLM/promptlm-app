@@ -48,18 +48,6 @@ export interface RunResponsePanelProps {
   modelLabel?: string;
 }
 
-const judgeBtn: React.CSSProperties = {
-  height: 26,
-  padding: '0 10px',
-  fontSize: 12,
-  background: 'var(--pl-paper)',
-  border: '1px solid var(--pl-ink-200)',
-  borderRadius: 5,
-  cursor: 'pointer',
-  color: 'var(--pl-ink-700)',
-  fontFamily: 'var(--pl-display)',
-};
-
 export const RunResponsePanel: React.FC<RunResponsePanelProps> = ({
   runState,
   lastRun,
@@ -269,28 +257,6 @@ export const RunResponsePanel: React.FC<RunResponsePanelProps> = ({
                   : <FormMono size={11} color={lastRun.ok ? 'var(--pl-ink-500)' : 'oklch(0.45 0.13 25)'}>
                       {lastRun.error ?? 'no response captured'}
                     </FormMono>}
-              </div>
-
-              {/* Judge bar */}
-              <div style={{
-                marginTop: 10,
-                padding: '8px 12px',
-                border: '1px solid var(--pl-ink-200)',
-                borderRadius: 6,
-                background: 'var(--pl-paper)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-              }}>
-                <FormMono size={10} color="var(--pl-ink-500)" style={{ letterSpacing: '0.10em', textTransform: 'uppercase' }}>
-                  judge
-                </FormMono>
-                <button style={judgeBtn}>👍 looks good</button>
-                <button style={judgeBtn}>👎 needs work</button>
-                <span style={{ flex: 1 }} />
-                <FormMono size={10.5} color="var(--pl-ink-500)">
-                  judgment saved with the run · powers diffing
-                </FormMono>
               </div>
             </div>
           </div>
