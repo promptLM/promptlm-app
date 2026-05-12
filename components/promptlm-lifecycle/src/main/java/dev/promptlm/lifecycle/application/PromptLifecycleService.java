@@ -17,6 +17,7 @@
 package dev.promptlm.lifecycle.application;
 
 import dev.promptlm.domain.promptspec.ChatCompletionRequest;
+import dev.promptlm.domain.promptspec.Execution;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import dev.promptlm.release.OnInfraFailure;
 import tools.jackson.databind.JsonNode;
@@ -57,4 +58,16 @@ public interface PromptLifecycleService {
     PromptSpec completeReleasePrompt(String promptSpecId, String pullRequestReference);
 
     PromptSpec persistEvaluatedPrompt(PromptSpec evaluatedPromptSpec);
+
+    /**
+     * Append a dev-run execution to the latest version of the given prompt and persist.
+     * Caps the stored executions list at {@link #MAX_DEV_EXECUTIONS} entries (oldest dropped)
+     * and stores via the same repository path as {@link #updatePrompt} so the YAML/git layer
+     * sees a single coherent write. Does not bump revision — dev runs don't change request
+     * shape; revision-bumping edits clear executions separately in {@link #updatePrompt}.
+     */
+    PromptSpec recordExecution(String promptSpecId, Execution execution);
+
+    /** Ring-buffer cap applied by {@link #recordExecution}. */
+    int MAX_DEV_EXECUTIONS = 5;
 }
