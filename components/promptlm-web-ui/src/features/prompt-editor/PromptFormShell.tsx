@@ -354,17 +354,30 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
       const result = await promptSpecs.executeStoredPrompt(effectivePromptId);
       const exec = result?.executions?.[0];
       const ms = Date.now() - startMs;
+      // The backend's execute endpoint attaches the response to the spec's
+      // top-level `response` field rather than appending to `executions[]`
+      // (executions[] is reserved for the repo-history endpoint per #100).
+      // Prefer `exec` when present, otherwise read the live response off the
+      // returned spec so the panel actually surfaces the run.
+      const specResponse = result?.response;
+      const responseContent = exec?.response?.content ?? specResponse?.content;
       const userMessagePh = (exec?.placeholders ?? []).find((ph) => ph.name === 'user_message');
+      const lastUserMessage = [...(result?.request?.messages ?? [])]
+        .reverse()
+        .find((m) => m.role === 'user');
       setLastEditorRun({
         when: 'just now',
         kind: 'run',
-        ms: exec?.latencyMs ?? ms,
-        tin: exec?.tokensIn ?? exec?.response?.usage?.input_tokens ?? 0,
-        tout: exec?.tokensOut ?? exec?.response?.usage?.output_tokens ?? 0,
-        ok: typeof exec?.ok === 'boolean' ? exec.ok : exec?.response !== undefined,
+        ms: exec?.latencyMs ?? specResponse?.durationMs ?? ms,
+        tin: exec?.tokensIn ?? exec?.response?.usage?.input_tokens ?? specResponse?.usage?.input_tokens ?? 0,
+        tout: exec?.tokensOut ?? exec?.response?.usage?.output_tokens ?? specResponse?.usage?.output_tokens ?? 0,
+        ok: typeof exec?.ok === 'boolean' ? exec.ok : responseContent !== undefined,
         rev: formContext.revision,
-        input: userMessagePh?.defaultValue ?? (exec?.placeholders ?? [])[0]?.defaultValue,
-        response: exec?.response?.content,
+        input:
+          userMessagePh?.defaultValue ??
+          (exec?.placeholders ?? [])[0]?.defaultValue ??
+          lastUserMessage?.content,
+        response: responseContent,
         error: exec?.error,
       });
     } catch {
