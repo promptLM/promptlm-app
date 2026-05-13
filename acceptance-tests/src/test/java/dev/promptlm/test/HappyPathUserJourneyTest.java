@@ -244,17 +244,17 @@ public class HappyPathUserJourneyTest {
         page.getByTestId("prompt-editor-heading").waitFor();
 
         // Click Run and wait for the execute response so we know the panel has
-        // had a chance to update. The acceptance Spring profile installs
-        // AcceptanceTestStubGateway, so the call returns a deterministic
-        // response without needing an LLM API key.
+        // had a chance to update. This issues a real LLM call against the
+        // OPENAI_API_KEY configured in the environment (local shell / CI
+        // secret), so the test fails fast if no key is wired up.
         page.waitForResponse(
                 response -> response.url().contains("/execute")
                         && "POST".equalsIgnoreCase(response.request().method()),
                 () -> page.getByTestId("prompt-editor-run-action").click());
 
-        // UI surface: the run response container should render with the stub
-        // content. We assert non-empty rather than the literal stub string so
-        // the test stays decoupled from the stub's exact payload format.
+        // UI surface: the run response container should render with the LLM
+        // response. We assert non-empty rather than any specific content so
+        // the test stays robust against the model's nondeterministic output.
         Locator runResponse = page.getByTestId("prompt-editor-run-response");
         runResponse.waitFor();
         assertThat(runResponse.textContent()).isNotBlank();
@@ -315,7 +315,7 @@ public class HappyPathUserJourneyTest {
 
         // Per #140: the pre-release-execute gate runs the spec server-side before
         // promotion and appends a PRE_RELEASE Execution to spec.executions[]. The
-        // released YAML on main must carry that record with the stub's response.
+        // released YAML on main must carry that record with the LLM response.
         PromptSpec releasedSpec = waitForPromptSpec("main", expectedReleaseVersion, Duration.ofMinutes(2));
         assertThat(releasedSpec.getExecutions())
                 .as("released YAML must contain executions[] from the pre-release-execute gate")
