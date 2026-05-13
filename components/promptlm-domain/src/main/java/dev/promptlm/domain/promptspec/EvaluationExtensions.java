@@ -37,6 +37,23 @@ public final class EvaluationExtensions {
     }
 
     /**
+     * Returns {@code true} if the extensible mapper can serialize this spec without error.
+     * Used by {@link dev.promptlm.evaluation.EvaluationExtensionSupport} as a probe before
+     * writing commercial subtypes to the {@code x-evaluation} extension.
+     */
+    public static boolean writeProbe(EvaluationSpec spec) {
+        if (spec == null) {
+            return false;
+        }
+        try {
+            MAPPER.writeValueAsString(spec);
+            return true;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    /**
      * Allows commercial modules to register additional evaluation subtypes.
      */
     public static void registerModule(JacksonModule module) {
