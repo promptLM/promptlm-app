@@ -21,10 +21,14 @@ import dev.promptlm.domain.promptspec.EvaluationExtensions;
 import dev.promptlm.domain.promptspec.EvaluationResults;
 import dev.promptlm.domain.promptspec.EvaluationSpec;
 import dev.promptlm.domain.promptspec.PromptSpec;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 
 final class EvaluationExtensionSupport {
+
+    private static final Logger LOG = LoggerFactory.getLogger(EvaluationExtensionSupport.class);
 
     static final String EVALUATION_EXTENSION_KEY = EvaluationExtensions.KEY;
 
@@ -46,8 +50,14 @@ final class EvaluationExtensionSupport {
         if (ext == null) {
             ext = Map.of();
         }
-        if (spec != null && !hasSpec(ext) && EvaluationExtensions.writeProbe(spec)) {
-            ext = EvaluationExtensions.withSpec(ext, spec);
+        if (spec != null && !hasSpec(ext)) {
+            if (EvaluationExtensions.writeProbe(spec)) {
+                ext = EvaluationExtensions.withSpec(ext, spec);
+            } else {
+                LOG.warn("EvaluationSpec could not be serialized by the extensible mapper and was not written " +
+                         "to extensions. Ensure the evaluation subtype is registered via " +
+                         "EvaluationExtensions.registerModule before first use.");
+            }
         }
         if (results != null) {
             ext = EvaluationExtensions.withResults(ext, results);

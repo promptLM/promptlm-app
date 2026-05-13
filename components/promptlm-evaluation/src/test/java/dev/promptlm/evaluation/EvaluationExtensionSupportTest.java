@@ -27,6 +27,7 @@ import dev.promptlm.domain.promptspec.EvaluationResult;
 import dev.promptlm.domain.promptspec.EvaluationSpec;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import dev.promptlm.domain.promptspec.Response;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -34,6 +35,11 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class EvaluationExtensionSupportTest {
+
+    @AfterEach
+    void resetExtensionsMapper() {
+        EvaluationExtensions.resetForTesting();
+    }
 
     /**
      * A fake commercial evaluation subtype — has its own field (threshold) beyond
