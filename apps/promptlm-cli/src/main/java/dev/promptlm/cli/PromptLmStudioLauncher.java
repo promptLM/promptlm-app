@@ -305,7 +305,6 @@ public class PromptLmStudioLauncher {
                             "spring.application.name=promptlm-webapp",
                             "spring.main.banner-mode=off",
                             "server.port=" + port,
-                            "promptlm.cli.runner.enabled=false",
                             "spring.shell.interactive.enabled=false",
                             "spring.shell.noninteractive.enabled=false",
                             "management.metrics.binders.jvm.enabled=false",
