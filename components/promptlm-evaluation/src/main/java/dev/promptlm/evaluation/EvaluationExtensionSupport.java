@@ -17,138 +17,56 @@
 package dev.promptlm.evaluation;
 
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.node.ObjectNode;
-import dev.promptlm.domain.ObjectMapperFactory;
-import dev.promptlm.domain.promptspec.Evaluation;
+import dev.promptlm.domain.promptspec.EvaluationExtensions;
 import dev.promptlm.domain.promptspec.EvaluationResults;
 import dev.promptlm.domain.promptspec.EvaluationSpec;
-import dev.promptlm.domain.promptspec.PromptEvaluationDefinition;
 import dev.promptlm.domain.promptspec.PromptSpec;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 final class EvaluationExtensionSupport {
 
-    static final String EVALUATION_EXTENSION_KEY = "x-evaluation";
+    private static final Logger LOG = LoggerFactory.getLogger(EvaluationExtensionSupport.class);
 
-    private static final ObjectMapper MAPPER = ObjectMapperFactory.createJsonMapper();
+    static final String EVALUATION_EXTENSION_KEY = EvaluationExtensions.KEY;
 
     private EvaluationExtensionSupport() {
     }
 
     static EvaluationSpec extractSpec(PromptSpec promptSpec) {
-        EvaluationSpec spec = extractSpecFromExtensions(promptSpec);
+        EvaluationSpec spec = EvaluationExtensions.readSpec(promptSpec.getExtensions());
         return spec != null ? spec : promptSpec.getEvaluationSpec();
     }
 
     static EvaluationResults extractResults(PromptSpec promptSpec) {
-        EvaluationResults results = extractExtensionValue(promptSpec, "results", EvaluationResults.class);
+        EvaluationResults results = EvaluationExtensions.readResults(promptSpec.getExtensions());
         return results != null ? results : promptSpec.getEvaluationResults();
     }
 
     static PromptSpec withResults(PromptSpec promptSpec, EvaluationSpec spec, EvaluationResults results) {
-        Map<String, JsonNode> existing = promptSpec.getExtensions();
-        Map<String, JsonNode> updated = existing == null ? new LinkedHashMap<>() : new LinkedHashMap<>(existing);
-
-        ObjectNode evaluationNode = extractEvaluationNode(existing);
-        if (evaluationNode == null) {
-            evaluationNode = MAPPER.createObjectNode();
+        Map<String, JsonNode> ext = promptSpec.getExtensions();
+        if (ext == null) {
+            ext = Map.of();
         }
-        if (spec != null && evaluationNode.get("spec") == null && canSerializeSpec(spec)) {
-            evaluationNode.set("spec", MAPPER.valueToTree(spec));
+        if (spec != null && !hasSpec(ext)) {
+            if (EvaluationExtensions.writeProbe(spec)) {
+                ext = EvaluationExtensions.withSpec(ext, spec);
+            } else {
+                LOG.warn("EvaluationSpec could not be serialized by the extensible mapper and was not written " +
+                         "to extensions. Ensure the evaluation subtype is registered via " +
+                         "EvaluationExtensions.registerModule before first use.");
+            }
         }
         if (results != null) {
-            evaluationNode.set("results", MAPPER.valueToTree(results));
+            ext = EvaluationExtensions.withResults(ext, results);
         }
-
-        if (evaluationNode.size() > 0) {
-            updated.put(EVALUATION_EXTENSION_KEY, evaluationNode);
-        } else {
-            updated.remove(EVALUATION_EXTENSION_KEY);
-        }
-
-        return promptSpec.withExtensions(updated);
+        return promptSpec.withExtensions(ext);
     }
 
-    private static ObjectNode extractEvaluationNode(Map<String, JsonNode> extensions) {
-        if (extensions == null || extensions.isEmpty()) {
-            return null;
-        }
-        JsonNode node = extensions.get(EVALUATION_EXTENSION_KEY);
-        if (node != null && node.isObject()) {
-            return (ObjectNode) node.deepCopy();
-        }
-        return null;
-    }
-
-    private static <T> T extractExtensionValue(PromptSpec promptSpec, String field, Class<T> valueType) {
-        Map<String, JsonNode> extensions = promptSpec.getExtensions();
-        if (extensions == null || extensions.isEmpty()) {
-            return null;
-        }
-        JsonNode evaluationNode = extensions.get(EVALUATION_EXTENSION_KEY);
-        if (evaluationNode == null || !evaluationNode.isObject()) {
-            return null;
-        }
-        JsonNode fieldNode = evaluationNode.get(field);
-        if (fieldNode == null || fieldNode.isNull()) {
-            return null;
-        }
-        try {
-            return MAPPER.convertValue(fieldNode, valueType);
-        } catch (IllegalArgumentException ignored) {
-            return null;
-        }
-    }
-
-    private static EvaluationSpec extractSpecFromExtensions(PromptSpec promptSpec) {
-        Map<String, JsonNode> extensions = promptSpec.getExtensions();
-        if (extensions == null || extensions.isEmpty()) {
-            return null;
-        }
-        JsonNode evaluationNode = extensions.get(EVALUATION_EXTENSION_KEY);
-        if (evaluationNode == null || !evaluationNode.isObject()) {
-            return null;
-        }
-        JsonNode specNode = evaluationNode.get("spec");
-        if (specNode == null || specNode.isNull()) {
-            return null;
-        }
-        JsonNode evaluationsNode = specNode.isArray() ? specNode : specNode.get("evaluations");
-        if (evaluationsNode == null || evaluationsNode.isNull()) {
-            return new EvaluationSpec(List.of());
-        }
-        if (!evaluationsNode.isArray()) {
-            return null;
-        }
-        List<Evaluation> evaluations = new ArrayList<>();
-        for (JsonNode evaluationNodeItem : evaluationsNode) {
-            try {
-                evaluations.add(MAPPER.convertValue(evaluationNodeItem, PromptEvaluationDefinition.class));
-            } catch (IllegalArgumentException ignored) {
-                return null;
-            }
-        }
-        return new EvaluationSpec(evaluations);
-    }
-
-    private static boolean canSerializeSpec(EvaluationSpec spec) {
-        if (spec == null) {
-            return false;
-        }
-        List<Evaluation> evaluations = spec.getEvaluations();
-        if (evaluations == null || evaluations.isEmpty()) {
-            return true;
-        }
-        for (Evaluation evaluation : evaluations) {
-            if (evaluation != null && !(evaluation instanceof PromptEvaluationDefinition)) {
-                return false;
-            }
-        }
-        return true;
+    private static boolean hasSpec(Map<String, JsonNode> extensions) {
+        JsonNode eval = extensions.get(EVALUATION_EXTENSION_KEY);
+        return eval != null && eval.isObject() && eval.has("spec");
     }
 }

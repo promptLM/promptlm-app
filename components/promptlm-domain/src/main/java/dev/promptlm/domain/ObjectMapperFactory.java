@@ -16,6 +16,7 @@
 
 package dev.promptlm.domain;
 
+import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.MapperFeature;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.SerializationFeature;
@@ -40,6 +41,7 @@ public class ObjectMapperFactory {
     public static JsonMapper createJsonMapper() {
         JsonMapper.Builder builder = JsonMapper.builder()
                 .disable(SerializationFeature.FAIL_ON_EMPTY_BEANS)
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
                 .configure(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS, false)
                 .configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, false);
 
