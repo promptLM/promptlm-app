@@ -82,10 +82,10 @@ class PromptExecutionExceptionHandler {
     private String resolveMessage(PromptExecutionException exception) {
         Throwable cause = exception.getCause();
         if (cause != null && StringUtils.hasText(cause.getMessage())) {
-            return cause.getMessage();
+            return VendorMessageSanitizer.sanitize(cause.getMessage());
         }
         if (StringUtils.hasText(exception.getMessage())) {
-            return exception.getMessage();
+            return VendorMessageSanitizer.sanitize(exception.getMessage());
         }
         return "Prompt execution failed";
     }
@@ -93,10 +93,10 @@ class PromptExecutionExceptionHandler {
     private String resolveMessage(RuntimeException exception) {
         Throwable cause = exception.getCause();
         if (cause != null && StringUtils.hasText(cause.getMessage())) {
-            return cause.getMessage();
+            return VendorMessageSanitizer.sanitize(cause.getMessage());
         }
         if (StringUtils.hasText(exception.getMessage())) {
-            return exception.getMessage();
+            return VendorMessageSanitizer.sanitize(exception.getMessage());
         }
         return "Pre-release execution failed";
     }
