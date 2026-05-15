@@ -76,8 +76,12 @@ class NativeWebappUiSmokeTest {
     private static final String PROMPT_NAME = "native-smoke-prompt-" + System.currentTimeMillis();
     private static final String REPO_NAME = "native-smoke-repo-" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
 
+    // Static @TempDir matches @TestInstance(PER_CLASS): JUnit populates the field before
+    // @BeforeAll. Non-static @TempDir with PER_CLASS leaves the field null until the first
+    // @BeforeEach, which is too late for the binary-startup work in @BeforeAll. Mirrors the
+    // pattern used in HappyPathUserJourneyTest.
     @TempDir
-    Path userHome;
+    private static Path userHome;
 
     private GiteaContainer gitea;
     private NativeBinaryLauncher.RunningProcess runningProcess;
