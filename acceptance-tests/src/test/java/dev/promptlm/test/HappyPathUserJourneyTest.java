@@ -32,6 +32,7 @@ import dev.promptlm.test.support.ArtifactoryStorageHelper;
 import dev.promptlm.test.support.GiteaRepositoryHelper;
 import dev.promptlm.test.support.PlaywrightNavigationHelper;
 import dev.promptlm.test.support.ProjectSetupHelper;
+import dev.promptlm.test.support.PromptWorkflowHelper;
 import dev.promptlm.test.support.ReleaseArtifactContractDelegate;
 import dev.promptlm.testutils.artifactory.Artifactory;
 import dev.promptlm.testutils.artifactory.ArtifactoryContainer;
@@ -399,34 +400,8 @@ public class HappyPathUserJourneyTest {
     @Order(50)
     @DisplayName("Should validate required fields on prompt form")
     void shouldValidateRequiredFields() {
-        // Navigate to new prompt page directly
         navigateToPath("/prompts/new");
-
-        // Clear required fields. The v2 form revalidates live and disables the
-        // submit button while errors are present, so we don't try to click it —
-        // we just assert the inline error indicators surface.
-        page.getByTestId("prompt-name-input").fill("");
-        page.getByTestId("prompt-group-input").fill("");
-        // Move focus off the cleared fields so the form's error-count derivation
-        // catches up before we assert visibility.
-        page.keyboard().press("Tab");
-
-        // Wait for the validation errors to be rendered alongside the required
-        // fields. Both indicators are written via `data-testid` in
-        // sections.tsx → IdentityBlock.
-        page.waitForSelector("[data-testid='prompt-name-error']",
-                new Page.WaitForSelectorOptions().setState(WaitForSelectorState.VISIBLE));
-        page.waitForSelector("[data-testid='prompt-group-error']",
-                new Page.WaitForSelectorOptions().setState(WaitForSelectorState.VISIBLE));
-
-        assertThat(page.isVisible("[data-testid='prompt-name-error']")).isTrue();
-        assertThat(page.isVisible("[data-testid='prompt-group-error']")).isTrue();
-
-        // The submit button should be disabled while the form is invalid — sanity
-        // check that the live-validation contract still holds.
-        assertThat(page.getByTestId("save-prompt-button").isDisabled()).isTrue();
-
-        // Take screenshot of validation errors
+        PromptWorkflowHelper.assertRequiredFieldValidation(page);
         takeScreenshot("validation-errors.png");
     }
 
