@@ -31,6 +31,10 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.ServerSocket;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -51,6 +55,11 @@ class NativeCliSmokeTest {
     private static final Duration CLI_TIMEOUT = Duration.ofMinutes(3);
     private static final Duration STUDIO_START_TIMEOUT = Duration.ofMinutes(2);
     private static final Duration STUDIO_STOP_TIMEOUT = Duration.ofSeconds(20);
+    private static final Duration STUDIO_PROBE_TIMEOUT = Duration.ofSeconds(30);
+
+    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(5))
+            .build();
 
     @TempDir
     private static Path tempDir;
@@ -210,6 +219,34 @@ class NativeCliSmokeTest {
             assertThat(studioProcess.isAlive())
                     .as("Studio command should keep the CLI process in the foreground")
                     .isTrue();
+
+            // Liveness of the JVM is necessary but not sufficient — the embedded web server
+            // must actually answer. Probe both readiness endpoints before treating the test
+            // as passed. This catches the regression where the JVM stays up but the context
+            // tore down (or never came up).
+            URI healthUri = URI.create("http://127.0.0.1:" + studioPort + "/api/monitor/health");
+            URI capabilitiesUri = URI.create("http://127.0.0.1:" + studioPort + "/api/capabilities");
+
+            await()
+                    .atMost(STUDIO_PROBE_TIMEOUT)
+                    .pollInterval(Duration.ofSeconds(1))
+                    .untilAsserted(() -> {
+                        assertThat(studioProcess.isAlive())
+                                .as("Studio process must remain alive while probing the backend")
+                                .isTrue();
+                        HttpResponse<String> healthResponse = httpGet(healthUri);
+                        assertThat(healthResponse.statusCode()).isBetween(200, 299);
+                        assertThat(healthResponse.body()).contains("\"status\":\"UP\"");
+                    });
+
+            await()
+                    .atMost(Duration.ofSeconds(10))
+                    .pollInterval(Duration.ofSeconds(1))
+                    .untilAsserted(() -> {
+                        HttpResponse<String> capabilitiesResponse = httpGet(capabilitiesUri);
+                        assertThat(capabilitiesResponse.statusCode()).isBetween(200, 299);
+                        assertThat(capabilitiesResponse.body()).contains("\"features\"");
+                    });
         }
         finally {
             stopProcess(studioProcess);
@@ -338,6 +375,23 @@ class NativeCliSmokeTest {
         }
         catch (IOException ignored) {
             return false;
+        }
+    }
+
+    private static HttpResponse<String> httpGet(URI uri) {
+        HttpRequest request = HttpRequest.newBuilder(uri)
+                .header("Accept", "application/json")
+                .GET()
+                .build();
+        try {
+            return HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+        }
+        catch (IOException e) {
+            throw new AssertionError("HTTP probe failed while waiting for studio backend: " + uri, e);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("Interrupted while probing studio backend: " + uri, e);
         }
     }
 }
