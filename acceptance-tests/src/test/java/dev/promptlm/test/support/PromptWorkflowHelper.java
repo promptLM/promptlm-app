@@ -22,8 +22,6 @@ import com.microsoft.playwright.options.WaitForSelectorState;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -138,11 +136,7 @@ public final class PromptWorkflowHelper {
     }
 
     private static void setPlaceholderValue(Page page, String placeholderName, String value) {
-        Matcher placeholderNameMatcher = Pattern.compile("\\w+").matcher(placeholderName);
-        assertThat(placeholderNameMatcher.find()).isTrue();
-        String resolvedName = placeholderNameMatcher.group();
-
-        Locator valueEditor = page.getByTestId("placeholder-value-textarea-" + resolvedName + "-0");
+        Locator valueEditor = page.getByTestId("placeholder-value-textarea-" + placeholderName + "-0");
         valueEditor.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
         valueEditor.fill(value);
         valueEditor.press("Tab");
