@@ -20,6 +20,8 @@ import dev.promptlm.domain.BasicAppContext;
 import dev.promptlm.domain.events.ProjectCreatedEvent;
 import dev.promptlm.domain.projectspec.ProjectSpec;
 import dev.promptlm.repository.template.RepositoryTemplateExtractor;
+import dev.promptlm.repository.template.TemplateContext;
+import dev.promptlm.repository.template.TemplateSubstitutionEngine;
 import dev.promptlm.store.api.ProjectService;
 import dev.promptlm.store.api.RemoteRepositoryAlreadyExistsException;
 import dev.promptlm.store.api.RepositoryOwner;
@@ -108,7 +110,13 @@ class GitProjectServiceTest {
         assertThat(projectSpec.getRepoUrl()).isEqualTo(remoteUrl);
 
         verify(git).createRepository(repoDir, remoteUrl);
-        verify(templateExtractor).extractTo(repoDir);
+        verify(templateExtractor).extractTo(eq(repoDir), argThat((TemplateContext ctx) ->
+                ctx != null
+                        && projectName.equals(ctx.repositoryName())
+                        && owner.equals(ctx.ownerName())
+                        && GitProjectService.DEFAULT_PROJECT_DESCRIPTION.equals(ctx.projectDescription())
+                        && ctx.createdAt() != null
+                        && TemplateSubstitutionEngine.BUILD_GENERATOR_VERSION.equals(ctx.generatorVersion())));
         verify(git).addAllAndCommit(repoDir.toFile(), "initial commit");
         verify(git).checkoutOrCreateBranch(GitProjectService.DEVELOPMENT_BRANCH, repoDir.toFile());
         verify(git, times(2)).pushAll(repoDir.toFile());

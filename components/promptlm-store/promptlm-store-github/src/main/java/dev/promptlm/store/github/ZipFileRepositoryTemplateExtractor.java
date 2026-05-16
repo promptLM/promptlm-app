@@ -17,24 +17,25 @@
 package dev.promptlm.store.github;
 
 import dev.promptlm.repository.template.RepositoryTemplateExtractor;
+import dev.promptlm.repository.template.TemplateContext;
+import dev.promptlm.repository.template.TemplateSubstitutionEngine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -65,16 +66,25 @@ public class ZipFileRepositoryTemplateExtractor implements RepositoryTemplateExt
     );
 
     private final Resource templateArchive;
+    private final TemplateSubstitutionEngine substitutionEngine;
 
     public ZipFileRepositoryTemplateExtractor() {
-        this(new ClassPathResource(DEFAULT_TEMPLATE_ARCHIVE));
+        this(new ClassPathResource(DEFAULT_TEMPLATE_ARCHIVE), new TemplateSubstitutionEngine());
     }
 
     ZipFileRepositoryTemplateExtractor(Resource templateArchive) {
-        this.templateArchive = templateArchive;
+        this(templateArchive, new TemplateSubstitutionEngine());
     }
 
-    public void extractTo(Path repoPath) {
+    ZipFileRepositoryTemplateExtractor(Resource templateArchive, TemplateSubstitutionEngine substitutionEngine) {
+        this.templateArchive = templateArchive;
+        this.substitutionEngine = substitutionEngine;
+    }
+
+    @Override
+    public void extractTo(Path repoPath, TemplateContext context) {
+        Objects.requireNonNull(context, "context");
+
         Map<String, byte[]> entries = readAllEntries();
         boolean releaseEnabled = isReleaseEnabled(entries.get(CONFIG_FILE_NAME));
         log.debug("Repository template release.enabled resolved to {}", releaseEnabled);
@@ -88,7 +98,11 @@ public class ZipFileRepositoryTemplateExtractor implements RepositoryTemplateExt
                 }
                 Path targetPath = repoPath.resolve(name);
                 Files.createDirectories(targetPath.getParent());
-                Files.copy(new ByteArrayInputStream(entry.getValue()), targetPath, StandardCopyOption.REPLACE_EXISTING);
+                byte[] payload = entry.getValue();
+                if (substitutionEngine.isTextEntry(name)) {
+                    payload = substitutionEngine.substitute(name, payload, context);
+                }
+                Files.write(targetPath, payload);
             }
             log.debug("Successfully extracted repository template to: {}", repoPath);
         } catch (IOException e) {
