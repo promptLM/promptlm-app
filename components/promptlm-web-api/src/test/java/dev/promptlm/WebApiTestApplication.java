@@ -16,8 +16,36 @@
 
 package dev.promptlm;
 
+import dev.promptlm.lifecycle.failure.DefaultPromptExecutorFailureClassifier;
+import dev.promptlm.lifecycle.failure.PromptExecutorFailureClassifier;
+import dev.promptlm.lifecycle.failure.PromptExecutorFailureClassifierResolver;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.context.annotation.Bean;
+
+import java.util.List;
 
 @SpringBootApplication
 public class WebApiTestApplication {
+
+    /**
+     * The classifier SPI lives in {@code promptlm-lifecycle}, outside the @WebMvcTest slice's
+     * component scan. Provide the resolver + default classifier here so that
+     * {@code PromptExecutionExceptionHandler} (under {@code @RestControllerAdvice}) wires
+     * cleanly in slice tests without each one having to declare an explicit {@code @MockitoBean}.
+     *
+     * <p>{@code @ConditionalOnMissingBean} keeps the full-context tests (e.g.
+     * {@code @SpringBootTest}) using the real components from {@code promptlm-lifecycle}.
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    PromptExecutorFailureClassifier defaultClassifier() {
+        return new DefaultPromptExecutorFailureClassifier();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    PromptExecutorFailureClassifierResolver classifierResolver(List<PromptExecutorFailureClassifier> classifiers) {
+        return new PromptExecutorFailureClassifierResolver(classifiers);
+    }
 }

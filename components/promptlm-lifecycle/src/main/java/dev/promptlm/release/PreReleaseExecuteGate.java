@@ -19,14 +19,14 @@ package dev.promptlm.release;
 import dev.promptlm.domain.promptspec.Execution;
 import dev.promptlm.domain.promptspec.ExecutionKind;
 import dev.promptlm.domain.promptspec.FailureClass;
+import dev.promptlm.domain.promptspec.FailureClassification;
 import dev.promptlm.domain.promptspec.PromptSpec;
+import dev.promptlm.lifecycle.failure.PromptExecutorFailureClassifierResolver;
 import dev.promptlm.lifecycle.application.PromptExecutionPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.io.IOException;
-import java.net.SocketTimeoutException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,10 +38,10 @@ import java.util.UUID;
  * appended to the spec that the store layer ultimately persists, so the released revision
  * carries an audit trail of the gating run.
  *
- * <p>Failure classification heuristic — root-cause inspection of the thrown exception:
- * an {@link IOException}, {@link SocketTimeoutException}, Spring HTTP-client resource-access
- * exceptions, or a 5xx-shaped vendor response is INFRASTRUCTURE; everything else is PROMPT.
- * Fail closed: ambiguous failures are treated as PROMPT-class so the release blocks.
+ * <p>Failure classification is delegated to {@link PromptExecutorFailureClassifierResolver}
+ * (#127): adapter-specific classifiers run first; a built-in heuristic recognises generic
+ * 5xx / network / timeout shapes; unknown failures fall through to the fail-closed
+ * {@link FailureClass#PROMPT} default so the release blocks.
  */
 @Component
 public class PreReleaseExecuteGate {
@@ -50,10 +50,14 @@ public class PreReleaseExecuteGate {
 
     private final PromptExecutionPort executionPort;
     private final PreReleaseExecuteProperties properties;
+    private final PromptExecutorFailureClassifierResolver classifierResolver;
 
-    public PreReleaseExecuteGate(PromptExecutionPort executionPort, PreReleaseExecuteProperties properties) {
+    public PreReleaseExecuteGate(PromptExecutionPort executionPort,
+                                 PreReleaseExecuteProperties properties,
+                                 PromptExecutorFailureClassifierResolver classifierResolver) {
         this.executionPort = executionPort;
         this.properties = properties;
+        this.classifierResolver = classifierResolver;
     }
 
     public boolean isEnabled() {
@@ -89,7 +93,8 @@ public class PreReleaseExecuteGate {
                     null);
             return spec.withExecutions(append(spec.getExecutions(), success));
         } catch (RuntimeException ex) {
-            FailureClass failureClass = classify(ex);
+            FailureClassification classification = classifierResolver.classify(ex);
+            FailureClass failureClass = classification.failureClass();
             Execution failed = new Execution(
                     UUID.randomUUID().toString(),
                     Instant.now(),
@@ -104,11 +109,12 @@ public class PreReleaseExecuteGate {
                     null,
                     null,
                     false,
-                    safeMessage(ex),
+                    classification.userMessage(),
                     ExecutionKind.PRE_RELEASE,
                     failureClass);
             if (failureClass == FailureClass.INFRASTRUCTURE && onInfra == OnInfraFailure.RECORD) {
-                log.info("Pre-release infrastructure failure recorded for prompt {} (override={})", spec.getId(), onInfra);
+                log.info("Pre-release infrastructure failure recorded for prompt {} (override={}, code={})",
+                        spec.getId(), onInfra, classification.code());
                 return spec.withExecutions(append(spec.getExecutions(), failed));
             }
             if (failureClass == FailureClass.INFRASTRUCTURE) {
@@ -118,40 +124,9 @@ public class PreReleaseExecuteGate {
         }
     }
 
-    static FailureClass classify(Throwable ex) {
-        Throwable cursor = ex;
-        while (cursor != null) {
-            if (cursor instanceof SocketTimeoutException) {
-                return FailureClass.INFRASTRUCTURE;
-            }
-            if (cursor instanceof IOException) {
-                return FailureClass.INFRASTRUCTURE;
-            }
-            String name = cursor.getClass().getName();
-            if (name.equals("org.springframework.web.client.ResourceAccessException")) {
-                return FailureClass.INFRASTRUCTURE;
-            }
-            if (name.endsWith("HttpServerErrorException")
-                    || name.endsWith("WebClientResponseException$InternalServerError")
-                    || name.endsWith("WebClientResponseException$BadGateway")
-                    || name.endsWith("WebClientResponseException$ServiceUnavailable")
-                    || name.endsWith("WebClientResponseException$GatewayTimeout")) {
-                return FailureClass.INFRASTRUCTURE;
-            }
-            cursor = cursor.getCause();
-        }
-        // Fail closed.
-        return FailureClass.PROMPT;
-    }
-
     private static List<Execution> append(List<Execution> existing, Execution toAdd) {
         List<Execution> merged = existing == null ? new ArrayList<>() : new ArrayList<>(existing);
         merged.add(toAdd);
         return merged;
-    }
-
-    private static String safeMessage(Throwable ex) {
-        String msg = ex.getMessage();
-        return msg == null ? ex.getClass().getSimpleName() : msg;
     }
 }
