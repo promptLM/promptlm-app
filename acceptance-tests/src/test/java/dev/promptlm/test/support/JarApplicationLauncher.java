@@ -25,11 +25,13 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.BufferedReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -47,8 +49,10 @@ public final class JarApplicationLauncher {
     public static final String WEBAPP_JAR_PATH_PROPERTY = "promptlm.test.webapp.jar.path";
     public static final String CLI_JAR_PATH_PROPERTY = "promptlm.test.cli.jar.path";
 
-    private static final String DEFAULT_WEBAPP_JAR_PATH = "../apps/promptlm-webapp/target/promptlm-webapp-0.1.0-SNAPSHOT.jar";
-    private static final String DEFAULT_CLI_JAR_PATH = "../apps/promptlm-cli/target/promptlm-cli-0.1.0-SNAPSHOT.jar";
+    private static final Path DEFAULT_WEBAPP_TARGET_DIR = Paths.get("../apps/promptlm-webapp/target");
+    private static final Path DEFAULT_CLI_TARGET_DIR = Paths.get("../apps/promptlm-cli/target");
+    private static final String WEBAPP_ARTIFACT_BASE_NAME = "promptlm-webapp";
+    private static final String CLI_ARTIFACT_BASE_NAME = "promptlm-cli";
 
     private static final Logger log = LoggerFactory.getLogger(JarApplicationLauncher.class);
 
@@ -58,8 +62,8 @@ public final class JarApplicationLauncher {
     public static RunningProcess startWebApplication(Path userHome, int serverPort, Map<String, String> systemProperties) {
         Path jarPath = resolveRequiredJarPath(
                 WEBAPP_JAR_PATH_PROPERTY,
-                DEFAULT_WEBAPP_JAR_PATH,
-                "promptlm-webapp"
+                DEFAULT_WEBAPP_TARGET_DIR,
+                WEBAPP_ARTIFACT_BASE_NAME
         );
 
         List<String> command = buildJavaCommand(userHome, systemProperties);
@@ -87,8 +91,8 @@ public final class JarApplicationLauncher {
                                               Duration timeout) {
         Path jarPath = resolveRequiredJarPath(
                 CLI_JAR_PATH_PROPERTY,
-                DEFAULT_CLI_JAR_PATH,
-                "promptlm-cli"
+                DEFAULT_CLI_TARGET_DIR,
+                CLI_ARTIFACT_BASE_NAME
         );
 
         List<String> command = buildJavaCommand(userHome, systemProperties);
@@ -207,19 +211,73 @@ public final class JarApplicationLauncher {
         outputThread.start();
     }
 
-    private static Path resolveRequiredJarPath(String propertyName, String defaultPath, String artifactName) {
-        String configuredPath = System.getProperty(propertyName, defaultPath);
-        Path jarPath = Paths.get(configuredPath);
-        if (!jarPath.isAbsolute()) {
-            jarPath = Paths.get("").toAbsolutePath().resolve(jarPath).normalize();
+    private static Path resolveRequiredJarPath(String propertyName, Path defaultTargetDir, String artifactBaseName) {
+        String configuredPath = System.getProperty(propertyName);
+        if (configuredPath != null && !configuredPath.isBlank()) {
+            Path jarPath = absolutize(Paths.get(configuredPath));
+            if (!Files.isRegularFile(jarPath)) {
+                throw new IllegalStateException(
+                        "Required JAR for " + artifactBaseName + " not found at '" + jarPath
+                                + "' (from -D" + propertyName + ")."
+                );
+            }
+            return jarPath;
         }
-        if (!Files.isRegularFile(jarPath)) {
+
+        Path targetDir = absolutize(defaultTargetDir);
+        Path discovered = discoverArtifactJar(targetDir, artifactBaseName);
+        if (discovered == null) {
             throw new IllegalStateException(
-                    "Required JAR for " + artifactName + " not found at '" + jarPath
-                            + "'. Configure -D" + propertyName + "=<absolute-or-relative-path>."
+                    "No '" + artifactBaseName + "-*.jar' found in '" + targetDir
+                            + "'. Run `mvn -DskipTests package` first, or set -D" + propertyName
+                            + "=<absolute-or-relative-path>."
             );
         }
-        return jarPath;
+        return discovered;
+    }
+
+    private static Path absolutize(Path path) {
+        return path.isAbsolute() ? path : Paths.get("").toAbsolutePath().resolve(path).normalize();
+    }
+
+    private static Path discoverArtifactJar(Path targetDir, String artifactBaseName) {
+        if (!Files.isDirectory(targetDir)) {
+            return null;
+        }
+        String prefix = artifactBaseName + "-";
+        List<Path> candidates = new ArrayList<>();
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(targetDir, prefix + "*.jar")) {
+            for (Path entry : stream) {
+                String name = entry.getFileName().toString();
+                if (name.endsWith("-sources.jar") || name.endsWith("-javadoc.jar") || name.endsWith("-tests.jar")) {
+                    continue;
+                }
+                if (Files.isRegularFile(entry)) {
+                    candidates.add(entry);
+                }
+            }
+        }
+        catch (IOException e) {
+            throw new IllegalStateException("Failed to scan '" + targetDir + "' for " + artifactBaseName + " jars", e);
+        }
+        if (candidates.isEmpty()) {
+            return null;
+        }
+        candidates.sort(Comparator.comparingLong(JarApplicationLauncher::lastModifiedMillis).reversed());
+        Path chosen = candidates.get(0);
+        if (candidates.size() > 1) {
+            log.info("Multiple {} jars found in {}; using most recent: {}", artifactBaseName, targetDir, chosen.getFileName());
+        }
+        return chosen;
+    }
+
+    private static long lastModifiedMillis(Path path) {
+        try {
+            return Files.getLastModifiedTime(path).toMillis();
+        }
+        catch (IOException e) {
+            return 0L;
+        }
     }
 
     private static void configureJavaEnvironment(ProcessBuilder processBuilder) {
