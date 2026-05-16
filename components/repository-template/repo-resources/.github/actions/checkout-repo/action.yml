@@ -1,0 +1,96 @@
+name: Checkout repository
+description: >
+  Initialise a git checkout in the current workspace, with optional overrides
+  for the remote URL, username, and token. Falls back to the GitHub-provided
+  repository URL and token when overrides are not supplied. Handles file://
+  remotes so the same flow can be exercised by local runners (e.g. nektos/act).
+
+inputs:
+  remote-url:
+    description: Override remote URL (e.g. vars.REPO_REMOTE_URL). Empty means use the fallback.
+    required: false
+    default: ''
+  remote-username:
+    description: Override remote username (e.g. vars.REPO_REMOTE_USERNAME). Empty means use x-access-token.
+    required: false
+    default: ''
+  remote-token:
+    description: Override remote token (e.g. vars.REPO_REMOTE_TOKEN). Empty means use the fallback token.
+    required: false
+    default: ''
+  fallback-url:
+    description: Fallback URL when remote-url is empty (typically the GitHub-provided repository URL).
+    required: true
+  fallback-token:
+    description: Fallback token when remote-token is empty (typically the GitHub-provided token).
+    required: true
+  ref-name:
+    description: Optional branch or tag name to fetch before checking out the SHA.
+    required: false
+    default: ''
+  sha:
+    description: Commit SHA to check out (typically the github.sha context value).
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout repository
+      shell: bash
+      env:
+        CHECKOUT_REMOTE_URL: ${{ inputs.remote-url }}
+        CHECKOUT_REMOTE_USERNAME: ${{ inputs.remote-username }}
+        CHECKOUT_REMOTE_TOKEN: ${{ inputs.remote-token }}
+        CHECKOUT_FALLBACK_URL: ${{ inputs.fallback-url }}
+        CHECKOUT_FALLBACK_TOKEN: ${{ inputs.fallback-token }}
+        CHECKOUT_REF_NAME: ${{ inputs.ref-name }}
+        CHECKOUT_SHA: ${{ inputs.sha }}
+      run: |
+        set -euo pipefail
+
+        REMOTE_URL="${CHECKOUT_REMOTE_URL:-$CHECKOUT_FALLBACK_URL}"
+        IS_FILE_REMOTE=false
+        if [[ "${REMOTE_URL}" == file://* ]]; then
+          IS_FILE_REMOTE=true
+        fi
+
+        git init .
+        git config --global --add safe.directory "$PWD"
+        if [[ "${IS_FILE_REMOTE}" == "true" ]]; then
+          git config --global --add safe.directory "${REMOTE_URL#file://}"
+        else
+          REMOTE_USERNAME="${CHECKOUT_REMOTE_USERNAME:-x-access-token}"
+          REMOTE_TOKEN="${CHECKOUT_REMOTE_TOKEN:-$CHECKOUT_FALLBACK_TOKEN}"
+          if [ -z "${REMOTE_TOKEN}" ]; then
+            echo "No repository token available for checkout" >&2
+            exit 1
+          fi
+          AUTH_HEADER="Authorization: Basic $(printf '%s:%s' "${REMOTE_USERNAME}" "${REMOTE_TOKEN}" | base64 | tr -d '\n')"
+        fi
+
+        if git remote get-url origin >/dev/null 2>&1; then
+          git remote set-url origin "${REMOTE_URL}"
+        else
+          git remote add origin "${REMOTE_URL}"
+        fi
+
+        if [ -n "${CHECKOUT_REF_NAME}" ]; then
+          if [[ "${IS_FILE_REMOTE}" == "true" ]]; then
+            git fetch --force origin "${CHECKOUT_REF_NAME}"
+          else
+            git -c http.extraHeader="${AUTH_HEADER}" fetch --force origin "${CHECKOUT_REF_NAME}"
+          fi
+        else
+          if [[ "${IS_FILE_REMOTE}" == "true" ]]; then
+            git fetch --force origin "${CHECKOUT_SHA}"
+          else
+            git -c http.extraHeader="${AUTH_HEADER}" fetch --force origin "${CHECKOUT_SHA}"
+          fi
+        fi
+
+        if [[ "${IS_FILE_REMOTE}" == "true" ]]; then
+          git fetch --force origin "${CHECKOUT_SHA}"
+        else
+          git -c http.extraHeader="${AUTH_HEADER}" fetch --force origin "${CHECKOUT_SHA}"
+        fi
+        git checkout --force "${CHECKOUT_SHA}"

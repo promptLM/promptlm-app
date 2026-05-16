@@ -32,10 +32,10 @@ on:
         type: string
 
 env:
-  ARTIFACTORY_URL: ${{ github.event.inputs.artifactory_url || vars.ARTIFACTORY_URL || 'http://host.docker.internal:8091/artifactory' }}
-  ARTIFACTORY_REPOSITORY: ${{ vars.ARTIFACTORY_REPOSITORY || 'example-repo-local' }}
-  ARTIFACTORY_USERNAME: ${{ secrets.ARTIFACTORY_USERNAME || vars.ARTIFACTORY_USERNAME || 'admin' }}
-  ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD || vars.ARTIFACTORY_PASSWORD || 'password' }}
+  ARTIFACTORY_URL: ${{ github.event.inputs.artifactory_url || vars.ARTIFACTORY_URL }}
+  ARTIFACTORY_REPOSITORY: ${{ vars.ARTIFACTORY_REPOSITORY }}
+  ARTIFACTORY_USERNAME: ${{ secrets.ARTIFACTORY_USERNAME || vars.ARTIFACTORY_USERNAME }}
+  ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD || vars.ARTIFACTORY_PASSWORD }}
   TARGET_ENVIRONMENT: ${{ github.event.inputs.environment || 'development' }}
   MAVEN_OPTS: '-Xmx1024m'
   MAVEN_ARGS: ${{ github.event.inputs.maven_args || vars.PROMPTLM_MAVEN_ARGS || '' }}
@@ -89,65 +89,23 @@ jobs:
       REPO_REMOTE_USERNAME: ${{ vars.REPO_REMOTE_USERNAME }}
       REPO_REMOTE_TOKEN: ${{ vars.REPO_REMOTE_TOKEN }}
     steps:
+      - name: Bootstrap composite actions
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+
       - name: Checkout repository
-        shell: bash
-        env:
-          CHECKOUT_REMOTE_URL: ${{ env.REPO_REMOTE_URL }}
-          CHECKOUT_REMOTE_USERNAME: ${{ env.REPO_REMOTE_USERNAME }}
-          CHECKOUT_REMOTE_TOKEN: ${{ env.REPO_REMOTE_TOKEN }}
-          CHECKOUT_FALLBACK_URL: ${{ github.server_url }}/${{ github.repository }}.git
-          CHECKOUT_FALLBACK_TOKEN: ${{ github.token }}
-          CHECKOUT_REF_NAME: ${{ github.ref_name }}
-          CHECKOUT_SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-
-          REMOTE_URL="${CHECKOUT_REMOTE_URL:-$CHECKOUT_FALLBACK_URL}"
-          IS_FILE_REMOTE=false
-          if [[ "${REMOTE_URL}" == file://* ]]; then
-            IS_FILE_REMOTE=true
-          fi
-
-          git init .
-          git config --global --add safe.directory "$PWD"
-          if [[ "${IS_FILE_REMOTE}" == "true" ]]; then
-            git config --global --add safe.directory "${REMOTE_URL#file://}"
-          else
-            REMOTE_USERNAME="${CHECKOUT_REMOTE_USERNAME:-x-access-token}"
-            REMOTE_TOKEN="${CHECKOUT_REMOTE_TOKEN:-$CHECKOUT_FALLBACK_TOKEN}"
-            if [ -z "${REMOTE_TOKEN}" ]; then
-              echo "No repository token available for checkout" >&2
-              exit 1
-            fi
-            AUTH_HEADER="Authorization: Basic $(printf '%s:%s' "${REMOTE_USERNAME}" "${REMOTE_TOKEN}" | base64 | tr -d '\n')"
-          fi
-
-          if git remote get-url origin >/dev/null 2>&1; then
-            git remote set-url origin "${REMOTE_URL}"
-          else
-            git remote add origin "${REMOTE_URL}"
-          fi
-
-          if [ -n "${CHECKOUT_REF_NAME}" ]; then
-            if [[ "${IS_FILE_REMOTE}" == "true" ]]; then
-              git fetch --force origin "${CHECKOUT_REF_NAME}"
-            else
-              git -c http.extraHeader="${AUTH_HEADER}" fetch --force origin "${CHECKOUT_REF_NAME}"
-            fi
-          else
-            if [[ "${IS_FILE_REMOTE}" == "true" ]]; then
-              git fetch --force origin "${CHECKOUT_SHA}"
-            else
-              git -c http.extraHeader="${AUTH_HEADER}" fetch --force origin "${CHECKOUT_SHA}"
-            fi
-          fi
-
-          if [[ "${IS_FILE_REMOTE}" == "true" ]]; then
-            git fetch --force origin "${CHECKOUT_SHA}"
-          else
-            git -c http.extraHeader="${AUTH_HEADER}" fetch --force origin "${CHECKOUT_SHA}"
-          fi
-          git checkout --force "${CHECKOUT_SHA}"
+        uses: ./.github/actions/checkout-repo
+        with:
+          remote-url: ${{ env.REPO_REMOTE_URL }}
+          remote-username: ${{ env.REPO_REMOTE_USERNAME }}
+          remote-token: ${{ env.REPO_REMOTE_TOKEN }}
+          fallback-url: ${{ github.server_url }}/${{ github.repository }}.git
+          fallback-token: ${{ github.token }}
+          ref-name: ${{ github.ref_name }}
+          sha: ${{ github.sha }}
 
       - name: Show toolchain
         shell: bash
@@ -181,15 +139,6 @@ jobs:
           fi
 
           "${MAVEN_COMMAND[@]}"
-
-      - name: Generate test support artifacts
-        shell: bash
-        run: |
-          if mvn -B -ntp help:describe -Dplugin=dev.promptlm:promptlm-test-support-generator -Ddetail=false >/dev/null 2>&1; then
-            mvn -B -ntp dev.promptlm:promptlm-test-support-generator:generate-test-support
-          else
-            echo "promptlm-test-support-generator plugin is not resolvable in this environment; skipping test-support generation."
-          fi
 
       - name: Ensure packaging prerequisites
         run: |
@@ -227,65 +176,49 @@ jobs:
       REPO_REMOTE_USERNAME: ${{ vars.REPO_REMOTE_USERNAME }}
       REPO_REMOTE_TOKEN: ${{ vars.REPO_REMOTE_TOKEN }}
     steps:
-      - name: Checkout repository
+      - name: Validate Artifactory configuration
         shell: bash
         env:
-          CHECKOUT_REMOTE_URL: ${{ env.REPO_REMOTE_URL }}
-          CHECKOUT_REMOTE_USERNAME: ${{ env.REPO_REMOTE_USERNAME }}
-          CHECKOUT_REMOTE_TOKEN: ${{ env.REPO_REMOTE_TOKEN }}
-          CHECKOUT_FALLBACK_URL: ${{ github.server_url }}/${{ github.repository }}.git
-          CHECKOUT_FALLBACK_TOKEN: ${{ github.token }}
-          CHECKOUT_REF_NAME: ${{ github.ref_name }}
-          CHECKOUT_SHA: ${{ github.sha }}
+          ARTIFACTORY_URL: ${{ env.ARTIFACTORY_URL }}
+          ARTIFACTORY_REPOSITORY: ${{ env.ARTIFACTORY_REPOSITORY }}
+          ARTIFACTORY_USERNAME: ${{ env.ARTIFACTORY_USERNAME }}
+          ARTIFACTORY_PASSWORD: ${{ env.ARTIFACTORY_PASSWORD }}
         run: |
-          set -euo pipefail
-
-          REMOTE_URL="${CHECKOUT_REMOTE_URL:-$CHECKOUT_FALLBACK_URL}"
-          IS_FILE_REMOTE=false
-          if [[ "${REMOTE_URL}" == file://* ]]; then
-            IS_FILE_REMOTE=true
+          set -eu
+          if [ -z "${ARTIFACTORY_URL}" ]; then
+            echo "ARTIFACTORY_URL is not configured. Set it as a repository variable." >&2
+            exit 1
+          fi
+          if [ -z "${ARTIFACTORY_REPOSITORY}" ]; then
+            echo "ARTIFACTORY_REPOSITORY is not configured. Set it as a repository variable." >&2
+            exit 1
+          fi
+          if [ -z "${ARTIFACTORY_USERNAME}" ]; then
+            echo "ARTIFACTORY_USERNAME is not configured. Set it as a repository secret or variable." >&2
+            exit 1
+          fi
+          if [ -z "${ARTIFACTORY_PASSWORD}" ]; then
+            echo "ARTIFACTORY_PASSWORD is not configured. Set it as a repository secret." >&2
+            exit 1
           fi
 
-          git init .
-          git config --global --add safe.directory "$PWD"
-          if [[ "${IS_FILE_REMOTE}" == "true" ]]; then
-            git config --global --add safe.directory "${REMOTE_URL#file://}"
-          else
-            REMOTE_USERNAME="${CHECKOUT_REMOTE_USERNAME:-x-access-token}"
-            REMOTE_TOKEN="${CHECKOUT_REMOTE_TOKEN:-$CHECKOUT_FALLBACK_TOKEN}"
-            if [ -z "${REMOTE_TOKEN}" ]; then
-              echo "No repository token available for checkout" >&2
-              exit 1
-            fi
-            AUTH_HEADER="Authorization: Basic $(printf '%s:%s' "${REMOTE_USERNAME}" "${REMOTE_TOKEN}" | base64 | tr -d '\n')"
-          fi
+      - name: Bootstrap composite actions
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
 
-          if git remote get-url origin >/dev/null 2>&1; then
-            git remote set-url origin "${REMOTE_URL}"
-          else
-            git remote add origin "${REMOTE_URL}"
-          fi
-
-          if [ -n "${CHECKOUT_REF_NAME}" ]; then
-            if [[ "${IS_FILE_REMOTE}" == "true" ]]; then
-              git fetch --force origin "${CHECKOUT_REF_NAME}"
-            else
-              git -c http.extraHeader="${AUTH_HEADER}" fetch --force origin "${CHECKOUT_REF_NAME}"
-            fi
-          else
-            if [[ "${IS_FILE_REMOTE}" == "true" ]]; then
-              git fetch --force origin "${CHECKOUT_SHA}"
-            else
-              git -c http.extraHeader="${AUTH_HEADER}" fetch --force origin "${CHECKOUT_SHA}"
-            fi
-          fi
-
-          if [[ "${IS_FILE_REMOTE}" == "true" ]]; then
-            git fetch --force origin "${CHECKOUT_SHA}"
-          else
-            git -c http.extraHeader="${AUTH_HEADER}" fetch --force origin "${CHECKOUT_SHA}"
-          fi
-          git checkout --force "${CHECKOUT_SHA}"
+      - name: Checkout repository
+        uses: ./.github/actions/checkout-repo
+        with:
+          remote-url: ${{ env.REPO_REMOTE_URL }}
+          remote-username: ${{ env.REPO_REMOTE_USERNAME }}
+          remote-token: ${{ env.REPO_REMOTE_TOKEN }}
+          fallback-url: ${{ github.server_url }}/${{ github.repository }}.git
+          fallback-token: ${{ github.token }}
+          ref-name: ${{ github.ref_name }}
+          sha: ${{ github.sha }}
 
       - name: Show toolchain
         shell: bash
