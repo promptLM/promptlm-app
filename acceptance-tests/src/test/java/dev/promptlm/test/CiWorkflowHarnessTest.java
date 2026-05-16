@@ -146,6 +146,11 @@ class CiWorkflowHarnessTest implements WithAssertions {
         Duration pollInterval = Duration.ofSeconds(5);
         GiteaActions.ActionExecutionReport workflowReport =
                 waitForWorkflowExecution(gitea, gitea.getAdminUsername(), REPO_NAME, seededCommitSha, timeout, pollInterval);
+        String conclusion = workflowReport.run().conclusion();
+        if (conclusion != null && !"success".equalsIgnoreCase(conclusion)) {
+            log.error("Workflow run terminated with conclusion={}; dumping diagnostics before assertion", conclusion);
+            gitea.logRepositoryActionsDiagnostics(gitea.getAdminUsername(), REPO_NAME);
+        }
         assertSuccessfulWorkflowExecution(workflowReport, seededCommitSha);
 
         ReleaseArtifactContractDelegate.assertPublishedReleaseArtifactContract(HTTP_CLIENT, artifactory);
