@@ -49,6 +49,8 @@ class RepositoryTemplateZipContentsTest {
                     ".github/workflows/build-artifacts.yml",
                     ".github/workflows/deploy-artifacts.yml",
                     ".github/workflows/deploy-artifactory.yml",
+                    ".github/workflows/release.yml",
+                    ".github/workflows/validate.yml",
                     ".promptlm/artifacts.toml",
                     ".promptlm/metadata.json",
                     ".promptlm/prompts-meta.json",
@@ -56,6 +58,8 @@ class RepositoryTemplateZipContentsTest {
                     "pom.xml",
                     "prompts/.gitignore",
                     "prompts/examples/hello.md",
+                    "scripts/package-prompts.sh",
+                    "scripts/validate-prompts.sh",
                     "tools/release/build-artifacts",
                     "tools/release/publish-artifacts"
             ));
