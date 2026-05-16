@@ -163,7 +163,6 @@ class CiWorkflowHarnessTest implements WithAssertions {
         gitea.ensureRepositoryActionsVariable(owner, REPO_NAME, "REPO_REMOTE_URL", runnerCloneUrl);
         gitea.ensureRepositoryActionsVariable(owner, REPO_NAME, "REPO_REMOTE_USERNAME", owner);
         gitea.ensureRepositoryActionsVariable(owner, REPO_NAME, "REPO_REMOTE_TOKEN", gitea.getAdminToken());
-        gitea.ensureRepositoryActionsVariable(owner, REPO_NAME, "OPENAI_API_KEY", "dummy-key");
         gitea.ensureRepositoryActionsVariable(owner, REPO_NAME, "ARTIFACTORY_URL", artifactory.getRunnerAccessibleApiUrl());
         gitea.ensureRepositoryActionsVariable(owner, REPO_NAME, "ARTIFACTORY_REPOSITORY", artifactory.getMavenRepositoryName());
         gitea.ensureRepositoryActionsVariable(owner, REPO_NAME, "ARTIFACTORY_USERNAME", artifactory.getDeployerUsername());
