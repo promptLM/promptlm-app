@@ -55,6 +55,7 @@ class RepositoryTemplateZipContentsTest {
                     "README.md",
                     "pom.xml",
                     "prompts/.gitignore",
+                    "prompts/examples/hello.md",
                     "tools/release/build-artifacts",
                     "tools/release/publish-artifacts"
             ));

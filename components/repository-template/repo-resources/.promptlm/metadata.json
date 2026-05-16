@@ -1,6 +1,6 @@
 {
   "repository": {
-    "name": "my-prompts",
+    "name": "REPLACE_ME_repository_name",
     "version": "1.0.0-SNAPSHOT",
     "description": "A repository of prompts for LLM applications",
     "created": "2025-01-19T22:42:35Z",
@@ -8,16 +8,12 @@
   },
   "prompts": [
     {
-      "id": "example-prompt-001",
-      "name": "example-prompt",
+      "id": "hello",
+      "name": "hello",
       "group": "examples",
       "version": "1.0.0",
-      "description": "An example prompt for demonstration purposes",
-      "file": "prompts/example-prompt.txt",
-      "status": "active",
-      "tags": ["example", "demo"],
-      "created": "2025-01-19T22:42:35Z",
-      "updated": "2025-01-19T22:42:35Z"
+      "file": "prompts/examples/hello.md",
+      "status": "active"
     }
   ],
   "metadata": {
