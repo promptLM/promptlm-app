@@ -24,6 +24,7 @@ import dev.promptlm.repository.template.TemplateContext;
 import dev.promptlm.repository.template.TemplateSubstitutionEngine;
 import dev.promptlm.store.api.ProjectService;
 import dev.promptlm.store.api.RemoteRepositoryAlreadyExistsException;
+import dev.promptlm.store.api.RepositoryGenerationConfig;
 import dev.promptlm.store.api.RepositoryOwner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -224,7 +225,12 @@ public class GitProjectService implements ProjectService {
                     ownerAndRepo.repo()
             );
         }
-        return remoteGitRepositoryProvisioner.createRemoteRepository(ownerAndRepo.owner(), ownerAndRepo.repo());
+        // TODO(#161): drive description / defaultBranch / release config from promptlm.yml.
+        RepositoryGenerationConfig config = RepositoryGenerationConfig.defaults(
+                ownerAndRepo.owner(),
+                ownerAndRepo.repo()
+        );
+        return remoteGitRepositoryProvisioner.createRemoteRepository(config);
     }
 
 
