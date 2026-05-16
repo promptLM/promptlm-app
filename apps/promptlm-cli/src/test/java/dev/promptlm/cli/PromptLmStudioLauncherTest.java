@@ -19,7 +19,10 @@ package dev.promptlm.cli;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationListener;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.core.env.ConfigurableEnvironment;
 
 import java.io.IOException;
@@ -27,11 +30,19 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.http.HttpClient;
+import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class PromptLmStudioLauncherTest {
@@ -79,7 +90,7 @@ class PromptLmStudioLauncherTest {
     }
 
     @Test
-    void startsStudioInProcessAndWaitsForReadiness() throws IOException {
+    void startsStudioInProcessAndWaitsForReadiness() throws Exception {
         int port = findFreePort();
         HttpServer[] startedServer = new HttpServer[1];
 
@@ -101,7 +112,7 @@ class PromptLmStudioLauncherTest {
         );
 
         try {
-            String result = launcher.launch(port, true);
+            String result = launchAndStop(launcher, port, context);
             assertEquals("PromptLM Studio is running at http://127.0.0.1:" + port + "/", result);
         }
         finally {
@@ -112,7 +123,7 @@ class PromptLmStudioLauncherTest {
     }
 
     @Test
-    void resolvesRuntimePortWhenRequestedPortIsZero() throws IOException {
+    void resolvesRuntimePortWhenRequestedPortIsZero() throws Exception {
         HttpServer[] startedServer = new HttpServer[1];
 
         ConfigurableEnvironment environment = mock(ConfigurableEnvironment.class);
@@ -137,7 +148,7 @@ class PromptLmStudioLauncherTest {
         );
 
         try {
-            String result = launcher.launch(0, true);
+            String result = launchAndStop(launcher, 0, context);
             assertEquals("PromptLM Studio is running at http://127.0.0.1:"
                             + startedServer[0].getAddress().getPort() + "/",
                     result);
@@ -147,6 +158,107 @@ class PromptLmStudioLauncherTest {
                 startedServer[0].stop(0);
             }
         }
+    }
+
+    @Test
+    void launchBlocksUntilContextClosedAfterReadiness() throws Exception {
+        int port = findFreePort();
+        HttpServer[] startedServer = new HttpServer[1];
+
+        ConfigurableApplicationContext context = mock(ConfigurableApplicationContext.class);
+        when(context.isActive()).thenReturn(true);
+
+        PromptLmStudioLauncher launcher = new PromptLmStudioLauncher(
+                HttpClient.newHttpClient(),
+                p -> {
+                    try {
+                        HttpServer server = startPromptLmServer(p);
+                        startedServer[0] = server;
+                        return context;
+                    }
+                    catch (IOException e) {
+                        throw new IllegalStateException("Failed to start embedded test server", e);
+                    }
+                }
+        );
+
+        try {
+            CompletableFuture<String> launchFuture = CompletableFuture.supplyAsync(() -> launcher.launch(port, true));
+
+            // Capture the ContextClosedEvent listener registered by the launcher; under the
+            // production code path Spring's shutdown publishes the event automatically.
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            ArgumentCaptor<ApplicationListener> listenerCaptor = ArgumentCaptor.forClass(ApplicationListener.class);
+            assertEventually(() -> {
+                verify(context, atLeastOnce()).addApplicationListener(listenerCaptor.capture());
+                return null;
+            });
+
+            // The launcher must still be blocked at this point — readiness was reached but
+            // no ContextClosedEvent has been fired yet.
+            assertThrows(TimeoutException.class, () -> launchFuture.get(200, TimeUnit.MILLISECONDS));
+
+            @SuppressWarnings("unchecked")
+            ApplicationListener<ContextClosedEvent> capturedListener = listenerCaptor.getValue();
+            capturedListener.onApplicationEvent(new ContextClosedEvent(context));
+
+            String result = launchFuture.get(5, TimeUnit.SECONDS);
+            assertThat(result).isEqualTo("PromptLM Studio is running at http://127.0.0.1:" + port + "/");
+        }
+        finally {
+            if (startedServer[0] != null) {
+                startedServer[0].stop(0);
+            }
+        }
+    }
+
+    /**
+     * Runs `launch()` on a background thread, fires a ContextClosedEvent on the mock context
+     * once the launcher has registered its listener, and returns the launch result.
+     */
+    private static String launchAndStop(PromptLmStudioLauncher launcher,
+                                        int port,
+                                        ConfigurableApplicationContext context)
+            throws InterruptedException, ExecutionException, TimeoutException {
+        CompletableFuture<String> launchFuture = CompletableFuture.supplyAsync(() -> launcher.launch(port, true));
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        ArgumentCaptor<ApplicationListener> listenerCaptor = ArgumentCaptor.forClass(ApplicationListener.class);
+        assertEventually(() -> {
+            verify(context, atLeastOnce()).addApplicationListener(listenerCaptor.capture());
+            return null;
+        });
+        @SuppressWarnings("unchecked")
+        ApplicationListener<ContextClosedEvent> capturedListener = listenerCaptor.getValue();
+        capturedListener.onApplicationEvent(new ContextClosedEvent(context));
+        return launchFuture.get(5, TimeUnit.SECONDS);
+    }
+
+    private static void assertEventually(ThrowingSupplier action) {
+        Duration timeout = Duration.ofSeconds(5);
+        long deadline = System.nanoTime() + timeout.toNanos();
+        Throwable last = null;
+        while (System.nanoTime() < deadline) {
+            try {
+                action.get();
+                return;
+            }
+            catch (Throwable t) {
+                last = t;
+                try {
+                    Thread.sleep(50);
+                }
+                catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new AssertionError("Interrupted", ie);
+                }
+            }
+        }
+        throw new AssertionError("Condition not met within " + timeout, last);
+    }
+
+    @FunctionalInterface
+    private interface ThrowingSupplier {
+        Object get() throws Throwable;
     }
 
     private static HttpServer startPromptLmServer(int port) throws IOException {

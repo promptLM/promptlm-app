@@ -24,7 +24,10 @@ import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.web.server.servlet.context.AnnotationConfigServletWebServerApplicationContext;
 import org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext;
+import org.springframework.context.ApplicationListener;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.event.ContextClosedEvent;
+import org.springframework.context.support.AbstractApplicationContext;
 import org.springframework.stereotype.Component;
 
 import java.awt.Desktop;
@@ -37,6 +40,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CountDownLatch;
 
 @Component
 public class PromptLmStudioLauncher {
@@ -76,17 +80,48 @@ public class PromptLmStudioLauncher {
         }
 
         ConfigurableApplicationContext studioContext = startStudioContext(port, requestedBaseUri);
+        URI baseUri;
         try {
-            URI baseUri = resolveBaseUri(port, studioContext);
+            baseUri = resolveBaseUri(port, studioContext);
             waitForStartup(baseUri, studioContext);
             if (!noBrowser) {
                 openBrowser(baseUri);
             }
-            return "PromptLM Studio is running at " + baseUri;
         }
         catch (RuntimeException ex) {
             closeQuietly(studioContext);
             throw ex;
+        }
+
+        String runningMessage = "PromptLM Studio is running at " + baseUri;
+        System.out.println(runningMessage);
+        awaitContextClosed(studioContext);
+        return runningMessage;
+    }
+
+    private static void awaitContextClosed(ConfigurableApplicationContext studioContext) {
+        CountDownLatch stopLatch = new CountDownLatch(1);
+        ApplicationListener<ContextClosedEvent> listener = event -> stopLatch.countDown();
+        studioContext.addApplicationListener(listener);
+
+        Thread shutdownHook = new Thread(() -> closeQuietly(studioContext), "promptlm-studio-shutdown");
+        Runtime.getRuntime().addShutdownHook(shutdownHook);
+        try {
+            stopLatch.await();
+        }
+        catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
+        finally {
+            if (studioContext instanceof AbstractApplicationContext aac) {
+                aac.removeApplicationListener(listener);
+            }
+            try {
+                Runtime.getRuntime().removeShutdownHook(shutdownHook);
+            }
+            catch (IllegalStateException ignored) {
+                // JVM already shutting down — hook will run or has run.
+            }
         }
     }
 
