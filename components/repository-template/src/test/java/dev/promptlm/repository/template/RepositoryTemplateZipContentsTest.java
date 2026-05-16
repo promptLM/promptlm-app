@@ -54,6 +54,7 @@ class RepositoryTemplateZipContentsTest {
                     ".promptlm/prompts-meta.json",
                     "README.md",
                     "pom.xml",
+                    "promptlm.yml",
                     "prompts/.gitignore",
                     "prompts/examples/hello.md",
                     "tools/release/build-artifacts",

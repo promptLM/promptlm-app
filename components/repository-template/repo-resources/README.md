@@ -12,7 +12,7 @@ This repository can be used in one of two modes. The mode is selected by the `re
 
 ### Mode 1 — Prompt management (default)
 
-Use this repository as a plain git store for your prompts. Edit prompts under `prompts/`, commit, push. The included build and deploy workflows stay no-ops unless `.promptlm/artifacts.toml` is configured, so you can ignore them.
+Use this repository as a plain git store for your prompts. Edit prompts under `prompts/`, commit, push. With `release.enabled: false` in `promptlm.yml` (the default), the generated repository ships **without** CI/CD workflows, build scripts, `pom.xml`, or `.promptlm/artifacts.toml` — it is the minimal prompt-management layout.
 
 ### Mode 2 — Prompt releases (opt-in)
 
