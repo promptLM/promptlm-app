@@ -1,0 +1,17 @@
+name: Validate Prompts
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run prompt validation
+        run: |
+          chmod +x scripts/validate-prompts.sh
+          scripts/validate-prompts.sh
