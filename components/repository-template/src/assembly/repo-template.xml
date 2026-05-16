@@ -16,7 +16,6 @@
                 <include>prompts/**</include>
                 <include>pom.xml</include>
                 <include>README.md</include>
-                <include>.github/actions/checkout-repo/action.yml</include>
                 <include>.github/artifactory-config.yml</include>
                 <include>.github/workflows/build-artifacts.yml</include>
                 <include>.github/workflows/deploy-artifacts.yml</include>
