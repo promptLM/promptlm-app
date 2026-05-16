@@ -5,9 +5,10 @@
          http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <!-- Project coordinates - customize these for your prompt repository -->
-    <groupId>com.example.prompts</groupId>
-    <artifactId>my-prompts</artifactId>
+    <!-- Project coordinates - replace REPLACE_ME_* sentinels with your prompt repository's values. -->
+    <!-- Builds intentionally fail with a clear error until these are configured. -->
+    <groupId>REPLACE_ME_group_id</groupId>
+    <artifactId>REPLACE_ME_artifact_id</artifactId>
     <version>1.0.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
@@ -152,12 +153,9 @@
 
     <!-- Profiles for different deployment scenarios -->
     <profiles>
-        <!-- Development profile -->
+        <!-- Development profile - opt-in via `-Pdev`. Never active by default; CI must never inherit localhost coordinates. -->
         <profile>
             <id>dev</id>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-            </activation>
             <properties>
                 <artifactory.url>http://localhost:8091/artifactory</artifactory.url>
                 <artifactory.repository>ci-maven-local</artifactory.repository>
