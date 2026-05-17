@@ -17,6 +17,7 @@
 package dev.promptlm.store.github;
 
 import dev.promptlm.store.api.RemoteRepositoryAlreadyExistsException;
+import dev.promptlm.store.api.RepositoryGenerationConfig;
 import dev.promptlm.store.api.RepositoryOwner;
 import org.kohsuke.github.*;
 import org.slf4j.Logger;
@@ -89,13 +90,43 @@ public class RemoteGitRepositoryProvisioner {
         return resolved;
     }
 
+    /**
+     * Creates a remote repository using the supplied {@link RepositoryGenerationConfig}.
+     *
+     * <p>The configuration drives the repository description and default branch,
+     * replacing the previously hard-coded {@code "A promptLM store"} description
+     * and {@code "main"} branch values.
+     *
+     * @param config the repository generation configuration; never {@code null}
+     * @return the created remote repository
+     * @throws RemoteRepositoryAlreadyExistsException if a repository already exists at
+     *         {@code owner/repositoryName}
+     */
+    public RemoteRepository createRemoteRepository(RepositoryGenerationConfig config) throws RemoteRepositoryAlreadyExistsException {
+        if (config == null) {
+            throw new IllegalArgumentException("config must not be null");
+        }
+        String effectiveOwner = resolveOwner(config.ownerName());
+        String baseUrl = gitHubProperties.getBaseUrl();
+        if (repositoryExists(baseUrl, effectiveOwner, config.repositoryName())) {
+            throw new RemoteRepositoryAlreadyExistsException(baseUrl, effectiveOwner, config.repositoryName());
+        }
+        return _createRemoteRepository(effectiveOwner, config.repositoryName(), config.description(), config.defaultBranch());
+    }
+
+    /**
+     * Backwards-compatible overload that delegates to
+     * {@link #createRemoteRepository(RepositoryGenerationConfig)} using the
+     * default description and default branch.
+     *
+     * @deprecated callers should construct an explicit
+     *             {@link RepositoryGenerationConfig} so that description and
+     *             default branch can be driven by {@code promptlm.yml}.
+     */
+    @Deprecated
     public RemoteRepository createRemoteRepository(String owner, String repoName) throws RemoteRepositoryAlreadyExistsException {
         String effectiveOwner = resolveOwner(owner);
-        String baseUrl = gitHubProperties.getBaseUrl();
-        if (repositoryExists(baseUrl, effectiveOwner, repoName)) {
-            throw new RemoteRepositoryAlreadyExistsException(baseUrl, effectiveOwner, repoName);
-        }
-        return _createRemoteRepository(effectiveOwner, repoName);
+        return createRemoteRepository(RepositoryGenerationConfig.defaults(effectiveOwner, repoName));
     }
 
 
@@ -120,7 +151,7 @@ public class RemoteGitRepositoryProvisioner {
     }
 
 
-    private GitHubRepository _createRemoteRepository(String owner, String repoName) {
+    private GitHubRepository _createRemoteRepository(String owner, String repoName, String description, String defaultBranch) {
 
         try {
             GitHub gitHub = buildClient(gitHubProperties.getBaseUrl());
@@ -131,8 +162,8 @@ public class RemoteGitRepositoryProvisioner {
                 GHMyself myself = gitHub.getMyself();
                 log.debug("Creating repository under authenticated user: {}", myself.getLogin());
                 r = gitHub.createRepository(repoName)
-                        .description("A promptLM store")
-                        .defaultBranch("main")
+                        .description(description)
+                        .defaultBranch(defaultBranch)
                         .private_(true)
                         .create();
             } else {
@@ -142,8 +173,8 @@ public class RemoteGitRepositoryProvisioner {
                 }
                 log.debug("Creating repository under organization: {}", owner);
                 r = organization.createRepository(repoName)
-                        .description("A promptLM store")
-                        .defaultBranch("main")
+                        .description(description)
+                        .defaultBranch(defaultBranch)
                         .private_(true)
                         .create();
             }
