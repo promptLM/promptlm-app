@@ -18,6 +18,7 @@ package dev.promptlm.test;
 
 import com.microsoft.playwright.*;
 import com.microsoft.playwright.options.LoadState;
+import java.nio.file.Paths;
 import org.junit.jupiter.api.Assumptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -94,8 +95,17 @@ public class PlaywrightSession {
             }
 
             // Create a new context and page for each test
-            context = browser.newContext(new Browser.NewContextOptions()
-                    .setViewportSize(1280, 720));
+            boolean recordVideo = Boolean.parseBoolean(System.getProperty(
+                    "playwright.video",
+                    System.getenv().getOrDefault("PLAYWRIGHT_VIDEO", "false")));
+            Browser.NewContextOptions contextOptions = new Browser.NewContextOptions()
+                    .setViewportSize(1280, 720);
+            if (recordVideo) {
+                contextOptions.setRecordVideoDir(Paths.get("target/videos"))
+                              .setRecordVideoSize(1280, 720);
+                log.info("Video recording enabled → target/videos/");
+            }
+            context = browser.newContext(contextOptions);
             context.tracing().start(new Tracing.StartOptions()
                     .setScreenshots(true)
                     .setSnapshots(true)
