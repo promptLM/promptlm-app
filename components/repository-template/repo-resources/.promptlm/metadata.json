@@ -1,10 +1,10 @@
 {
   "repository": {
-    "name": "REPLACE_ME_repository_name",
+    "name": "{{REPO_NAME}}",
     "version": "1.0.0-SNAPSHOT",
-    "description": "A repository of prompts for LLM applications",
-    "created": "2025-01-19T22:42:35Z",
-    "updated": "2025-01-19T22:42:35Z"
+    "description": "{{PROJECT_DESCRIPTION}}",
+    "created": "{{CREATED_AT}}",
+    "updated": "{{CREATED_AT}}"
   },
   "prompts": [
     {
@@ -19,6 +19,6 @@
   "metadata": {
     "format_version": "1.0",
     "generator": "promptLM",
-    "generator_version": "0.1.0-SNAPSHOT"
+    "generator_version": "{{GENERATOR_VERSION}}"
   }
 }

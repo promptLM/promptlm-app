@@ -16,6 +16,7 @@
 
 package dev.promptlm.store.github;
 
+import dev.promptlm.repository.template.TemplateContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.core.io.ByteArrayResource;
@@ -25,6 +26,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -37,7 +39,7 @@ class ZipFileRepositoryRepositoryTemplateExtractorTest {
         byte[] zipBytes = createTemplateArchive();
         ZipFileRepositoryTemplateExtractor extractor = new ZipFileRepositoryTemplateExtractor(new ByteArrayResource(zipBytes));
 
-        extractor.extractTo(tempDir);
+        extractor.extractTo(tempDir, sampleContext());
 
         Path readme = tempDir.resolve("README.md");
         Path nested = tempDir.resolve("docs/info.txt");
@@ -45,6 +47,15 @@ class ZipFileRepositoryRepositoryTemplateExtractorTest {
         assertThat(nested).exists();
         assertThat(Files.readString(readme)).isEqualTo("hello world");
         assertThat(Files.readString(nested)).isEqualTo("more info");
+    }
+
+    private static TemplateContext sampleContext() {
+        return new TemplateContext(
+                "sample-repo",
+                "sample-owner",
+                "sample description",
+                Instant.parse("2026-01-01T00:00:00Z"),
+                "1.2.3");
     }
 
     private byte[] createTemplateArchive() throws IOException {

@@ -16,6 +16,7 @@
 
 package dev.promptlm.store.github;
 
+import dev.promptlm.repository.template.TemplateContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.core.io.ByteArrayResource;
@@ -24,6 +25,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -53,7 +55,7 @@ class ZipFileRepositoryTemplateExtractorReleaseToggleTest {
     void releaseDisabledOmitsMode2OnlyFiles(@TempDir Path tempDir) throws IOException {
         byte[] zip = buildFullTemplateArchive(MODE_1_YAML);
 
-        new ZipFileRepositoryTemplateExtractor(new ByteArrayResource(zip)).extractTo(tempDir);
+        new ZipFileRepositoryTemplateExtractor(new ByteArrayResource(zip)).extractTo(tempDir, sampleContext());
 
         assertThat(tempDir.resolve("promptlm.yml")).exists();
         assertThat(tempDir.resolve(".promptlm/metadata.json")).exists();
@@ -73,7 +75,7 @@ class ZipFileRepositoryTemplateExtractorReleaseToggleTest {
     void releaseEnabledIncludesMode2Files(@TempDir Path tempDir) throws IOException {
         byte[] zip = buildFullTemplateArchive(MODE_2_YAML);
 
-        new ZipFileRepositoryTemplateExtractor(new ByteArrayResource(zip)).extractTo(tempDir);
+        new ZipFileRepositoryTemplateExtractor(new ByteArrayResource(zip)).extractTo(tempDir, sampleContext());
 
         assertThat(tempDir.resolve("promptlm.yml")).exists();
         assertThat(tempDir.resolve(".github/workflows/build-artifacts.yml")).exists();
@@ -90,7 +92,7 @@ class ZipFileRepositoryTemplateExtractorReleaseToggleTest {
             builder.write("pom.xml", "<project/>");
         });
 
-        new ZipFileRepositoryTemplateExtractor(new ByteArrayResource(zip)).extractTo(tempDir);
+        new ZipFileRepositoryTemplateExtractor(new ByteArrayResource(zip)).extractTo(tempDir, sampleContext());
 
         // Without an explicit opt-in, default to the safer Mode 1 layout.
         assertThat(tempDir.resolve("README.md")).exists();
@@ -123,6 +125,15 @@ class ZipFileRepositoryTemplateExtractorReleaseToggleTest {
     void isReleaseEnabledDefaultsToFalseOnEmptyInput() {
         assertThat(ZipFileRepositoryTemplateExtractor.isReleaseEnabled(null)).isFalse();
         assertThat(ZipFileRepositoryTemplateExtractor.isReleaseEnabled(new byte[0])).isFalse();
+    }
+
+    private static TemplateContext sampleContext() {
+        return new TemplateContext(
+                "sample-repo",
+                "sample-owner",
+                "sample description",
+                Instant.parse("2026-01-01T00:00:00Z"),
+                "1.2.3");
     }
 
     private static byte[] buildFullTemplateArchive(String promptlmYml) throws IOException {
