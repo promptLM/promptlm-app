@@ -17,19 +17,10 @@
 package dev.promptlm;
 
 import dev.promptlm.infrastructure.config.ObjectMapperConfiguration;
-import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.shell.core.NonInteractiveShellRunner;
-import org.springframework.shell.core.command.CommandParser;
-import org.springframework.shell.core.command.CommandExecutionException;
-import org.springframework.shell.core.command.CommandNotFoundException;
-import org.springframework.shell.core.command.CommandRegistry;
 
 @SpringBootApplication
 @Import(ObjectMapperConfiguration.class)
@@ -44,74 +35,21 @@ public class CliApplication {
                 .properties(
                         "debug=false",
                         "spring.main.banner-mode=off",
-                        "promptlm.cli.runner.enabled=true",
-                        // Suppress Spring Shell's built-in InteractiveShellRunner /
-                        // NonInteractiveShellRunner ApplicationRunners — we drive
-                        // command dispatch ourselves via cliShellApplicationRunner.
-                        // If the built-in runners are left enabled they emit a stray
-                        // "Running in interactive mode, arguments will be ignored"
-                        // WARN onto stdout, which corrupts CLI output capture in
-                        // smoke tests (NativeCliSmokeTest#shouldRunPromptReleaseCommand).
+                        // Disable Spring Shell's InteractiveShellRunner so a `promptlm-cli`
+                        // invocation with arguments dispatches once through the built-in
+                        // NonInteractiveShellRunner instead of also entering an interactive
+                        // REPL. Previously we additionally registered a custom
+                        // `cliShellApplicationRunner` that re-dispatched every command
+                        // through a second NonInteractiveShellRunner — that caused every
+                        // CLI command to execute twice in the native binary (see #144),
+                        // surfacing as `PromptSpecAlreadyExistsException` /
+                        // `JGitInternalException: Destination path ... already exists` in
+                        // NativeCliSmokeTest. The built-in runner alone is sufficient.
                         "spring.shell.interactive.enabled=false",
-                        "spring.shell.noninteractive.enabled=false",
                         "logging.level.dev.promptlm.infrastructure.config.SerializingAppContext=ERROR",
                         "spring.autoconfigure.exclude="
                                 + "org.springframework.boot.micrometer.metrics.autoconfigure.jvm.JvmMetricsAutoConfiguration"
                 )
                 .run(args);
-    }
-
-    @Bean
-    ApplicationRunner cliShellApplicationRunner(CommandParser commandParser,
-                                                CommandRegistry commandRegistry,
-                                                @Value("${promptlm.cli.runner.enabled:false}") boolean cliRunnerEnabled,
-                                                ConfigurableApplicationContext applicationContext) {
-        return applicationArguments -> {
-            if (!cliRunnerEnabled) {
-                return;
-            }
-            String[] sourceArgs = normalizeArgs(applicationArguments.getSourceArgs());
-            try {
-                runNonInteractive(sourceArgs, commandParser, commandRegistry);
-            }
-            finally {
-                applicationContext.close();
-            }
-        };
-    }
-
-    private static void runNonInteractive(String[] sourceArgs,
-                                          CommandParser commandParser,
-                                          CommandRegistry commandRegistry) throws Exception {
-        try {
-            new NonInteractiveShellRunner(commandParser, commandRegistry).run(sourceArgs);
-        }
-        catch (CommandNotFoundException ex) {
-            throw new IllegalArgumentException("Command '%s' not found.".formatted(ex.getCommandName()), ex);
-        }
-        catch (CommandExecutionException ex) {
-            Throwable rootCause = ex;
-            while (rootCause.getCause() != null && rootCause.getCause() != rootCause) {
-                rootCause = rootCause.getCause();
-            }
-            String message = rootCause != ex
-                    ? "Error executing command: " + rootCause
-                    : "Error executing command.";
-            throw new IllegalStateException(message, ex);
-        }
-    }
-
-    private static String[] normalizeArgs(String[] sourceArgs) {
-        if (sourceArgs.length == 0) {
-            return new String[]{"help"};
-        }
-        if (sourceArgs.length == 1) {
-            return switch (sourceArgs[0]) {
-                case "--help", "-h" -> new String[]{"help"};
-                case "--version", "-V" -> new String[]{"version"};
-                default -> sourceArgs;
-            };
-        }
-        return sourceArgs;
     }
 }

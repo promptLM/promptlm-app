@@ -32,6 +32,7 @@ import dev.promptlm.test.support.ArtifactoryStorageHelper;
 import dev.promptlm.test.support.GiteaRepositoryHelper;
 import dev.promptlm.test.support.PlaywrightNavigationHelper;
 import dev.promptlm.test.support.ProjectSetupHelper;
+import dev.promptlm.test.support.PromptWorkflowHelper;
 import dev.promptlm.test.support.ReleaseArtifactContractDelegate;
 import dev.promptlm.testutils.artifactory.Artifactory;
 import dev.promptlm.testutils.artifactory.ArtifactoryContainer;
@@ -244,17 +245,17 @@ public class HappyPathUserJourneyTest {
         page.getByTestId("prompt-editor-heading").waitFor();
 
         // Click Run and wait for the execute response so we know the panel has
-        // had a chance to update. The acceptance Spring profile installs
-        // AcceptanceTestStubGateway, so the call returns a deterministic
-        // response without needing an LLM API key.
+        // had a chance to update. This issues a real LLM call against the
+        // OPENAI_API_KEY configured in the environment (local shell / CI
+        // secret), so the test fails fast if no key is wired up.
         page.waitForResponse(
                 response -> response.url().contains("/execute")
                         && "POST".equalsIgnoreCase(response.request().method()),
                 () -> page.getByTestId("prompt-editor-run-action").click());
 
-        // UI surface: the run response container should render with the stub
-        // content. We assert non-empty rather than the literal stub string so
-        // the test stays decoupled from the stub's exact payload format.
+        // UI surface: the run response container should render with the LLM
+        // response. We assert non-empty rather than any specific content so
+        // the test stays robust against the model's nondeterministic output.
         Locator runResponse = page.getByTestId("prompt-editor-run-response");
         runResponse.waitFor();
         assertThat(runResponse.textContent()).isNotBlank();
@@ -315,7 +316,7 @@ public class HappyPathUserJourneyTest {
 
         // Per #140: the pre-release-execute gate runs the spec server-side before
         // promotion and appends a PRE_RELEASE Execution to spec.executions[]. The
-        // released YAML on main must carry that record with the stub's response.
+        // released YAML on main must carry that record with the LLM response.
         PromptSpec releasedSpec = waitForPromptSpec("main", expectedReleaseVersion, Duration.ofMinutes(2));
         assertThat(releasedSpec.getExecutions())
                 .as("released YAML must contain executions[] from the pre-release-execute gate")
@@ -399,34 +400,8 @@ public class HappyPathUserJourneyTest {
     @Order(50)
     @DisplayName("Should validate required fields on prompt form")
     void shouldValidateRequiredFields() {
-        // Navigate to new prompt page directly
         navigateToPath("/prompts/new");
-
-        // Clear required fields. The v2 form revalidates live and disables the
-        // submit button while errors are present, so we don't try to click it —
-        // we just assert the inline error indicators surface.
-        page.getByTestId("prompt-name-input").fill("");
-        page.getByTestId("prompt-group-input").fill("");
-        // Move focus off the cleared fields so the form's error-count derivation
-        // catches up before we assert visibility.
-        page.keyboard().press("Tab");
-
-        // Wait for the validation errors to be rendered alongside the required
-        // fields. Both indicators are written via `data-testid` in
-        // sections.tsx → IdentityBlock.
-        page.waitForSelector("[data-testid='prompt-name-error']",
-                new Page.WaitForSelectorOptions().setState(WaitForSelectorState.VISIBLE));
-        page.waitForSelector("[data-testid='prompt-group-error']",
-                new Page.WaitForSelectorOptions().setState(WaitForSelectorState.VISIBLE));
-
-        assertThat(page.isVisible("[data-testid='prompt-name-error']")).isTrue();
-        assertThat(page.isVisible("[data-testid='prompt-group-error']")).isTrue();
-
-        // The submit button should be disabled while the form is invalid — sanity
-        // check that the live-validation contract still holds.
-        assertThat(page.getByTestId("save-prompt-button").isDisabled()).isTrue();
-
-        // Take screenshot of validation errors
+        PromptWorkflowHelper.assertRequiredFieldValidation(page);
         takeScreenshot("validation-errors.png");
     }
 

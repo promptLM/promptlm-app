@@ -56,6 +56,7 @@ import java.util.TimeZone;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.groups.Tuple.tuple;
@@ -664,7 +665,12 @@ class PromptSpecControllerWebMvcTest {
                         .content(objectMapper.writeValueAsString(executePromptRequest)))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.detail").value(containsString("No Prompt gateway available")));
+                // #127: handler returns curated text from PromptExecutorFailureClassifierResolver,
+                // never the raw cause.getMessage(). Unclassified causes fall back to the
+                // resolver's UNKNOWN default → "Prompt execution failed".
+                .andExpect(jsonPath("$.detail").value("Prompt execution failed"))
+                .andExpect(jsonPath("$.detail").value(not(containsString("No Prompt gateway"))))
+                .andExpect(jsonPath("$.code").value("UNKNOWN"));
     }
 
     @Test
@@ -701,7 +707,10 @@ class PromptSpecControllerWebMvcTest {
                         .content(objectMapper.writeValueAsString(executePromptRequest)))
                 .andExpect(status().isInternalServerError())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.detail").value(containsString("Unexpected execution failure")));
+                // #127: curated text from classifier, raw cause message not echoed.
+                .andExpect(jsonPath("$.detail").value("Prompt execution failed"))
+                .andExpect(jsonPath("$.detail").value(not(containsString("Unexpected execution failure"))))
+                .andExpect(jsonPath("$.code").value("UNKNOWN"));
     }
 
     @Test

@@ -47,6 +47,12 @@ public final class ReleaseArtifactContractDelegate {
     /**
      * Downloads the first published archive from Artifactory and validates the release artifact contract.
      *
+     * <p>This convenience method couples the Artifactory-specific download step to the
+     * container-free contract assertion in {@link #assertReleaseArtifactContract(Path)}.
+     * For release flows that do not publish to Artifactory (e.g. a GitHub Releases harness
+     * test), download the archive separately and call
+     * {@link #assertReleaseArtifactContract(Path)} directly.
+     *
      * @return extracted archive directory
      */
     public static Path assertPublishedReleaseArtifactContract(HttpClient httpClient,
@@ -72,7 +78,14 @@ public final class ReleaseArtifactContractDelegate {
     }
 
     /**
-     * Validates required release artifact structure and metadata files.
+     * Validates the required release artifact structure and metadata files.
+     *
+     * <p>Intentionally decoupled from {@link ArtifactoryContainer}: this method operates
+     * solely on an extracted archive directory and is the reusable contract validator for
+     * alternate release flows (e.g. a future GitHub Releases harness test that downloads
+     * the artifact directly from Gitea and extracts it locally before asserting the
+     * contract). The Artifactory-bound entry point lives at
+     * {@link #assertPublishedReleaseArtifactContract(HttpClient, ArtifactoryContainer)}.
      */
     public static void assertReleaseArtifactContract(Path extractedDir) {
         Path metadataFile = extractedDir.resolve("META-INF/metadata.json");

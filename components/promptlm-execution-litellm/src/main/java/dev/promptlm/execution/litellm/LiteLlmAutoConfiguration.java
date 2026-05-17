@@ -16,6 +16,7 @@
 
 package dev.promptlm.execution.litellm;
 
+import dev.promptlm.lifecycle.failure.PromptExecutorFailureClassifier;
 import dev.promptlm.execution.PromptGateway;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,5 +83,11 @@ public class LiteLlmAutoConfiguration {
             LOGGER.warn("LiteLLM gateway is enabled in configuration but will remain inactive because startup checks failed");
         }
         return new LiteLlmPromptGateway(properties, liteLlmRestClient, active);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "liteLlmFailureClassifier")
+    public PromptExecutorFailureClassifier liteLlmFailureClassifier() {
+        return new LiteLlmFailureClassifier();
     }
 }

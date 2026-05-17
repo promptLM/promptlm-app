@@ -4,7 +4,54 @@ on:
   workflow_dispatch: {}
 
 jobs:
+  read-config:
+    runs-on: ubuntu-latest
+    outputs:
+      has_java: ${{ steps.parse.outputs.has_java }}
+      has_python: ${{ steps.parse.outputs.has_python }}
+      has_js: ${{ steps.parse.outputs.has_js }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Parse artifacts.toml
+        id: parse
+        shell: bash
+        run: |
+          python <<'PY' >> "$GITHUB_OUTPUT"
+          import sys
+          if sys.version_info < (3, 11):
+              raise SystemExit(
+                  "ERROR: Python 3.11 or later is required (found {}.{})".format(
+                      *sys.version_info[:2]
+                  )
+              )
+          import tomllib
+          from pathlib import Path
+
+          manifest_path = Path(".promptlm/artifacts.toml")
+          targets: list[str] = []
+          if manifest_path.exists():
+              with manifest_path.open("rb") as handle:
+                  manifest = tomllib.load(handle)
+              raw = manifest.get("project", {}).get("targets")
+              if raw is None:
+                  raw = manifest.get("targets")
+              if isinstance(raw, list):
+                  targets = [str(t).strip() for t in raw if str(t).strip()]
+
+          for lang in ("java", "python", "js"):
+              print(f"has_{lang}={'true' if lang in targets else 'false'}")
+          PY
+
   build-java:
+    needs: read-config
+    if: needs.read-config.outputs.has_java == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -32,6 +79,8 @@ jobs:
           path: dist/java/
 
   build-python:
+    needs: read-config
+    if: needs.read-config.outputs.has_python == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -56,6 +105,8 @@ jobs:
           path: dist/python/
 
   build-js:
+    needs: read-config
+    if: needs.read-config.outputs.has_js == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -65,11 +116,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
 
       - name: Build JS artifacts
         run: ./tools/release/build-artifacts --target js

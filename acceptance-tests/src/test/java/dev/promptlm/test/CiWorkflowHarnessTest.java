@@ -146,6 +146,11 @@ class CiWorkflowHarnessTest implements WithAssertions {
         Duration pollInterval = Duration.ofSeconds(5);
         GiteaActions.ActionExecutionReport workflowReport =
                 waitForWorkflowExecution(gitea, gitea.getAdminUsername(), REPO_NAME, seededCommitSha, timeout, pollInterval);
+        String conclusion = workflowReport.run().conclusion();
+        if (conclusion != null && !"success".equalsIgnoreCase(conclusion)) {
+            log.error("Workflow run terminated with conclusion={}; dumping diagnostics before assertion", conclusion);
+            gitea.logRepositoryActionsDiagnostics(gitea.getAdminUsername(), REPO_NAME);
+        }
         assertSuccessfulWorkflowExecution(workflowReport, seededCommitSha);
 
         ReleaseArtifactContractDelegate.assertPublishedReleaseArtifactContract(HTTP_CLIENT, artifactory);
@@ -163,7 +168,6 @@ class CiWorkflowHarnessTest implements WithAssertions {
         gitea.ensureRepositoryActionsVariable(owner, REPO_NAME, "REPO_REMOTE_URL", runnerCloneUrl);
         gitea.ensureRepositoryActionsVariable(owner, REPO_NAME, "REPO_REMOTE_USERNAME", owner);
         gitea.ensureRepositoryActionsVariable(owner, REPO_NAME, "REPO_REMOTE_TOKEN", gitea.getAdminToken());
-        gitea.ensureRepositoryActionsVariable(owner, REPO_NAME, "OPENAI_API_KEY", "dummy-key");
         gitea.ensureRepositoryActionsVariable(owner, REPO_NAME, "ARTIFACTORY_URL", artifactory.getRunnerAccessibleApiUrl());
         gitea.ensureRepositoryActionsVariable(owner, REPO_NAME, "ARTIFACTORY_REPOSITORY", artifactory.getMavenRepositoryName());
         gitea.ensureRepositoryActionsVariable(owner, REPO_NAME, "ARTIFACTORY_USERNAME", artifactory.getDeployerUsername());
@@ -210,14 +214,27 @@ class CiWorkflowHarnessTest implements WithAssertions {
 
     private static final class RepositorySeeder {
 
+        private static final String DEFAULT_TEMPLATE_RESOURCE = "repo-template.zip";
+
         private final GiteaContainer gitea;
         private final Path workspace;
         private final Path repoDir;
+        private final String templateResource;
 
         private RepositorySeeder(GiteaContainer gitea, Path workspace) {
+            this(gitea, workspace, DEFAULT_TEMPLATE_RESOURCE);
+        }
+
+        /**
+         * Hook for tests that need to seed a non-default template archive (for example a
+         * Mode 2 release-enabled template once #161 splits the repository template). The
+         * two-arg constructor preserves today's behaviour by loading {@code repo-template.zip}.
+         */
+        private RepositorySeeder(GiteaContainer gitea, Path workspace, String templateResource) {
             this.gitea = gitea;
             this.workspace = workspace;
             this.repoDir = workspace.resolve(REPO_NAME + "-local");
+            this.templateResource = templateResource;
         }
 
         String seedTemplateRepository() {
@@ -258,7 +275,7 @@ class CiWorkflowHarnessTest implements WithAssertions {
                 classLoader = RepositorySeeder.class.getClassLoader();
             }
             try {
-                var resources = classLoader.getResources("repo-template.zip");
+                var resources = classLoader.getResources(templateResource);
                 StringBuilder locations = new StringBuilder();
                 while (resources.hasMoreElements()) {
                     var resourceUrl = resources.nextElement();
@@ -271,10 +288,10 @@ class CiWorkflowHarnessTest implements WithAssertions {
                         return resourceUrl.openStream();
                     }
                 }
-                throw new IllegalStateException("repo-template.zip from repository-template module not found. "
+                throw new IllegalStateException(templateResource + " from repository-template module not found. "
                         + "Discovered locations: [" + locations + "]");
             } catch (IOException e) {
-                throw new IllegalStateException("Failed to load repo-template.zip from repository-template module", e);
+                throw new IllegalStateException("Failed to load " + templateResource + " from repository-template module", e);
             }
         }
 

@@ -20,8 +20,11 @@ import dev.promptlm.domain.AppContext;
 import dev.promptlm.domain.events.ProjectCreatedEvent;
 import dev.promptlm.domain.projectspec.ProjectSpec;
 import dev.promptlm.repository.template.RepositoryTemplateExtractor;
+import dev.promptlm.repository.template.TemplateContext;
+import dev.promptlm.repository.template.TemplateSubstitutionEngine;
 import dev.promptlm.store.api.ProjectService;
 import dev.promptlm.store.api.RemoteRepositoryAlreadyExistsException;
+import dev.promptlm.store.api.RepositoryGenerationConfig;
 import dev.promptlm.store.api.RepositoryOwner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,6 +34,7 @@ import org.springframework.util.StringUtils;
 
 import java.net.URI;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.List;
 
 @Component
@@ -38,6 +42,7 @@ public class GitProjectService implements ProjectService {
 
     private static final Logger log = LoggerFactory.getLogger(GitProjectService.class);
     public static final String DEVELOPMENT_BRANCH = "development";
+    static final String DEFAULT_PROJECT_DESCRIPTION = "prompts managed by promptLM";
     private final AppContext appContext;
     private final GitHubProperties gitHubProperties;
     private final Git git;
@@ -93,7 +98,14 @@ public class GitProjectService implements ProjectService {
 
         git.createRepository(repoPath, gitCloneUrl);
 
-        repositoryTemplateExtractor.extractTo(repoPath);
+        TemplateContext templateContext = new TemplateContext(
+                ownerAndRepo.repo(),
+                ownerAndRepo.owner(),
+                DEFAULT_PROJECT_DESCRIPTION,
+                Instant.now(),
+                TemplateSubstitutionEngine.BUILD_GENERATOR_VERSION
+        );
+        repositoryTemplateExtractor.extractTo(repoPath, templateContext);
 
         git.addAllAndCommit(repoPath.toFile(), "initial commit");
         push(repoPath);
@@ -213,7 +225,12 @@ public class GitProjectService implements ProjectService {
                     ownerAndRepo.repo()
             );
         }
-        return remoteGitRepositoryProvisioner.createRemoteRepository(ownerAndRepo.owner(), ownerAndRepo.repo());
+        // TODO(#161): drive description / defaultBranch / release config from promptlm.yml.
+        RepositoryGenerationConfig config = RepositoryGenerationConfig.defaults(
+                ownerAndRepo.owner(),
+                ownerAndRepo.repo()
+        );
+        return remoteGitRepositoryProvisioner.createRemoteRepository(config);
     }
 
 

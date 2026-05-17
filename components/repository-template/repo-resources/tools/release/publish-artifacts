@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
+import sys
+
+if sys.version_info < (3, 11):
+    raise SystemExit(
+        "ERROR: Python 3.11 or later is required (found {}.{})".format(
+            *sys.version_info[:2]
+        )
+    )
+
 import argparse
 import shutil
 import subprocess
-import sys
+import tomllib  # Python 3.11+
 from pathlib import Path
-
-try:
-    import tomllib  # Python 3.11+
-except ModuleNotFoundError:  # pragma: no cover
-    tomllib = None
 
 
 def eprint(message: str) -> None:
@@ -20,8 +24,6 @@ def run(cmd, cwd=None) -> None:
 
 
 def read_toml(path: Path) -> dict:
-    if tomllib is None:
-        raise RuntimeError("Python 3.11+ is required (tomllib missing).")
     with path.open("rb") as handle:
         return tomllib.load(handle)
 

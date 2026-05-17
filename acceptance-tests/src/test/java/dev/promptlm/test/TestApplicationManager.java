@@ -73,10 +73,6 @@ public abstract class TestApplicationManager {
         if (applicationProcess == null) {
             serverPort = findPort();
             Map<String, String> systemProperties = new LinkedHashMap<>();
-            // Activate the 'acceptance' profile so the AcceptanceTestStubGateway is registered
-            // and the dev-run / pre-release-execute paths return a deterministic response
-            // without needing a real LLM API key.
-            systemProperties.put("spring.profiles.active", "acceptance");
             if (giteaUrl != null) {
                 systemProperties.put("gitea.url", giteaUrl);
                 systemProperties.put("REPO_REMOTE_URL", giteaUrl + "/api/v1");

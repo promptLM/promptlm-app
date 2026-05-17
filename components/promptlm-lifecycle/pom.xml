@@ -6,7 +6,7 @@
     <parent>
         <groupId>dev.promptlm</groupId>
         <artifactId>promptlm-parent</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
+        <version>0.2.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -40,6 +40,14 @@
         <dependency>
             <groupId>org.springframework.modulith</groupId>
             <artifactId>spring-modulith-events-api</artifactId>
+        </dependency>
+        <!-- Test-scoped: DefaultPromptExecutorFailureClassifierTest constructs Spring web-client
+             exception types to validate the heuristic. Production code matches by class-name
+             string, so spring-web is not required at runtime. -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-web</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 

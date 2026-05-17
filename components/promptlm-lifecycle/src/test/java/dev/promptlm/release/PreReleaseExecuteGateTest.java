@@ -22,6 +22,8 @@ import dev.promptlm.domain.promptspec.Execution;
 import dev.promptlm.domain.promptspec.ExecutionKind;
 import dev.promptlm.domain.promptspec.FailureClass;
 import dev.promptlm.domain.promptspec.PromptSpec;
+import dev.promptlm.lifecycle.failure.DefaultPromptExecutorFailureClassifier;
+import dev.promptlm.lifecycle.failure.PromptExecutorFailureClassifierResolver;
 import dev.promptlm.lifecycle.application.PromptExecutionPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,7 +46,9 @@ class PreReleaseExecuteGateTest {
     void setUp() {
         properties = new PreReleaseExecuteProperties();
         executionPort = new StubExecutionPort();
-        gate = new PreReleaseExecuteGate(executionPort, properties);
+        var resolver = new PromptExecutorFailureClassifierResolver(
+                List.of(new DefaultPromptExecutorFailureClassifier()));
+        gate = new PreReleaseExecuteGate(executionPort, properties, resolver);
 
         spec = PromptSpec.builder()
                 .withGroup("g")
@@ -118,16 +122,31 @@ class PreReleaseExecuteGateTest {
     }
 
     @Test
-    void classify_fails_closed_for_unknown_runtime() {
-        assertThat(PreReleaseExecuteGate.classify(new IllegalStateException("schema mismatch")))
-                .isEqualTo(FailureClass.PROMPT);
+    /**
+     * Curated user-facing message from the classifier flows into the failed Execution's
+     * failureMessage field (visible in UI/logs), not the raw vendor exception text.
+     */
+    void failed_execution_carries_curated_user_message_from_classifier() {
+        executionPort.failWith(wrap(new SocketTimeoutException("read timed out after 30s")));
+
+        assertThatThrownBy(() -> gate.runOrThrow(spec, OnInfraFailure.REJECT))
+                .isInstanceOf(PreReleaseInfrastructureFailure.class)
+                .satisfies(thrown -> {
+                    PreReleaseInfrastructureFailure failure = (PreReleaseInfrastructureFailure) thrown;
+                    // userMessage is curated text from DefaultPromptExecutorFailureClassifier
+                    assertThat(failure.failedExecution().getError())
+                            .isEqualTo("Vendor request timed out");
+                });
     }
 
-    @Test
-    void classify_unwraps_nested_io_to_infrastructure() {
-        RuntimeException wrapped = new RuntimeException("client failed", new IOException("eof"));
-        assertThat(PreReleaseExecuteGate.classify(wrapped)).isEqualTo(FailureClass.INFRASTRUCTURE);
-    }
+    /*
+     * Note: the previously-here `classify(...)` static-method tests were removed when the
+     * classifier was extracted into the {@link PromptExecutorFailureClassifierResolver} SPI.
+     * Behavioural coverage of the heuristic now lives in
+     * {@code DefaultPromptExecutorFailureClassifierTest}; resolver wiring in
+     * {@code PromptExecutorFailureClassifierResolverTest}. The cases above keep verifying
+     * end-to-end behaviour through the gate.
+     */
 
     private static RuntimeException wrap(Throwable cause) {
         return new RuntimeException("wrapper", cause);

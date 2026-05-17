@@ -19,14 +19,17 @@ package dev.promptlm.repository.template;
 import java.nio.file.Path;
 
 /**
- * Extracts repository template resources into a target directory.
+ * Extracts repository template resources into a target directory, substituting
+ * template tokens (e.g. {@code {{REPO_NAME}}}) using the supplied {@link TemplateContext}.
  */
 public interface RepositoryTemplateExtractor {
 
     /**
-     * Extract the repository template archive to the provided directory.
+     * Extract the repository template archive to the provided directory, substituting template
+     * tokens in text files using {@code context}. Binary files are copied unchanged.
      *
      * @param targetDirectory directory to populate with template contents
+     * @param context         values to substitute into template tokens; must not be {@code null}
      */
-    void extractTo(Path targetDirectory);
+    void extractTo(Path targetDirectory, TemplateContext context);
 }
