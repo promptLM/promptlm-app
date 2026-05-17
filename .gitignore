@@ -66,3 +66,5 @@ docker/data/
 .claude/
 .agents/
 .windsurf/
+
+_internal
