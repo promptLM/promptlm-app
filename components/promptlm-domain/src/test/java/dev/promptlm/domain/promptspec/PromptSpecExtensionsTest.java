@@ -173,6 +173,89 @@ class PromptSpecExtensionsTest {
     }
 
     @Test
+    void releaseMetadataCarriesReleasedSemanticHashWhenStamped() {
+        // Issue #186: the lifecycle service stamps the released spec's
+        // semantic hash onto the release metadata so the UI can decide whether
+        // there are changes since the last release.
+        ReleaseMetadata metadata = new ReleaseMetadata(
+                ReleaseMetadata.STATE_RELEASED,
+                ReleaseMetadata.MODE_DIRECT,
+                "1.0.0",
+                "prompt-v1.0.0",
+                "main",
+                null,
+                null,
+                false
+        );
+
+        ReleaseMetadata stamped = metadata.withReleasedSemanticHash("deadbeef");
+
+        assertThat(stamped.releasedSemanticHash()).isEqualTo("deadbeef");
+        // Original record is unchanged — records are immutable.
+        assertThat(metadata.releasedSemanticHash()).isNull();
+        // Other fields are preserved.
+        assertThat(stamped.state()).isEqualTo(ReleaseMetadata.STATE_RELEASED);
+        assertThat(stamped.version()).isEqualTo("1.0.0");
+    }
+
+    @Test
+    void releaseMetadataPreservesReleasedSemanticHashAcrossSerialization() throws Exception {
+        ReleaseMetadata stamped = new ReleaseMetadata(
+                ReleaseMetadata.STATE_RELEASED,
+                ReleaseMetadata.MODE_DIRECT,
+                "1.0.0",
+                "prompt-v1.0.0",
+                "main",
+                null,
+                null,
+                false
+        ).withReleasedSemanticHash("aa11bb22");
+
+        PromptSpec spec = PromptSpec.builder()
+                .withGroup("group")
+                .withName("name")
+                .withVersion("1.0.0")
+                .withRevision(1)
+                .withDescription("desc")
+                .withRequest(ChatCompletionRequest.builder()
+                        .withType(ChatCompletionRequest.TYPE)
+                        .build())
+                .build()
+                .withReleaseMetadata(stamped);
+
+        String serialized = mapper.writeValueAsString(spec);
+        assertThat(serialized).contains("releasedSemanticHash");
+        assertThat(serialized).contains("aa11bb22");
+
+        PromptSpec roundTripped = mapper.readValue(serialized, PromptSpec.class);
+        assertThat(roundTripped.getReleaseMetadata().releasedSemanticHash())
+                .isEqualTo("aa11bb22");
+    }
+
+    @Test
+    void releaseMetadataReleasedSemanticHashOptionalForBackCompat() throws Exception {
+        // Pre-#186 release records carry no hash; deserialization must accept
+        // them (yielding null), and the UI must conservatively treat them as
+        // "release available".
+        String yaml = """
+                name: Sample
+                group: sample
+                version: 1.0
+                extensions:
+                  x-promptlm:
+                    release:
+                      state: released
+                      mode: direct
+                      version: 1.0
+                      tag: sample-v1.0
+                """;
+
+        PromptSpec spec = mapper.readValue(yaml, PromptSpec.class);
+        assertThat(spec.getReleaseMetadata()).isNotNull();
+        assertThat(spec.getReleaseMetadata().releasedSemanticHash()).isNull();
+    }
+
+    @Test
     void rejectsNonExtensionKey() {
         ObjectNode node = mapper.createObjectNode().put("foo", "bar");
         Map<String, JsonNode> extensions = Map.of("custom", node);
