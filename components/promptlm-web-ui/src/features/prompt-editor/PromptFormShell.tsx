@@ -59,6 +59,7 @@ import {
 import { buildEditorRunRequest } from './buildEditorRunRequest';
 import { releasePromptAction, savePromptDraftAction } from './editorActions';
 import { selectRevisionId } from './selectRevisionId';
+import { buildViewOnRemoteUrl } from './buildViewOnRemoteUrl';
 import { usePromptEditorData } from './usePromptEditorData';
 import { usePromptFormDirty } from './dirtyState';
 import { UnsavedChangesDialog } from './UnsavedChangesDialog';
@@ -291,12 +292,32 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
         | (typeof data.prompt & { releaseTag?: string | null; headShortSha?: string | null })
         | null,
     );
+    // Issue #188: compose the "View on GitHub" URL client-side from the
+    // project's remote (project-level concern, can change), the spec's path,
+    // and the head SHA. The backend no longer attaches a viewOnRemoteUrl to
+    // the spec — see buildViewOnRemoteUrl for the gating rules. Empty in
+    // create mode (no prompt loaded yet) and whenever the project's remote
+    // is not a recognised GitHub URL.
+    const specView = data.prompt as
+      | (typeof data.prompt & {
+          path?: string | null;
+          headShortSha?: string | null;
+          lifecycleState?: string | null;
+        })
+      | null;
+    const viewOnRemoteUrl = buildViewOnRemoteUrl({
+      projectRemoteUrl: data.activeProject?.repositoryUrl,
+      specPath: specView?.path,
+      headSha: specView?.headShortSha,
+      lifecycleState: specView?.lifecycleState,
+    });
     return {
       version: data.prompt?.version ?? FALLBACK_VERSION,
       revision: data.prompt?.revision ? `r${data.prompt.revision}` : FALLBACK_REVISION,
       repositoryUrl,
       branch: 'main',
       revisionId,
+      viewOnRemoteUrl,
     };
   }, [data.activeProject?.repositoryUrl, data.prompt]);
 

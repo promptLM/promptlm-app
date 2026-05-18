@@ -316,6 +316,33 @@ const StickyHeader: React.FC<{
       >
         {errors.hasErrors ? <>! {totalErrors} errors</> : '✓ ready to save'}
       </FormMono>
+      {context.viewOnRemoteUrl && (
+        <a
+          href={context.viewOnRemoteUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          data-testid="prompt-editor-view-on-remote"
+          title="Open this prompt on GitHub"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+            height: 28,
+            padding: '0 10px',
+            fontFamily: 'var(--pl-display)',
+            fontSize: 12,
+            color: 'var(--pl-ink-700)',
+            textDecoration: 'none',
+            border: '1px solid var(--pl-ink-200)',
+            borderRadius: 4,
+            background: 'transparent',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <span aria-hidden="true" style={{ fontFamily: 'var(--pl-mono)', fontSize: 11 }}>↗</span>
+          View on GitHub
+        </a>
+      )}
       {onEditorRun && (
         <GhostButton
           onClick={onEditorRun}
