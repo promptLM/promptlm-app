@@ -102,7 +102,7 @@
           <div class="hero-inner">
             <p class="pl-eyebrow hero-eyebrow">
               <span class="hero-eyebrow-dot pl-pulse" aria-hidden="true"></span>
-              v0.4 · MCP recording is live
+              v0.2 · early alpha · MCP record/replay in dev
             </p>
             <h1 id="hero-title" class="hero-title">
               The prompt lifecycle,<br />
@@ -133,7 +133,7 @@
             <div class="install-line">
               <span class="install-line-text">
                 <span class="install-line-prompt">$</span>
-                <span data-install-cmd>npm i -D @promptlm/cli</span>
+                <span data-install-cmd>curl -fsSL https://raw.githubusercontent.com/promptLM/promptlm-app/main/scripts/install.sh | bash</span>
               </span>
               <span class="install-line-divider" aria-hidden="true"></span>
               <button
@@ -240,49 +240,19 @@
                 Every prompt is versioned. Every change runs the suite.
                 Pass-rate, latency, and tokens land in the PR before review.
               </p>
-              <figure class="diff-mock" aria-label="Prompt diff inline preview">
-                <div class="diff-mock-head">
-                  <span class="diff-mock-file">booking_v2.prompt</span>
-                  <span class="diff-mock-meta">+12 −4 · 2 mins ago</span>
-                </div>
-                <div class="diff-mock-body">
-                  <div class="diff-row">
-                    <span class="diff-row-num">1</span>
-                    <span class="diff-row-op"> </span>
-                    <span class="diff-row-text is-muted">You are a booking assistant.</span>
-                  </div>
-                  <div class="diff-row">
-                    <span class="diff-row-num">2</span>
-                    <span class="diff-row-op"> </span>
-                    <span class="diff-row-text is-muted">Use available tools to check</span>
-                  </div>
-                  <div class="diff-row">
-                    <span class="diff-row-num">3</span>
-                    <span class="diff-row-op"> </span>
-                    <span class="diff-row-text is-muted">calendar availability.</span>
-                  </div>
-                  <div class="diff-row diff-row-del">
-                    <span class="diff-row-num">4</span>
-                    <span class="diff-row-op">-</span>
-                    <span class="diff-row-text">Always confirm before booking.</span>
-                  </div>
-                  <div class="diff-row diff-row-add">
-                    <span class="diff-row-num">5</span>
-                    <span class="diff-row-op">+</span>
-                    <span class="diff-row-text">Confirm only when ambiguous.</span>
-                  </div>
-                  <div class="diff-row diff-row-add">
-                    <span class="diff-row-num">6</span>
-                    <span class="diff-row-op">+</span>
-                    <span class="diff-row-text">Prefer earliest slot when offered.</span>
-                  </div>
-                  <div class="diff-row">
-                    <span class="diff-row-num">7</span>
-                    <span class="diff-row-op"> </span>
-                    <span class="diff-row-text is-muted">Return ISO 8601 datetimes.</span>
-                  </div>
-                </div>
-              </figure>
+              <pre class="code-snippet" aria-label="promptlm.yaml example"><span class="code-snippet-comment"># promptlm.yaml</span>
+<span class="code-key">id</span>: customer_support
+<span class="code-key">group</span>: support
+<span class="code-key">version</span>: <span class="code-str">1.0.0</span>
+<span class="code-key">request</span>:
+  <span class="code-key">vendor</span>: openai
+  <span class="code-key">model</span>: gpt-4o
+  <span class="code-key">parameters</span>: { <span class="code-key">temperature</span>: <span class="code-num">0.6</span>, <span class="code-key">maxTokens</span>: <span class="code-num">256</span> }
+  <span class="code-key">messages</span>:
+    - <span class="code-key">role</span>: system
+      <span class="code-key">content</span>: <span class="code-str">You are a support assistant.</span>
+    - <span class="code-key">role</span>: user
+      <span class="code-key">content</span>: <span class="code-str">"Summarize: {{ticket}}"</span></pre>
             </article>
           </div>
 
@@ -319,21 +289,22 @@
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                     <path d="M3 8 L7 11 L13 4" stroke="var(--pl-signal-deep)" stroke-width="1.5" stroke-linecap="square" />
                   </svg>
-                  Side-by-side: gpt-4o vs claude-3-5 vs gemini
+                  Side-by-side: gpt-4o vs claude-3-5-sonnet
                 </li>
               </ul>
             </div>
 
-            <pre class="code-snippet" aria-label="promptlm.config.ts example"><span class="code-snippet-comment">// promptlm.config.ts</span>
-<span class="code-fn">mock</span>(<span class="code-str">'gpt-4o'</span>, {
-  <span class="code-key">latency</span>: <span class="code-str">'p95'</span>,
-  <span class="code-key">seed</span>: <span class="code-num">42</span>,
-  <span class="code-key">scenarios</span>: [
-    <span class="code-str">'tool_refusal'</span>,
-    <span class="code-str">'malformed_json'</span>,
-    <span class="code-str">'partial_stream'</span>,
-  ],
-})</pre>
+            <pre class="code-snippet" aria-label="JUnit test-support example"><span class="code-snippet-comment">// TranslationServiceTest.java</span>
+<span class="code-key">@EnablePromptWireMock</span>
+<span class="code-fn">class</span> TranslationServiceTest {
+
+  <span class="code-key">@Test</span>
+  <span class="code-fn">void</span> translates(
+    <span class="code-key">@InjectPrompt</span>(id = <span class="code-str">"translate-hello"</span>) String prompt,
+    <span class="code-key">@InjectResponse</span>(id = <span class="code-str">"translate-hello"</span>) String response) {
+    <span class="code-snippet-comment">// WireMock stubs auto-generated from your prompt repo</span>
+  }
+}</pre>
           </div>
         </section>
 
