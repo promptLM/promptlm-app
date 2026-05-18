@@ -109,6 +109,13 @@ export interface PromptFormContext {
    * "next will bump · {branch}" copy. See issue #184.
    */
   revisionId?: string;
+  /**
+   * Absolute URL to the prompt on its remote (GitHub-only for v1). When set,
+   * the editor topbar renders a "View on GitHub" link; when undefined the
+   * link is hidden. Composed client-side from project + spec inputs — see
+   * `buildViewOnRemoteUrl` in the web-ui app for the gating rules (#188).
+   */
+  viewOnRemoteUrl?: string;
 }
 
 export interface PromptFormErrors {

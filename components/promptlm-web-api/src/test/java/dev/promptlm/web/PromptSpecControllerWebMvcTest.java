@@ -364,6 +364,38 @@ class PromptSpecControllerWebMvcTest {
     }
 
     @Test
+    void viewOnRemoteUrlFieldIsNotPresentOnPromptSpecBoundary() throws Exception {
+        // The View-on-GitHub link is composed by the frontend from the
+        // project's remote URL + the spec's path + headShortSha (see #188's
+        // refactor). The server therefore no longer attaches a viewOnRemoteUrl
+        // field to PromptSpec. Hardening: a client write carrying that field
+        // is silently dropped by Jackson, and read responses never emit it.
+        String promptId = "welcome";
+        PromptSpec stored = baseSpec("support/" + promptId);
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(stored));
+
+        mockMvc.perform(get("/api/prompts/{promptSpecId}", promptId))
+                .andExpect(status().isOk())
+                .andExpect(content().string(not(containsString("\"viewOnRemoteUrl\""))));
+
+        String payload = """
+                {
+                  "name": "welcome",
+                  "group": "support",
+                  "viewOnRemoteUrl": "https://evil.example/inject"
+                }
+                """;
+        // Sanity: deserialisation succeeds and the unknown property is
+        // ignored. The field is gone from the type, so there's no getter to
+        // assert against — instead re-serialising and confirming the URL is
+        // not echoed back gives equivalent coverage.
+        PromptSpec readBack = objectMapper.readValue(payload, PromptSpec.class);
+        String roundTripped = objectMapper.writeValueAsString(readBack);
+        assertThat(roundTripped).doesNotContain("viewOnRemoteUrl");
+        assertThat(roundTripped).doesNotContain("evil.example");
+    }
+
+    @Test
     void completeReleaseEndpointDelegatesToLifecycleAndSetsReleaseStateHeader() throws Exception {
         String promptId = "support/welcome";
         PromptSpec stored = PromptSpec.builder()
