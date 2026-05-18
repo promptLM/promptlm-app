@@ -15,7 +15,7 @@
     <title>promptLM</title>
     <meta
       name="description"
-      content="promptLM is a developer tool for testing LLM clients, mocking model behavior, and inspecting MCP traffic. Run, replay, regress."
+      content="Open-source prompt lifecycle management for engineering teams. Version your LLM prompts in Git, release them as signed artifacts, replay them in JUnit tests."
     />
     <meta name="author" content="promptLM" />
 
@@ -29,7 +29,7 @@
     <meta property="og:title" content="promptLM" />
     <meta
       property="og:description"
-      content="promptLM is a developer tool for testing LLM clients, mocking model behavior, and inspecting MCP traffic. Run, replay, regress."
+      content="Open-source prompt lifecycle management for engineering teams. Version your LLM prompts in Git, release them as signed artifacts, replay them in JUnit tests."
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://promptlm.dev/" />
@@ -43,7 +43,7 @@
     <meta name="twitter:title" content="promptLM" />
     <meta
       name="twitter:description"
-      content="promptLM is a developer tool for testing LLM clients, mocking model behavior, and inspecting MCP traffic. Run, replay, regress."
+      content="Open-source prompt lifecycle management for engineering teams. Version your LLM prompts in Git, release them as signed artifacts, replay them in JUnit tests."
     />
     <meta name="twitter:image" content="https://promptlm.dev/og-image.png" />
     <meta name="twitter:image:alt" content="promptLM — the prompt lifecycle, under instrument." />
@@ -72,7 +72,6 @@
         </a>
 
         <nav class="nav-links" aria-label="Primary">
-          <a class="nav-link" href="#">Product</a>
           <a class="nav-link" href="docs.html">Docs</a>
           <a class="nav-link" href="https://github.com/promptLM/promptlm-app/releases">Changelog</a>
           <a class="nav-link" href="https://github.com/promptLM/promptlm-app">GitHub</a>
@@ -101,8 +100,8 @@
               under instrument.
             </h1>
             <p class="hero-sub">
-              promptLM is a developer tool for testing LLM clients, mocking model behavior,
-              and inspecting MCP traffic. Run, replay, regress.
+              Manage, version, and release LLM prompts the way you ship code.
+              Git-native specs, signed releases, JUnit-ready replay.
             </p>
 
             <div class="hero-actions">
@@ -143,46 +142,46 @@
 
           <!-- product shot: DiffMock -->
           <div class="hero-mock">
-            <figure class="diff-mock" aria-label="Prompt diff preview">
+            <figure class="diff-mock" aria-label="promptlm.yaml diff preview">
               <div class="diff-mock-head">
-                <span class="diff-mock-file">booking_v2.prompt</span>
-                <span class="diff-mock-meta">+12 −4 · 2 mins ago</span>
+                <span class="diff-mock-file">promptlm.yaml · v1.0.0 → v1.1.0</span>
+                <span class="diff-mock-meta">+2 −2 · just now</span>
               </div>
               <div class="diff-mock-body">
                 <div class="diff-row">
                   <span class="diff-row-num">1</span>
                   <span class="diff-row-op"> </span>
-                  <span class="diff-row-text is-muted">You are a booking assistant.</span>
+                  <span class="diff-row-text is-muted">id: customer_support</span>
                 </div>
-                <div class="diff-row">
+                <div class="diff-row diff-row-del">
                   <span class="diff-row-num">2</span>
-                  <span class="diff-row-op"> </span>
-                  <span class="diff-row-text is-muted">Use available tools to check</span>
+                  <span class="diff-row-op">-</span>
+                  <span class="diff-row-text">version: 1.0.0</span>
+                </div>
+                <div class="diff-row diff-row-add">
+                  <span class="diff-row-num">2</span>
+                  <span class="diff-row-op">+</span>
+                  <span class="diff-row-text">version: 1.1.0</span>
                 </div>
                 <div class="diff-row">
                   <span class="diff-row-num">3</span>
                   <span class="diff-row-op"> </span>
-                  <span class="diff-row-text is-muted">calendar availability.</span>
+                  <span class="diff-row-text is-muted">request:</span>
+                </div>
+                <div class="diff-row">
+                  <span class="diff-row-num">4</span>
+                  <span class="diff-row-op"> </span>
+                  <span class="diff-row-text is-muted">  parameters:</span>
                 </div>
                 <div class="diff-row diff-row-del">
-                  <span class="diff-row-num">4</span>
+                  <span class="diff-row-num">5</span>
                   <span class="diff-row-op">-</span>
-                  <span class="diff-row-text">Always confirm before booking.</span>
+                  <span class="diff-row-text">    temperature: 0.6</span>
                 </div>
                 <div class="diff-row diff-row-add">
                   <span class="diff-row-num">5</span>
                   <span class="diff-row-op">+</span>
-                  <span class="diff-row-text">Confirm only when ambiguous.</span>
-                </div>
-                <div class="diff-row diff-row-add">
-                  <span class="diff-row-num">6</span>
-                  <span class="diff-row-op">+</span>
-                  <span class="diff-row-text">Prefer earliest slot when offered.</span>
-                </div>
-                <div class="diff-row">
-                  <span class="diff-row-num">7</span>
-                  <span class="diff-row-op"> </span>
-                  <span class="diff-row-text is-muted">Return ISO 8601 datetimes.</span>
+                  <span class="diff-row-text">    temperature: 0.3</span>
                 </div>
               </div>
             </figure>
@@ -299,6 +298,62 @@
           </div>
         </section>
 
+        <!-- ─── callouts (companion artifacts) ─── -->
+        <section class="callouts" aria-labelledby="callouts-title">
+          <p class="pl-eyebrow callouts-eyebrow">04 — also ships today</p>
+          <h2 id="callouts-title" class="callouts-headline">
+            More than the CLI —<br />
+            <span class="callouts-headline-muted">a stack of real artifacts, not slides.</span>
+          </h2>
+
+          <div class="callouts-grid">
+            <article class="callout-card">
+              <p class="pl-eyebrow callout-eyebrow"><span>MACOS APP</span></p>
+              <h3 class="callout-title">Native menubar client</h3>
+              <p class="callout-copy">
+                A Swift menubar app for browsing prompts, releasing versions, and inspecting
+                executions — without leaving your desktop.
+              </p>
+              <a class="callout-link" href="https://github.com/promptLM/promptlm-macos">
+                promptlm-macos
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <path d="M2 6 H10 M7 3 L10 6 L7 9" stroke="currentColor" stroke-width="1.4" />
+                </svg>
+              </a>
+            </article>
+
+            <article class="callout-card">
+              <p class="pl-eyebrow callout-eyebrow"><span>JAVA SDK</span></p>
+              <h3 class="callout-title">Load prompts at runtime</h3>
+              <p class="callout-copy">
+                Fetch released prompt specifications from your app via the Java client SDK.
+                Coordinates: <code>dev.promptlm:client-library</code>.
+              </p>
+              <a class="callout-link" href="https://github.com/promptLM/promptlm-client-sdk">
+                promptlm-client-sdk
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <path d="M2 6 H10 M7 3 L10 6 L7 9" stroke="currentColor" stroke-width="1.4" />
+                </svg>
+              </a>
+            </article>
+
+            <article class="callout-card">
+              <p class="pl-eyebrow callout-eyebrow"><span>TEST INFRA</span></p>
+              <h3 class="callout-title">Gitea + Artifactory for tests</h3>
+              <p class="callout-copy">
+                A JUnit 5 extension that boots Gitea and Artifactory via Testcontainers, so
+                your integration tests hit real Git and Maven repositories.
+              </p>
+              <a class="callout-link" href="https://github.com/promptLM/promptlm-junit-gitea-artifactory">
+                promptlm-junit-gitea-artifactory
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <path d="M2 6 H10 M7 3 L10 6 L7 9" stroke="currentColor" stroke-width="1.4" />
+                </svg>
+              </a>
+            </article>
+          </div>
+        </section>
+
         <!-- ─── CTA ─── -->
         <section class="cta" aria-labelledby="cta-title">
           <div class="cta-inner">
@@ -347,17 +402,8 @@
             <div class="footer-col">
               <p class="footer-col-heading">Resources</p>
               <a href="docs.html">Docs</a>
-              <span>Examples</span>
               <a href="https://github.com/promptLM/promptlm-app/releases">Changelog</a>
               <a href="https://github.com/promptLM/promptlm-app">GitHub</a>
-              <span>Discord</span>
-            </div>
-            <div class="footer-col">
-              <p class="footer-col-heading">Company</p>
-              <span>About</span>
-              <span>Pricing</span>
-              <span>Contact</span>
-              <span>Security</span>
             </div>
           </div>
         </div>
