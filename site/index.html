@@ -49,14 +49,8 @@
     <meta name="twitter:image" content="https://promptlm.dev/og-image.png" />
     <meta name="twitter:image:alt" content="promptLM — the prompt lifecycle, under instrument." />
 
-    <!-- Geist + JetBrains Mono (mirror of components/ui/.storybook/preview-head.html) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-    />
-
+    <!-- Self-hosted Geist + JetBrains Mono (no external font CDN; see fonts.css) -->
+    <link rel="stylesheet" href="fonts.css" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body class="pl">
@@ -81,7 +75,7 @@
         <nav class="nav-links" aria-label="Primary">
           <a class="nav-link" href="#">Product</a>
           <a class="nav-link" href="docs.html">Docs</a>
-          <a class="nav-link" href="#">Changelog</a>
+          <a class="nav-link" href="https://github.com/promptLM/promptlm-app/releases">Changelog</a>
           <a class="nav-link" href="https://github.com/promptLM/promptlm-app">GitHub</a>
         </nav>
 
@@ -357,7 +351,7 @@
               <p class="footer-col-heading">Resources</p>
               <a href="docs.html">Docs</a>
               <span>Examples</span>
-              <span>Changelog</span>
+              <a href="https://github.com/promptLM/promptlm-app/releases">Changelog</a>
               <a href="https://github.com/promptLM/promptlm-app">GitHub</a>
               <span>Discord</span>
             </div>
