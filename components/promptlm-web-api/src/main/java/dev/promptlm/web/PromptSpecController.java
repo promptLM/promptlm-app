@@ -694,8 +694,8 @@ public class PromptSpecController {
             @RequestBody(description = "Prompt specification to execute. When supplied, the contained "
                     + "`promptSpec` is executed in place of the stored YAML. This lets the editor run "
                     + "the current form state without saving (issue #183). The path id is always "
-                    + "authoritative; a body id that mismatches the path id returns 400. The execution "
-                    + "is still recorded against the stored prompt id and its stored revision.",
+                    + "authoritative; a body id that mismatches the path id returns 400. Draft "
+                    + "executions are ephemeral and are NOT recorded in the prompt's execution history.",
                     required = false,
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ExecutePromptRequest.class)))
@@ -707,6 +707,7 @@ public class PromptSpecController {
 
         PromptSpec storedSpec = latestStoredSpec.get();
         PromptSpec promptSpecToExecute = storedSpec;
+        boolean isDraftExecution = false;
 
         if (request != null && request.getPromptSpec() != null) {
             PromptSpec requestPromptSpec = request.getPromptSpec();
@@ -716,8 +717,9 @@ public class PromptSpecController {
             // Execute the draft from the request body (issue #183). The path id is
             // authoritative — force it onto the spec so any downstream code that
             // reads the id sees the canonical one. We do not persist the draft;
-            // it lives only for this single execution.
+            // it lives only for this single execution (see D-183-5).
             promptSpecToExecute = requestPromptSpec.withId(promptSpecId);
+            isDraftExecution = true;
         }
 
         if (promptSpecToExecute.getId() == null || promptSpecToExecute.getId().isBlank()) {
@@ -726,10 +728,16 @@ public class PromptSpecController {
         Instant runStart = Instant.now();
         try {
             PromptSpec executedSpec = promptExecutor.runPromptAndAttachResponse(promptSpecToExecute);
-            // The recorded execution's revision is pinned to the stored spec's
-            // revision: a draft has no real revision yet, and the run should
-            // appear in history as "executed against revision N" — the revision
-            // the draft was branched from.
+            if (isDraftExecution) {
+                // Draft executions are ephemeral: the response is returned to the
+                // UI so it can be displayed, but nothing is written to history.
+                // History only ever contains runs of actually-stored content
+                // (D-183-5; reverses the consequence note in D-183-3).
+                return ResponseEntity.ok(PromptSpecApiView.toApiView(executedSpec, lifecycleDeriver));
+            }
+            // No-body fallback (called by PromptDetail.tsx): the stored spec was
+            // executed, so the run is genuine and is recorded against the
+            // stored revision.
             Execution devRun = buildDevExecution(executedSpec, storedSpec.getRevision(), runStart);
             PromptSpec persisted = promptLifecycleFacade.recordExecution(promptSpecId, devRun);
             return ResponseEntity.ok(PromptSpecApiView.toApiView(persisted, lifecycleDeriver));

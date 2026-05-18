@@ -65,6 +65,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -493,12 +495,13 @@ class PromptSpecControllerWebMvcTest {
     }
 
     @Test
-    void executeStoredPromptExecutesRequestBodyDraftWhenProvided() throws Exception {
-        // Issue #183: when the request body carries a PromptSpec (e.g. the
-        // editor's current form state), the controller must execute *that*
-        // spec rather than the stored YAML. The recorded execution still
-        // belongs to the stored prompt id at the stored revision (the draft
-        // is a hypothetical overlay; it has not been persisted).
+    void executeStoredPromptExecutesRequestBodyDraftWhenProvidedButDoesNotRecordHistory() throws Exception {
+        // Issue #183 / D-183-5: when the request body carries a PromptSpec
+        // (e.g. the editor's current form state), the controller must execute
+        // *that* spec rather than the stored YAML — and return the executed
+        // result to the UI so it can render the response — but the execution
+        // is NOT recorded in history. Draft executions are ephemeral: history
+        // only ever contains runs of actually-stored content.
         String promptId = "prompt-a";
 
         ChatCompletionRequest storedRequestPayload = ChatCompletionRequest.builder()
@@ -552,22 +555,9 @@ class PromptSpecControllerWebMvcTest {
         // The executor returns whatever spec it was handed, with a response
         // attached — the controller passes the draft, so we mirror that.
         PromptSpec executedDraft = draftPrompt.withResponse(response);
-        Execution recorded = new Execution(
-                "exec-uuid",
-                Instant.parse("2026-05-12T12:00:00Z"),
-                response,
-                null,
-                null);
-        // The persisted spec after recording is the stored prompt with the
-        // execution attached — storage truth is unchanged, only history grew.
-        PromptSpec persistedPrompt = storedPrompt
-                .withResponse(response)
-                .withExecutions(List.of(recorded));
 
         when(promptExecutor.runPromptAndAttachResponse(any(PromptSpec.class))).thenReturn(executedDraft);
         when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(storedPrompt));
-        when(promptLifecycleFacade.recordExecution(eq(promptId), any(Execution.class)))
-                .thenReturn(persistedPrompt);
 
         ExecutePromptRequest executePromptRequest = new ExecutePromptRequest(draftPrompt);
 
@@ -576,11 +566,14 @@ class PromptSpecControllerWebMvcTest {
                         .content(objectMapper.writeValueAsString(executePromptRequest)))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith("application/json"))
-                .andExpect(jsonPath("$.response.content").value("Pong"))
-                .andExpect(jsonPath("$.executions[0].id").value("exec-uuid"))
-                .andExpect(jsonPath("$.executions[0].response.content").value("Pong"));
+                // (a) The response body reflects the *draft*-modified content,
+                // confirming the draft (not the stored spec) was executed.
+                .andExpect(jsonPath("$.description").value("draft desc — unsaved"))
+                .andExpect(jsonPath("$.request.messages[0].content")
+                        .value("Draft ping — unsaved edit"))
+                .andExpect(jsonPath("$.response.content").value("Pong"));
 
-        // The executor was called with the *draft* spec (issue #183).
+        // The executor was called with the *draft* spec.
         ArgumentCaptor<PromptSpec> executedPromptCaptor = ArgumentCaptor.forClass(PromptSpec.class);
         verify(promptExecutor).runPromptAndAttachResponse(executedPromptCaptor.capture());
         PromptSpec executed = executedPromptCaptor.getValue();
@@ -592,16 +585,12 @@ class PromptSpecControllerWebMvcTest {
         // Path id is authoritative.
         assertThat(executed.getId()).isEqualTo(promptId);
 
-        // The recorded execution is pinned to the *stored* revision — the draft
-        // does not get to spoof a revision number into history.
-        ArgumentCaptor<Execution> executionCaptor = ArgumentCaptor.forClass(Execution.class);
-        verify(promptLifecycleFacade).recordExecution(eq(promptId), executionCaptor.capture());
-        Execution captured = executionCaptor.getValue();
-        assertThat(captured.getId()).isNotBlank();
-        assertThat(captured.getKind()).isEqualTo(dev.promptlm.domain.promptspec.ExecutionKind.MANUAL);
-        assertThat(captured.getOk()).isTrue();
-        assertThat(captured.getRevision()).isEqualTo("3");
-        assertThat(((ChatCompletionResponse) captured.getResponse()).getContent()).isEqualTo("Pong");
+        // (b) recordExecution must NOT be called for draft runs — history is
+        // left untouched. D-183-5 reverses the earlier behaviour pinned by
+        // D-183-3, because recording under the stored revision while the
+        // executed content is the draft produces misleading history rows.
+        verify(promptLifecycleFacade, never())
+                .recordExecution(eq(promptId), any(Execution.class));
     }
 
     @Test
