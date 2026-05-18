@@ -21,11 +21,13 @@ import dev.promptlm.domain.projectspec.ProjectSpec;
 import dev.promptlm.lifecycle.PromptLifecycleFacade;
 import dev.promptlm.execution.PromptExecutor;
 import dev.promptlm.domain.promptspec.ChatCompletionRequest;
+import dev.promptlm.domain.promptspec.ChatCompletionResponse;
 import dev.promptlm.domain.promptspec.Execution;
 import dev.promptlm.domain.promptspec.ExecutionKind;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import dev.promptlm.domain.promptspec.ReleaseMetadata;
 import dev.promptlm.domain.promptspec.Request;
+import dev.promptlm.pricing.ModelPricingService;
 import dev.promptlm.lifecycle.application.PromptSpecAlreadyExistsException;
 import dev.promptlm.release.OnInfraFailure;
 import dev.promptlm.store.api.PromptStore;
@@ -78,17 +80,20 @@ public class PromptSpecController {
     private final PromptLifecycleFacade promptLifecycleFacade;
     private final AppContext appContext;
     private final PromptSpecLifecycleDeriver lifecycleDeriver;
+    private final ModelPricingService modelPricingService;
 
     public PromptSpecController(PromptStore promptStore,
                                 PromptExecutor promptExecutor,
                                 PromptLifecycleFacade promptLifecycleFacade,
                                 AppContext appContext,
-                                PromptSpecLifecycleDeriver lifecycleDeriver) {
+                                PromptSpecLifecycleDeriver lifecycleDeriver,
+                                ModelPricingService modelPricingService) {
         this.promptStore = promptStore;
         this.promptExecutor = promptExecutor;
         this.promptLifecycleFacade = promptLifecycleFacade;
         this.appContext = appContext;
         this.lifecycleDeriver = lifecycleDeriver;
+        this.modelPricingService = modelPricingService;
     }
 
     /**
@@ -746,18 +751,41 @@ public class PromptSpecController {
         }
     }
 
-    private static Execution buildDevExecution(PromptSpec executedSpec, int revision, Instant runStart) {
+    private Execution buildDevExecution(PromptSpec executedSpec, int revision, Instant runStart) {
         Instant now = Instant.now();
         long latencyMs = java.time.Duration.between(runStart, now).toMillis();
-        return new Execution(
+        // Issue #182: surface token counts and USD cost on every recorded execution.
+        // Token counts come from the vendor response (Usage is populated by the
+        // vendor client). USD cost is derived from the configured per-model
+        // pricing table; unknown models leave cost null so the UI can hide the
+        // chip rather than show a misleading $0.00.
+        Integer tokensIn = null;
+        Integer tokensOut = null;
+        Double cost = null;
+        if (executedSpec.getResponse() instanceof ChatCompletionResponse chatResponse) {
+            ChatCompletionResponse.Usage usage = chatResponse.getUsage();
+            if (usage != null) {
+                tokensIn = usage.getInputTokens();
+                tokensOut = usage.getOutputTokens();
+                if (usage.getCost() != null) {
+                    cost = usage.getCost();
+                }
+            }
+        }
+        if (cost == null && executedSpec.getRequest() instanceof ChatCompletionRequest chatRequest) {
+            cost = modelPricingService
+                    .computeCost(chatRequest.getModel(), tokensIn, tokensOut)
+                    .orElse(null);
+        }
+        Execution execution = new Execution(
                 UUID.randomUUID().toString(),
                 now,
                 executedSpec.getResponse(),
                 null,
                 null,
                 latencyMs,
-                null,
-                null,
+                tokensIn,
+                tokensOut,
                 null,
                 null,
                 Integer.toString(revision),
@@ -766,6 +794,8 @@ public class PromptSpecController {
                 null,
                 ExecutionKind.MANUAL,
                 null);
+        execution.setCost(cost);
+        return execution;
     }
 
     /**

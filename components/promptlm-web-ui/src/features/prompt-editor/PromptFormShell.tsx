@@ -60,6 +60,8 @@ import { buildEditorRunRequest } from './buildEditorRunRequest';
 import { releasePromptAction, savePromptDraftAction } from './editorActions';
 import { selectRevisionId } from './selectRevisionId';
 import { buildViewOnRemoteUrl } from './buildViewOnRemoteUrl';
+import { selectRunCost } from './selectRunCost';
+import { useTokenEstimate } from './useTokenEstimate';
 import { usePromptEditorData } from './usePromptEditorData';
 import { usePromptFormDirty } from './dirtyState';
 import { UnsavedChangesDialog } from './UnsavedChangesDialog';
@@ -259,6 +261,36 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
   // Issue #185 — dirty signal. Compared against the post-hydration baseline.
   const isDirty = usePromptFormDirty({ current: editor.state, baseline });
 
+  // Issue #182: surface an estimated input-token count next to the message
+  // list while the user edits. The estimator runs client-side using the
+  // generic cl100k_base tokenizer; the chip is hidden while the encoder is
+  // loading so a "0 tokens" flash doesn't appear on first paint.
+  const tokenEstimateInput = useMemo(
+    () => ({
+      messages: formDraft.request.messages.map((m) => ({
+        role: String(m.role ?? ''),
+        content: m.content ?? '',
+      })),
+      placeholders: formDraft.placeholders.list.map((p) => ({
+        name: p.name ?? '',
+        defaultValue: p.defaultValue ?? '',
+      })),
+      // Tool-schema overhead approximation: serialize the configured tool
+      // entries (name + scenario metadata) and let the estimator count their
+      // tokens. v1 doesn't introspect a JSON-Schema parameters block because
+      // it isn't currently part of FormToolConfig.
+      toolSchema: toolConfigs.length > 0 ? toolConfigs : undefined,
+      startPattern: formDraft.placeholders.startPattern,
+      endPattern: formDraft.placeholders.endPattern,
+    }),
+    [formDraft, toolConfigs],
+  );
+  const tokenEstimate = useTokenEstimate(tokenEstimateInput);
+  const inputTokenEstimateLabel = useMemo(() => {
+    if (tokenEstimate.tokens === null) return null;
+    return `~${tokenEstimate.tokens.toLocaleString()} tokens`;
+  }, [tokenEstimate.tokens]);
+
   const handleChangeDraft = useCallback(
     (next: PromptFormDraft) => {
       editor.replaceState({
@@ -457,6 +489,10 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
         ms: exec?.latencyMs ?? ms,
         tin: exec?.tokensIn ?? exec?.response?.usage?.input_tokens ?? 0,
         tout: exec?.tokensOut ?? exec?.response?.usage?.output_tokens ?? 0,
+        // Issue #182: USD cost surfaced on the result panel when the backend
+        // can price the model. selectRunCost returns null for unknown models
+        // so the chip is hidden rather than rendered as $0.00.
+        cost: selectRunCost(exec),
         ok: typeof exec?.ok === 'boolean' ? exec.ok : exec?.response !== undefined,
         rev: formContext.revision,
         input:
@@ -613,6 +649,7 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
         editorRunState={editorRunState}
         lastEditorRun={lastEditorRun}
         isDirty={isDirty}
+        inputTokenEstimateLabel={inputTokenEstimateLabel}
       />
       <UnsavedChangesDialog
         open={dialogOpen}

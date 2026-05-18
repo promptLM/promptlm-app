@@ -99,6 +99,9 @@ class PromptSpecControllerWebMvcTest {
     @MockitoBean
     private PromptSpecLifecycleDeriver lifecycleDeriver;
 
+    @MockitoBean
+    private dev.promptlm.pricing.ModelPricingService modelPricingService;
+
     @Test
     void getDefaultTemplateReturnsCanonicalDraftSeed() throws Exception {
         PromptSpec.Placeholders placeholders = new PromptSpec.Placeholders();

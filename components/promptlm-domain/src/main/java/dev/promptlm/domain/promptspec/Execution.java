@@ -58,6 +58,9 @@ public class Execution {
     @Schema(description = "Response token count", example = "256")
     private Integer tokensOut;
 
+    @Schema(description = "USD cost of the run derived from the configured per-model pricing", example = "0.00214")
+    private Double cost;
+
     @Schema(description = "Path to the input fixture file used for the run", example = "fixtures/welcome.json")
     private String fixturePath;
 
@@ -208,6 +211,15 @@ public class Execution {
         return this.tokensOut != null ? this.tokensOut : 0;
     }
 
+    /**
+     * USD cost of the run derived from the configured per-model pricing table at execution time.
+     * Nullable when the model has no configured price or the run pre-dates this field.
+     */
+    public Double getCost() {
+
+        return this.cost;
+    }
+
     public String getFixturePath() {
 
         return this.fixturePath;
@@ -312,6 +324,11 @@ public class Execution {
         this.tokensOut = tokensOut;
     }
 
+    public void setCost(Double cost) {
+
+        this.cost = cost;
+    }
+
     public void setFixturePath(String fixturePath) {
 
         this.fixturePath = fixturePath;
@@ -377,6 +394,8 @@ public class Execution {
             return false;
         if (!Objects.equals(this.tokensOut, other.tokensOut))
             return false;
+        if (!Objects.equals(this.cost, other.cost))
+            return false;
         if (!Objects.equals(this.fixturePath, other.fixturePath))
             return false;
         if (!Objects.equals(this.context, other.context))
@@ -412,6 +431,7 @@ public class Execution {
                 latencyMs,
                 tokensIn,
                 tokensOut,
+                cost,
                 fixturePath,
                 context,
                 revision,
@@ -432,6 +452,7 @@ public class Execution {
                 + ", latencyMs=" + this.latencyMs
                 + ", tokensIn=" + this.tokensIn
                 + ", tokensOut=" + this.tokensOut
+                + ", cost=" + this.cost
                 + ", fixturePath=" + this.fixturePath
                 + ", context=" + this.context
                 + ", revision=" + this.revision

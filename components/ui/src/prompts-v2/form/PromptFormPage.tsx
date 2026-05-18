@@ -112,6 +112,11 @@ export interface PromptFormPageProps extends PromptFormReleaseFlowProps {
    * with the same signal.
    */
   isDirty?: boolean;
+  /**
+   * Optional pre-formatted input-token estimate label (e.g. `~1,200 tokens`).
+   * Surfaced next to the Messages section's message count. Issue #182.
+   */
+  inputTokenEstimateLabel?: string | null;
 }
 
 const HEADER_HEIGHT = 56;
@@ -429,6 +434,7 @@ export const PromptFormPage: React.FC<PromptFormPageProps> = ({
   editorRunState = 'idle',
   lastEditorRun = null,
   isDirty = false,
+  inputTokenEstimateLabel = null,
 }) => {
   const errors = React.useMemo(
     () => validateDraft(draft, evalEnabled),
@@ -593,6 +599,7 @@ export const PromptFormPage: React.FC<PromptFormPageProps> = ({
               itemErrors={errors.messageItems}
               onChange={setMessages}
               onContentSelectionChange={onContentSelectionChange}
+              estimateLabel={inputTokenEstimateLabel}
             />
             {onEditorRun && (
               <RunResponsePanel

@@ -142,6 +142,11 @@ export interface MessagesEditorProps {
   onContentSelectionChange?: (
     selection: { messageIndex: number; selectionStart: number; selectionEnd: number } | null,
   ) => void;
+  /**
+   * Optional estimated input-token label rendered next to the message count
+   * (e.g. `~1,200 tokens`). When omitted the chip is hidden. Issue #182.
+   */
+  estimateLabel?: string | null;
 }
 
 const MESSAGE_ROLE_OPTIONS = [
@@ -158,6 +163,7 @@ export const MessagesEditor: React.FC<MessagesEditorProps> = ({
   itemErrors,
   onChange,
   onContentSelectionChange,
+  estimateLabel,
 }) => {
   const update = (i: number, patch: Partial<FormMessage>) => {
     const next = [...messages];
@@ -208,6 +214,16 @@ export const MessagesEditor: React.FC<MessagesEditorProps> = ({
         <FormMono size={10.5} color="var(--pl-ink-500)">
           {messages.length} {messages.length === 1 ? 'message' : 'messages'}
         </FormMono>
+        {estimateLabel ? (
+          <FormMono
+            size={10.5}
+            color="var(--pl-ink-500)"
+            data-testid="prompt-editor-token-estimate"
+            style={{ fontVariantNumeric: 'tabular-nums' }}
+          >
+            · {estimateLabel}
+          </FormMono>
+        ) : null}
         {errors.general ? (
           <FormMono size={10.5} color="oklch(0.50 0.15 25)">
             ! {errors.general}

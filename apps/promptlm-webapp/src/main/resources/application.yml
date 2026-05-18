@@ -20,6 +20,34 @@ promptlm:
       token: ${REPO_REMOTE_TOKEN:}
       base-url: ${REPO_REMOTE_URL}
       allow-loopback-host-aliases: ${REPO_REMOTE_ALLOW_LOOPBACK_HOST_ALIASES:true}
+  # Issue #182: per-model USD pricing. Values are per *million* tokens (consistent
+  # with vendor public pricing pages). Unknown models are deliberately left out
+  # so the UI hides the cost chip rather than showing a misleading $0.00.
+  # Prices below are illustrative defaults that should be reviewed against the
+  # current vendor pricing tables before release.
+  pricing:
+    models:
+      gpt-4o:
+        input-per-million: 2.50
+        output-per-million: 10.00
+      gpt-4o-mini:
+        input-per-million: 0.15
+        output-per-million: 0.60
+      gpt-4.1:
+        input-per-million: 2.00
+        output-per-million: 8.00
+      gpt-4.1-mini:
+        input-per-million: 0.40
+        output-per-million: 1.60
+      claude-3-5-sonnet:
+        input-per-million: 3.00
+        output-per-million: 15.00
+      claude-3-5-haiku:
+        input-per-million: 0.80
+        output-per-million: 4.00
+      claude-3-7-sonnet:
+        input-per-million: 3.00
+        output-per-million: 15.00
 
 spring:
   ai:

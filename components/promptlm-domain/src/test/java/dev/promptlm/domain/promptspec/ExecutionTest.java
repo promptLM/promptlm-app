@@ -66,6 +66,21 @@ class ExecutionTest {
     }
 
     @Test
+    void cost_field_is_nullable_and_roundtrips() {
+        // Issue #182: per-execution USD cost. Nullable for unknown models so the
+        // UI can hide the chip rather than showing a misleading $0.00.
+        Execution execution = new Execution("e1", Instant.now(), null, null, null);
+        assertThat(execution.getCost()).isNull();
+
+        execution.setCost(0.00214);
+        String json = mapper.writeValueAsString(execution);
+        assertThat(json).contains("\"cost\":0.00214");
+
+        Execution roundtripped = mapper.readValue(json, Execution.class);
+        assertThat(roundtripped.getCost()).isEqualTo(0.00214);
+    }
+
+    @Test
     void deserialization_back_compatible_without_new_fields() {
         String legacyJson = """
                 {
