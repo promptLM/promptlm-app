@@ -16,17 +16,33 @@ import { describe, expect, it } from 'vitest';
 import { selectRunCost } from '../selectRunCost';
 
 describe('selectRunCost', () => {
-  it('reads top-level cost when present', () => {
-    expect(selectRunCost({ cost: 0.00214 })).toBe(0.00214);
+  it('reads top-level costUsd when present', () => {
+    // Current backend contract: PromptSpecApiView attaches costUsd at the
+    // API boundary; nothing persists on the domain.
+    expect(selectRunCost({ costUsd: 0.00214 })).toBe(0.00214);
   });
 
-  it('falls back to response.usage.cost when top-level is absent', () => {
+  it('falls back to legacy top-level cost for older persisted executions', () => {
+    // Pre-refactor execution YAML may still carry a `cost` field on disk.
+    // Honour it so existing repos do not lose chip rendering — even though
+    // the value is stale-by-policy and will be replaced on the next read
+    // that the new server projects costUsd onto.
+    expect(selectRunCost({ cost: 0.00342 })).toBe(0.00342);
+  });
+
+  it('falls back to response.usage.cost when neither top-level is present', () => {
     expect(
       selectRunCost({ response: { usage: { cost: 0.0042 } } }),
     ).toBe(0.0042);
   });
 
-  it('prefers top-level over response.usage.cost', () => {
+  it('prefers costUsd over legacy cost', () => {
+    expect(
+      selectRunCost({ costUsd: 1.0, cost: 2.0, response: { usage: { cost: 3.0 } } }),
+    ).toBe(1.0);
+  });
+
+  it('prefers legacy cost over response.usage.cost', () => {
     expect(
       selectRunCost({ cost: 1.0, response: { usage: { cost: 2.0 } } }),
     ).toBe(1.0);
@@ -38,17 +54,18 @@ describe('selectRunCost', () => {
     expect(selectRunCost({})).toBeNull();
   });
 
-  it('returns null for null/undefined/NaN cost', () => {
-    expect(selectRunCost({ cost: null })).toBeNull();
-    expect(selectRunCost({ cost: undefined })).toBeNull();
-    expect(selectRunCost({ cost: NaN })).toBeNull();
+  it('returns null when costUsd is null/undefined/NaN', () => {
+    expect(selectRunCost({ costUsd: null })).toBeNull();
+    expect(selectRunCost({ costUsd: undefined })).toBeNull();
+    expect(selectRunCost({ costUsd: NaN })).toBeNull();
   });
 
   it('rejects negative costs (defensive)', () => {
+    expect(selectRunCost({ costUsd: -0.5 })).toBeNull();
     expect(selectRunCost({ cost: -0.5 })).toBeNull();
   });
 
   it('accepts zero as a valid cost (could indicate a free-tier model)', () => {
-    expect(selectRunCost({ cost: 0 })).toBe(0);
+    expect(selectRunCost({ costUsd: 0 })).toBe(0);
   });
 });

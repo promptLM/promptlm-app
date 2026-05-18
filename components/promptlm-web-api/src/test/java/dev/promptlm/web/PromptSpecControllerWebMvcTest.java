@@ -930,6 +930,161 @@ class PromptSpecControllerWebMvcTest {
     }
 
     @Test
+    void getByIdProjectsCostUsdOnReadWhenModelHasPricing() throws Exception {
+        // Refactor of issue #182: USD cost is derived at the view layer rather
+        // than persisted on Execution, so changes to the operator-managed
+        // pricing table never invalidate historical records. The controller
+        // delegates the computation to ModelPricingService and attaches the
+        // result as `costUsd` on the API JSON projection. A known model with
+        // token counts produces a value; the value comes straight from the
+        // (mocked) pricing service.
+        String promptId = "prompt-priced";
+        ChatCompletionRequest requestPayload = ChatCompletionRequest.builder()
+                .withVendor("openai")
+                .withModel("gpt-4o")
+                .withMessages(List.of(
+                        ChatCompletionRequest.Message.builder()
+                                .withRole("user")
+                                .withContent("Ping")
+                                .build()))
+                .withParameters(Map.of())
+                .build();
+
+        Execution priced = new Execution(
+                "exec-priced",
+                Instant.parse("2026-05-12T12:00:00Z"),
+                new ChatCompletionResponse(10L, null, "ok"),
+                null,
+                null,
+                500L,
+                100,
+                200,
+                null,
+                null,
+                "1",
+                null,
+                true,
+                null);
+
+        PromptSpec stored = PromptSpec.builder()
+                .withGroup("support")
+                .withName("welcome")
+                .withVersion("1.0.0")
+                .withRevision(1)
+                .withDescription("desc")
+                .withRequest(requestPayload)
+                .build()
+                .withId(promptId)
+                .withExecutions(List.of(priced));
+
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(stored));
+        when(modelPricingService.computeCost("gpt-4o", 100, 200))
+                .thenReturn(Optional.of(0.00214));
+
+        mockMvc.perform(get("/api/prompts/{promptSpecId}", promptId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.executions[0].id").value("exec-priced"))
+                .andExpect(jsonPath("$.executions[0].tokensIn").value(100))
+                .andExpect(jsonPath("$.executions[0].tokensOut").value(200))
+                .andExpect(jsonPath("$.executions[0].costUsd").value(0.00214));
+    }
+
+    @Test
+    void getByIdOmitsCostUsdWhenPricingServiceReturnsEmpty() throws Exception {
+        // Unknown models (or tokens we can't price) yield Optional.empty() from
+        // ModelPricingService — the field must be OMITTED from the response so
+        // the UI hides the chip rather than rendering a misleading $0.00.
+        String promptId = "prompt-unknown-model";
+        ChatCompletionRequest requestPayload = ChatCompletionRequest.builder()
+                .withVendor("acme")
+                .withModel("unknown-model-x")
+                .withMessages(List.of(
+                        ChatCompletionRequest.Message.builder()
+                                .withRole("user")
+                                .withContent("Ping")
+                                .build()))
+                .withParameters(Map.of())
+                .build();
+
+        Execution priced = new Execution(
+                "exec-unpriced",
+                Instant.parse("2026-05-12T12:00:00Z"),
+                new ChatCompletionResponse(10L, null, "ok"),
+                null,
+                null,
+                500L,
+                100,
+                200,
+                null,
+                null,
+                "1",
+                null,
+                true,
+                null);
+
+        PromptSpec stored = PromptSpec.builder()
+                .withGroup("support")
+                .withName("unknown-model")
+                .withVersion("1.0.0")
+                .withRevision(1)
+                .withDescription("desc")
+                .withRequest(requestPayload)
+                .build()
+                .withId(promptId)
+                .withExecutions(List.of(priced));
+
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(stored));
+        when(modelPricingService.computeCost("unknown-model-x", 100, 200))
+                .thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/prompts/{promptSpecId}", promptId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.executions[0].id").value("exec-unpriced"))
+                .andExpect(jsonPath("$.executions[0].costUsd").doesNotExist());
+    }
+
+    @Test
+    void getByIdOmitsCostUsdWhenTokenCountsAreNull() throws Exception {
+        // Older executions captured before token tracking pre-date the
+        // pricing inputs. The view layer must not invent a cost for them.
+        String promptId = "prompt-legacy";
+        ChatCompletionRequest requestPayload = ChatCompletionRequest.builder()
+                .withVendor("openai")
+                .withModel("gpt-4o")
+                .withMessages(List.of())
+                .withParameters(Map.of())
+                .build();
+
+        Execution legacy = new Execution(
+                "exec-legacy",
+                Instant.parse("2026-05-12T12:00:00Z"),
+                new ChatCompletionResponse(10L, null, "ok"),
+                null,
+                null);
+
+        PromptSpec stored = PromptSpec.builder()
+                .withGroup("support")
+                .withName("legacy")
+                .withVersion("1.0.0")
+                .withRevision(1)
+                .withDescription("desc")
+                .withRequest(requestPayload)
+                .build()
+                .withId(promptId)
+                .withExecutions(List.of(legacy));
+
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(stored));
+        when(modelPricingService.computeCost("gpt-4o", null, null))
+                .thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/prompts/{promptSpecId}", promptId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.executions[0].id").value("exec-legacy"))
+                .andExpect(jsonPath("$.executions[0].costUsd").doesNotExist())
+                .andExpect(jsonPath("$.executions[0].cost").doesNotExist());
+    }
+
+    @Test
     void executePromptReturnsBadRequestForRecoverableExecutionErrors() throws Exception {
         ChatCompletionRequest requestPayload = ChatCompletionRequest.builder()
                 .withVendor("openai")

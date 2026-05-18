@@ -22,6 +22,7 @@ import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -35,6 +36,13 @@ import io.swagger.v3.oas.annotations.media.Schema;
  * transmitted off-box; they exist so the UI can render meaningful per-run rows. Older serialized
  * executions that pre-date these fields read back as {@code latencyMs == 0}, {@code tokensIn == 0},
  * {@code tokensOut == 0}, {@code ok == true}, and {@code null} for the optional fields.
+ *
+ * <p>Note: USD cost is intentionally NOT persisted here. Cost depends on the operator-managed
+ * per-model price table (see {@code dev.promptlm.pricing.ModelPricingProperties}), which is
+ * mutable external state — an edit to {@code application.yml} would silently invalidate every
+ * historically persisted cost. Tokens are vendor-reported and immutable post-call, so they stay.
+ * The web layer derives a {@code costUsd} field on read in {@code PromptSpecApiView} from the
+ * current pricing table.
  */
 @Schema(description = "Single recorded execution of a PromptSpec")
 public class Execution {
@@ -57,9 +65,6 @@ public class Execution {
 
     @Schema(description = "Response token count", example = "256")
     private Integer tokensOut;
-
-    @Schema(description = "USD cost of the run derived from the configured per-model pricing", example = "0.00214")
-    private Double cost;
 
     @Schema(description = "Path to the input fixture file used for the run", example = "fixtures/welcome.json")
     private String fixturePath;
@@ -211,15 +216,6 @@ public class Execution {
         return this.tokensOut != null ? this.tokensOut : 0;
     }
 
-    /**
-     * USD cost of the run derived from the configured per-model pricing table at execution time.
-     * Nullable when the model has no configured price or the run pre-dates this field.
-     */
-    public Double getCost() {
-
-        return this.cost;
-    }
-
     public String getFixturePath() {
 
         return this.fixturePath;
@@ -283,6 +279,23 @@ public class Execution {
         return this.failureClass;
     }
 
+    /**
+     * View-layer extension point for USD cost. The base class has no cost
+     * field and always returns {@code null} (so {@code @JsonInclude(NON_NULL)}
+     * keeps it out of YAML persistence). The web layer attaches a derived
+     * value by subclassing in {@code PromptSpecApiView.ExecutionView} —
+     * virtual dispatch then surfaces the value at JSON serialization without
+     * the domain ever holding mutable pricing-table state.
+     */
+    @JsonProperty("costUsd")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @Schema(description = "USD cost derived from the current per-model pricing table at read time; absent for unknown models or null tokens",
+            example = "0.00214")
+    public Double getCostUsd() {
+
+        return null;
+    }
+
     public void setId(String id) {
 
         this.id = id;
@@ -322,11 +335,6 @@ public class Execution {
     public void setTokensOut(Integer tokensOut) {
 
         this.tokensOut = tokensOut;
-    }
-
-    public void setCost(Double cost) {
-
-        this.cost = cost;
     }
 
     public void setFixturePath(String fixturePath) {
@@ -394,8 +402,6 @@ public class Execution {
             return false;
         if (!Objects.equals(this.tokensOut, other.tokensOut))
             return false;
-        if (!Objects.equals(this.cost, other.cost))
-            return false;
         if (!Objects.equals(this.fixturePath, other.fixturePath))
             return false;
         if (!Objects.equals(this.context, other.context))
@@ -431,7 +437,6 @@ public class Execution {
                 latencyMs,
                 tokensIn,
                 tokensOut,
-                cost,
                 fixturePath,
                 context,
                 revision,
@@ -452,7 +457,6 @@ public class Execution {
                 + ", latencyMs=" + this.latencyMs
                 + ", tokensIn=" + this.tokensIn
                 + ", tokensOut=" + this.tokensOut
-                + ", cost=" + this.cost
                 + ", fixturePath=" + this.fixturePath
                 + ", context=" + this.context
                 + ", revision=" + this.revision

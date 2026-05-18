@@ -112,7 +112,7 @@ public class PromptSpecController {
             @Parameter(description = "Unique identifier of the prompt specification")
             @PathVariable(name = "promptSpecId") String promptSpecId) {
         Optional<PromptSpec> latestVersion = promptStore.getLatestVersion(promptSpecId);
-        return ResponseEntity.of(latestVersion.map(spec -> PromptSpecApiView.toApiView(spec, lifecycleDeriver)));
+        return ResponseEntity.of(latestVersion.map(spec -> PromptSpecApiView.toApiView(spec, lifecycleDeriver, modelPricingService)));
     }
 
     /**
@@ -127,7 +127,7 @@ public class PromptSpecController {
     @GetMapping
     public ResponseEntity<List<PromptSpecResponseDto>> listPromptSpecs() {
         List<PromptSpec> prompts = promptStore.listAllPrompts();
-        return ResponseEntity.ok(PromptSpecApiView.toApiView(prompts, lifecycleDeriver));
+        return ResponseEntity.ok(PromptSpecApiView.toApiView(prompts, lifecycleDeriver, modelPricingService));
     }
     
     /**
@@ -154,7 +154,7 @@ public class PromptSpecController {
 
         try {
             PromptSpec created = promptLifecycleFacade.createPromptSpec(promptSpec);
-            return ResponseEntity.ok(PromptSpecApiView.toApiView(created, lifecycleDeriver));
+            return ResponseEntity.ok(PromptSpecApiView.toApiView(created, lifecycleDeriver, modelPricingService));
         } catch (PromptSpecAlreadyExistsException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage(), e);
         }
@@ -190,7 +190,7 @@ public class PromptSpecController {
         }
         
         PromptSpec spec = promptLifecycleFacade.updatePrompt(promptSpecId, promptSpec);
-        return ResponseEntity.ok(PromptSpecApiView.toApiView(spec, lifecycleDeriver));
+        return ResponseEntity.ok(PromptSpecApiView.toApiView(spec, lifecycleDeriver, modelPricingService));
     }
 
     @Operation(
@@ -670,7 +670,7 @@ public class PromptSpecController {
         PromptSpec promptSpec = request.getPromptSpec();
         try {
             PromptSpec executedSpec = promptExecutor.runPromptAndAttachResponse(promptSpec);
-            return ResponseEntity.ok(PromptSpecApiView.toApiView(executedSpec, lifecycleDeriver));
+            return ResponseEntity.ok(PromptSpecApiView.toApiView(executedSpec, lifecycleDeriver, modelPricingService));
         } catch (RuntimeException exception) {
             throw mapPromptExecutionException(promptSpec.getId(), exception);
         }
@@ -738,14 +738,14 @@ public class PromptSpecController {
                 // UI so it can be displayed, but nothing is written to history.
                 // History only ever contains runs of actually-stored content
                 // (D-183-5; reverses the consequence note in D-183-3).
-                return ResponseEntity.ok(PromptSpecApiView.toApiView(executedSpec, lifecycleDeriver));
+                return ResponseEntity.ok(PromptSpecApiView.toApiView(executedSpec, lifecycleDeriver, modelPricingService));
             }
             // No-body fallback (called by PromptDetail.tsx): the stored spec was
             // executed, so the run is genuine and is recorded against the
             // stored revision.
             Execution devRun = buildDevExecution(executedSpec, storedSpec.getRevision(), runStart);
             PromptSpec persisted = promptLifecycleFacade.recordExecution(promptSpecId, devRun);
-            return ResponseEntity.ok(PromptSpecApiView.toApiView(persisted, lifecycleDeriver));
+            return ResponseEntity.ok(PromptSpecApiView.toApiView(persisted, lifecycleDeriver, modelPricingService));
         } catch (RuntimeException exception) {
             throw mapPromptExecutionException(promptSpecId, exception);
         }
@@ -754,30 +754,22 @@ public class PromptSpecController {
     private Execution buildDevExecution(PromptSpec executedSpec, int revision, Instant runStart) {
         Instant now = Instant.now();
         long latencyMs = java.time.Duration.between(runStart, now).toMillis();
-        // Issue #182: surface token counts and USD cost on every recorded execution.
-        // Token counts come from the vendor response (Usage is populated by the
-        // vendor client). USD cost is derived from the configured per-model
-        // pricing table; unknown models leave cost null so the UI can hide the
-        // chip rather than show a misleading $0.00.
+        // Issue #182: persist vendor-reported token counts on every recorded
+        // execution. USD cost is intentionally NOT persisted here — it depends
+        // on the operator-managed per-model pricing table which is mutable
+        // external state. Persisting cost would silently invalidate every
+        // historical record the moment application.yml is edited. The web view
+        // layer derives `costUsd` on read instead; see PromptSpecApiView.
         Integer tokensIn = null;
         Integer tokensOut = null;
-        Double cost = null;
         if (executedSpec.getResponse() instanceof ChatCompletionResponse chatResponse) {
             ChatCompletionResponse.Usage usage = chatResponse.getUsage();
             if (usage != null) {
                 tokensIn = usage.getInputTokens();
                 tokensOut = usage.getOutputTokens();
-                if (usage.getCost() != null) {
-                    cost = usage.getCost();
-                }
             }
         }
-        if (cost == null && executedSpec.getRequest() instanceof ChatCompletionRequest chatRequest) {
-            cost = modelPricingService
-                    .computeCost(chatRequest.getModel(), tokensIn, tokensOut)
-                    .orElse(null);
-        }
-        Execution execution = new Execution(
+        return new Execution(
                 UUID.randomUUID().toString(),
                 now,
                 executedSpec.getResponse(),
@@ -794,8 +786,6 @@ public class PromptSpecController {
                 null,
                 ExecutionKind.MANUAL,
                 null);
-        execution.setCost(cost);
-        return execution;
     }
 
     /**

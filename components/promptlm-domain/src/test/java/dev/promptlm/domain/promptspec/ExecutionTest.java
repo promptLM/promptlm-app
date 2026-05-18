@@ -66,18 +66,16 @@ class ExecutionTest {
     }
 
     @Test
-    void cost_field_is_nullable_and_roundtrips() {
-        // Issue #182: per-execution USD cost. Nullable for unknown models so the
-        // UI can hide the chip rather than showing a misleading $0.00.
+    void cost_is_not_a_persisted_domain_field() {
+        // Refactor of issue #182 (see PromptSpecApiView): USD cost is derived at
+        // read-time from the configured per-model pricing table. Persisting it on
+        // Execution would freeze a value that becomes a silent lie the moment the
+        // operator edits application.yml. Stale data with no rebuild path was the
+        // pollution we removed; this test pins the intent.
         Execution execution = new Execution("e1", Instant.now(), null, null, null);
-        assertThat(execution.getCost()).isNull();
-
-        execution.setCost(0.00214);
         String json = mapper.writeValueAsString(execution);
-        assertThat(json).contains("\"cost\":0.00214");
-
-        Execution roundtripped = mapper.readValue(json, Execution.class);
-        assertThat(roundtripped.getCost()).isEqualTo(0.00214);
+        assertThat(json).doesNotContain("\"cost\"");
+        assertThat(json).doesNotContain("\"costUsd\"");
     }
 
     @Test
@@ -94,6 +92,29 @@ class ExecutionTest {
         assertThat(execution.getKind()).isNull();
         assertThat(execution.getFailureClass()).isNull();
         assertThat(execution.kindOrManual()).isEqualTo(ExecutionKind.MANUAL);
+        assertThat(execution.okOrDefault()).isTrue();
+    }
+
+    @Test
+    void deserialization_tolerates_legacy_cost_field_on_disk() {
+        // Older versions of the application briefly persisted a `cost` field
+        // (initial #182 implementation). Repositories that still contain it
+        // must keep deserialising — unknown properties are ignored.
+        String legacyJsonWithCost = """
+                {
+                  "id": "old",
+                  "timestamp": "2025-01-01T00:00:00Z",
+                  "tokensIn": 10,
+                  "tokensOut": 20,
+                  "cost": 0.00214,
+                  "ok": true
+                }
+                """;
+
+        Execution execution = mapper.readValue(legacyJsonWithCost, Execution.class);
+        assertThat(execution.getId()).isEqualTo("old");
+        assertThat(execution.getTokensIn()).isEqualTo(10);
+        assertThat(execution.getTokensOut()).isEqualTo(20);
         assertThat(execution.okOrDefault()).isTrue();
     }
 }

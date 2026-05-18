@@ -15,17 +15,28 @@
 /**
  * Picks the per-execution USD cost from a raw API execution payload.
  *
- * Issue #182: the backend persists `cost` directly on the Execution model
- * (derived server-side from the configured per-model pricing). For
- * forward-compatibility we also accept the cost being carried on
- * `response.usage.cost` (which is where the LLM-vendor adapters write it).
+ * Issue #182 — original implementation persisted the cost directly on the
+ * Execution domain object. That has since been refactored: USD cost depends
+ * on the operator-managed per-model pricing table (mutable external state),
+ * and freezing it on the domain would silently invalidate every historical
+ * record the moment application.yml changes. The backend now derives the
+ * value at read time in `PromptSpecApiView` and surfaces it as the
+ * `costUsd` field on the API JSON projection (see
+ * `dev.promptlm.web.PromptSpecApiView.ExecutionView`).
  *
- * Returns `null` (not `undefined`) when no cost is available so consumers can
- * treat the absence as a first-class state — the cost chip is hidden rather
- * than rendered as `$0.00`, which would be actively misleading.
+ * For forward-compatibility we also accept the cost being carried on
+ * `response.usage.cost` (where some LLM-vendor adapters may write it). The
+ * old top-level `cost` field is still consulted as a fallback so older
+ * persisted execution YAML — written before the refactor — still surfaces
+ * its (now stale-by-policy) value rather than disappearing entirely.
+ *
+ * Returns `null` (not `undefined`) when no cost is available so consumers
+ * can treat the absence as a first-class state — the cost chip is hidden
+ * rather than rendered as `$0.00`, which would be actively misleading.
  */
 
 export interface RunCostSource {
+  costUsd?: number | null;
   cost?: number | null;
   response?: {
     usage?: {
@@ -36,8 +47,10 @@ export interface RunCostSource {
 
 export const selectRunCost = (execution: RunCostSource | null | undefined): number | null => {
   if (!execution) return null;
-  const direct = numberOrNull(execution.cost);
+  const direct = numberOrNull(execution.costUsd);
   if (direct !== null) return direct;
+  const legacy = numberOrNull(execution.cost);
+  if (legacy !== null) return legacy;
   const fromUsage = numberOrNull(execution.response?.usage?.cost ?? null);
   return fromUsage;
 };
