@@ -22,7 +22,6 @@ import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -37,12 +36,14 @@ import io.swagger.v3.oas.annotations.media.Schema;
  * executions that pre-date these fields read back as {@code latencyMs == 0}, {@code tokensIn == 0},
  * {@code tokensOut == 0}, {@code ok == true}, and {@code null} for the optional fields.
  *
- * <p>Note: USD cost is intentionally NOT persisted here. Cost depends on the operator-managed
- * per-model price table (see {@code dev.promptlm.pricing.ModelPricingProperties}), which is
- * mutable external state — an edit to {@code application.yml} would silently invalidate every
- * historically persisted cost. Tokens are vendor-reported and immutable post-call, so they stay.
- * The web layer derives a {@code costUsd} field on read in {@code PromptSpecApiView} from the
- * current pricing table.
+ * <p>Note: USD cost is intentionally NOT persisted here and the class carries no
+ * {@code costUsd} concept at all. Cost depends on the operator-managed per-model price
+ * table (see {@code dev.promptlm.pricing.ModelPricingProperties}), which is mutable
+ * external state — an edit to {@code application.yml} would silently invalidate every
+ * historically persisted cost. Tokens are vendor-reported and immutable post-call, so
+ * they stay. The web layer projects each execution into
+ * {@code dev.promptlm.web.ExecutionResponseDto} on read; the DTO is where the derived
+ * {@code costUsd} field lives.
  */
 @Schema(description = "Single recorded execution of a PromptSpec")
 public class Execution {
@@ -277,23 +278,6 @@ public class Execution {
     public FailureClass getFailureClass() {
 
         return this.failureClass;
-    }
-
-    /**
-     * View-layer extension point for USD cost. The base class has no cost
-     * field and always returns {@code null} (so {@code @JsonInclude(NON_NULL)}
-     * keeps it out of YAML persistence). The web layer attaches a derived
-     * value by subclassing in {@code PromptSpecApiView.ExecutionView} —
-     * virtual dispatch then surfaces the value at JSON serialization without
-     * the domain ever holding mutable pricing-table state.
-     */
-    @JsonProperty("costUsd")
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    @Schema(description = "USD cost derived from the current per-model pricing table at read time; absent for unknown models or null tokens",
-            example = "0.00214")
-    public Double getCostUsd() {
-
-        return null;
     }
 
     public void setId(String id) {

@@ -19,30 +19,36 @@ package dev.promptlm.web;
 import dev.promptlm.domain.promptspec.ChatCompletionRequest;
 import dev.promptlm.domain.promptspec.Execution;
 import dev.promptlm.domain.promptspec.PromptSpec;
+import dev.promptlm.pricing.ModelPricingService;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Pins the load-bearing serialisation contracts behind the
- * {@code costUsd}-on-read refactor:
+ * {@code costUsd}-on-read projection:
  *
  * <ul>
  *   <li>The base {@link Execution} never emits {@code costUsd} (so persisted
- *       YAML stays clean).</li>
- *   <li>{@link PromptSpecApiView.ExecutionView} emits {@code costUsd} even when
- *       the static element type of a list is {@code Execution} — virtual
- *       dispatch on {@code getCostUsd()} survives Jackson's collection
- *       content-serializer cache.</li>
- *   <li>{@link PromptSpec#withExecutions} does not short-circuit when the new
- *       list contains {@link PromptSpecApiView.ExecutionView} instances whose
- *       field values match the old base-class instances. The view layer narrows
- *       {@code canEqual} to keep the swap visible.</li>
+ *       YAML stays clean of pricing-table state).</li>
+ *   <li>{@link ExecutionResponseDto} carries {@code costUsd} alongside the
+ *       inline-unwrapped execution fields.</li>
+ *   <li>{@link PromptSpecResponseDto} suppresses the unwrapped spec's
+ *       {@code executions} property and emits the projected DTO list under
+ *       the same {@code executions} JSON key — no duplicate field, no
+ *       shadowing of the projected cost.</li>
+ *   <li>The wire format remains compatible with the legacy executor path:
+ *       absent cost yields no {@code costUsd} property at all (omitted via
+ *       {@code @JsonInclude(NON_NULL)}).</li>
  * </ul>
  */
 class PromptSpecApiViewCostTest {
@@ -58,41 +64,27 @@ class PromptSpecApiViewCostTest {
     }
 
     @Test
-    void executionViewEmitsCostUsdViaVirtualGetter() throws Exception {
+    void executionResponseDtoEmitsCostUsd() throws Exception {
         Execution execution = new Execution("e1", null, null, null, null);
-        PromptSpecApiView.ExecutionView view = new PromptSpecApiView.ExecutionView(execution, 0.00214);
-        String json = mapper.writeValueAsString(view);
+        ExecutionResponseDto dto = new ExecutionResponseDto(execution, 0.00214);
+        String json = mapper.writeValueAsString(dto);
         assertThat(json).contains("\"costUsd\":0.00214");
+        // The unwrapped execution's id is emitted inline at the DTO root.
+        assertThat(json).contains("\"id\":\"e1\"");
     }
 
     @Test
-    void executionViewEmitsCostUsdEvenWhenReferencedAsBaseType() throws Exception {
-        // Spring's HttpMessageConverter walks PromptSpec.executions as
-        // List<Execution>; this test pins that virtual dispatch on
-        // getCostUsd() keeps the override visible.
+    void executionResponseDtoOmitsCostUsdWhenNull() throws Exception {
         Execution execution = new Execution("e1", null, null, null, null);
-        Execution view = new PromptSpecApiView.ExecutionView(execution, 0.00214);
-        String json = mapper.writeValueAsString(view);
-        assertThat(json).contains("\"costUsd\":0.00214");
+        ExecutionResponseDto dto = new ExecutionResponseDto(execution, null);
+        String json = mapper.writeValueAsString(dto);
+        assertThat(json).doesNotContain("costUsd");
     }
 
     @Test
-    void executionViewIsNotEqualToBaseExecutionWithMatchingFields() {
-        // PromptSpec.withExecutions(...) short-circuits on Objects.equals.
-        // ExecutionView must report itself unequal to a base Execution with
-        // the same field values so the swap actually takes effect — otherwise
-        // the projected costUsd silently disappears from the response.
-        Execution base = new Execution("e1", null, null, null, null);
-        Execution view = new PromptSpecApiView.ExecutionView(base, 0.00214);
-        assertThat(view).isNotEqualTo(base);
-        assertThat(base).isNotEqualTo(view);
-        assertThat(List.of(base)).isNotEqualTo(List.of(view));
-    }
-
-    @Test
-    void promptSpecExecutionsRoundTripEmitsCostUsd() throws Exception {
+    void responseDtoEmitsProjectedExecutionsWithCostUsd() throws Exception {
         Execution execution = new Execution("e1", null, null, null, null);
-        Execution view = new PromptSpecApiView.ExecutionView(execution, 0.00214);
+        ExecutionResponseDto projected = new ExecutionResponseDto(execution, 0.00214);
         PromptSpec spec = PromptSpec.builder()
                 .withGroup("g")
                 .withName("n")
@@ -106,8 +98,59 @@ class PromptSpecApiViewCostTest {
                         .withParameters(Map.of())
                         .build())
                 .build()
-                .withExecutions(List.of(view));
-        String json = mapper.writeValueAsString(spec);
+                .withExecutions(List.of(execution));
+        PromptSpecResponseDto responseDto = new PromptSpecResponseDto(
+                spec, List.of(projected), null, null, null);
+
+        String json = mapper.writeValueAsString(responseDto);
+
+        // Exactly one executions array, carrying the projected DTO with costUsd.
+        assertThat(json).contains("\"costUsd\":0.00214");
+        int firstExecutionsAt = json.indexOf("\"executions\"");
+        int lastExecutionsAt = json.lastIndexOf("\"executions\"");
+        assertThat(firstExecutionsAt)
+                .as("executions JSON property should appear exactly once on the response DTO")
+                .isEqualTo(lastExecutionsAt)
+                .isGreaterThanOrEqualTo(0);
+    }
+
+    @Test
+    void apiViewProjectsCostUsdViaPricingService() throws Exception {
+        Execution execution = new Execution(
+                "e1",
+                null,
+                null,
+                null,
+                null,
+                100L,
+                10,
+                20,
+                null,
+                null,
+                "1",
+                null,
+                true,
+                null);
+        PromptSpec spec = PromptSpec.builder()
+                .withGroup("g")
+                .withName("n")
+                .withVersion("1.0.0")
+                .withRevision(1)
+                .withDescription("d")
+                .withRequest(ChatCompletionRequest.builder()
+                        .withVendor("openai")
+                        .withModel("gpt-4o")
+                        .withMessages(List.of())
+                        .withParameters(Map.of())
+                        .build())
+                .build()
+                .withExecutions(List.of(execution));
+
+        ModelPricingService pricing = mock(ModelPricingService.class);
+        when(pricing.computeCost(any(), any(), any())).thenReturn(Optional.of(0.00214));
+
+        PromptSpecResponseDto responseDto = PromptSpecApiView.toApiView(spec, null, pricing);
+        String json = mapper.writeValueAsString(responseDto);
         assertThat(json).contains("\"costUsd\":0.00214");
     }
 }

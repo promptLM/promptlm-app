@@ -17,11 +17,14 @@
 package dev.promptlm.web;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import dev.promptlm.domain.promptspec.PromptSpecLifecycleState;
 import io.swagger.v3.oas.annotations.media.Schema;
+
+import java.util.List;
 
 /**
  * API-boundary response payload for a {@link PromptSpec}. Carries the spec
@@ -30,19 +33,40 @@ import io.swagger.v3.oas.annotations.media.Schema;
  * server-derived fields the editor UI reads from {@code GET /api/prompts/*}:
  * lifecycle state, HEAD short SHA, and release tag.
  *
+ * <p>The unwrapped spec's {@code executions} field is suppressed via
+ * {@link JsonIgnoreProperties} on the unwrap reference; the projected list of
+ * {@link ExecutionResponseDto} below carries the executions instead, attaching
+ * the view-derived {@code costUsd} without polluting the domain class with
+ * pricing-table state.
+ *
  * <p>This DTO exists so the domain {@link PromptSpec} stays free of API-only
  * fields. The deriver populates the boundary fields in
- * {@link PromptSpecApiView#toApiView(PromptSpec, PromptSpecLifecycleDeriver)};
+ * {@link PromptSpecApiView#toApiView(PromptSpec, PromptSpecLifecycleDeriver, dev.promptlm.pricing.ModelPricingService)};
  * the wire format consumed by the frontend is unchanged.
  *
  * @see PromptSpecApiView
  * @see PromptSpecLifecycleDeriver
+ * @see ExecutionResponseDto
  */
 @Schema(description = "Prompt specification response payload (domain spec + server-derived UI hints)")
 final class PromptSpecResponseDto {
 
+    /**
+     * The unwrapped domain spec. {@code executions} is suppressed here so the
+     * projected list with {@code costUsd} (declared below) is the sole source
+     * of the {@code executions} JSON property. Without this suppression Jackson
+     * would emit two competing {@code executions} fields and the projection
+     * with cost would be shadowed by the raw domain list.
+     */
     @JsonUnwrapped
+    @JsonIgnoreProperties({"executions"})
     private final PromptSpec spec;
+
+    @JsonProperty("executions")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @Schema(description = "Recent executions of the prompt, newest first, with server-derived costUsd attached.",
+            accessMode = Schema.AccessMode.READ_ONLY)
+    private final List<ExecutionResponseDto> executions;
 
     @JsonProperty("lifecycleState")
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -69,10 +93,12 @@ final class PromptSpecResponseDto {
     private final String releaseTag;
 
     PromptSpecResponseDto(PromptSpec spec,
+                          List<ExecutionResponseDto> executions,
                           PromptSpecLifecycleState lifecycleState,
                           String headShortSha,
                           String releaseTag) {
         this.spec = spec;
+        this.executions = executions;
         this.lifecycleState = lifecycleState;
         this.headShortSha = headShortSha;
         this.releaseTag = releaseTag;
@@ -81,6 +107,10 @@ final class PromptSpecResponseDto {
     /** Returns the wrapped spec. Visible to tests and assemblers within the web module. */
     PromptSpec getSpec() {
         return spec;
+    }
+
+    List<ExecutionResponseDto> getExecutions() {
+        return executions;
     }
 
     PromptSpecLifecycleState getLifecycleState() {
