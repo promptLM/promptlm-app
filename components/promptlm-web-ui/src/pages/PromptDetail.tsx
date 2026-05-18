@@ -32,6 +32,7 @@ import { useActiveProject, usePromptDetails } from '@/api/hooks';
 import { useGeneratedApiClient } from '@api-common/generatedClientProvider';
 import { mapPromptSpecToDetailViewModel } from '@api-common/viewModels/promptsV2';
 import { buildViewOnRemoteUrl } from '@/features/prompt-editor/buildViewOnRemoteUrl';
+import { selectReleaseAvailability } from '@/features/prompt-editor/selectReleaseAvailability';
 import { featureFlags } from '@/lib/featureFlags';
 import { useToast } from '@/hooks/use-toast';
 import { toDisplayError } from '@api-common/apiError';
@@ -47,9 +48,24 @@ interface TopBarProps {
   onRun: () => void;
   /** Client-composed (#188). Renders "View on GitHub" when set; hidden when undefined. */
   viewOnRemoteUrl?: string;
+  /** Release CTA — issue #186. Hidden when `onRelease` is undefined. */
+  onRelease?: () => void;
+  isReleasing?: boolean;
+  releaseAvailable?: boolean;
+  releaseDisabledReason?: string | null;
 }
 
-const TopBar = ({ name, editTo, isRunning, onRun, viewOnRemoteUrl }: TopBarProps) => (
+const TopBar = ({
+  name,
+  editTo,
+  isRunning,
+  onRun,
+  viewOnRemoteUrl,
+  onRelease,
+  isReleasing = false,
+  releaseAvailable = false,
+  releaseDisabledReason = null,
+}: TopBarProps) => (
   <header
     style={{
       height: DETAIL_TOPBAR_HEIGHT,
@@ -107,6 +123,32 @@ const TopBar = ({ name, editTo, isRunning, onRun, viewOnRemoteUrl }: TopBarProps
       <span style={{ fontFamily: 'var(--pl-mono)', fontSize: 11, marginRight: 6 }}>▷</span>
       {isRunning ? 'Running…' : 'Run'}
     </button>
+    {onRelease && (
+      // Issue #186: Release moves out of edit view. Wrapped in a span so the
+      // tooltip surfaces even when the button is disabled (disabled buttons
+      // do not fire pointer events in some browsers).
+      <span
+        title={!releaseAvailable && releaseDisabledReason ? releaseDisabledReason : undefined}
+        style={{ display: 'inline-flex' }}
+      >
+        <button
+          type="button"
+          onClick={onRelease}
+          disabled={!releaseAvailable || isReleasing}
+          className="pl-btn pl-btn-ghost"
+          data-testid="prompt-detail-release-action"
+          aria-disabled={!releaseAvailable || isReleasing}
+          style={{
+            height: 32,
+            padding: '0 14px',
+            fontSize: 13,
+            cursor: !releaseAvailable || isReleasing ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {isReleasing ? 'Releasing…' : 'Release'}
+        </button>
+      </span>
+    )}
     <Link
       to={editTo}
       className="pl-btn pl-btn-primary"
@@ -130,9 +172,14 @@ export default function PromptDetail() {
   const { promptSpecs } = useGeneratedApiClient();
   const { toast } = useToast();
   const [isRunning, setIsRunning] = useState(false);
+  const [isReleasing, setIsReleasing] = useState(false);
   const [highlightedExecutionId, setHighlightedExecutionId] = useState<string | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const view = useMemo(() => (data ? mapPromptSpecToDetailViewModel(data) : null), [data]);
+  // Issue #186: derive Release availability from the spec's release metadata.
+  // The selector is a pure function of the spec — memoizing on `data` keeps
+  // re-renders cheap.
+  const releaseAvailability = useMemo(() => selectReleaseAvailability(data), [data]);
 
   useEffect(() => {
     return () => {
@@ -208,6 +255,39 @@ export default function PromptDetail() {
     }
   }, [focusExecution, id, isRunning, promptSpecs, refresh, toast]);
 
+  /**
+   * Detail-page Release CTA — issue #186.
+   *
+   * Moves the Release action out of the edit view. The Run/Save lifecycle
+   * elsewhere stays unchanged; here we simply call the same `releasePrompt`
+   * endpoint that the edit-view Release rail already uses, then refresh the
+   * detail so the next render reflects the new release metadata (and the
+   * button correctly disables itself with "No changes since last release").
+   */
+  const handleRelease = useCallback(async () => {
+    if (!id || isReleasing || !releaseAvailability.available) {
+      return;
+    }
+    setIsReleasing(true);
+    try {
+      await promptSpecs.releasePrompt(id);
+      await refresh();
+      toast({
+        title: 'Release requested',
+        description: 'The prompt has been released.',
+      });
+    } catch (err) {
+      const display = toDisplayError(err);
+      toast({
+        variant: 'destructive',
+        title: 'Release failed',
+        description: display.message,
+      });
+    } finally {
+      setIsReleasing(false);
+    }
+  }, [id, isReleasing, promptSpecs, refresh, releaseAvailability.available, toast]);
+
   if (!id) {
     return (
       <div style={{ padding: 32, color: 'var(--pl-ink-700)' }}>Missing prompt id.</div>
@@ -274,6 +354,10 @@ export default function PromptDetail() {
           headSha: (data as { headShortSha?: string | null } | null | undefined)?.headShortSha,
           lifecycleState: (data as { lifecycleState?: string | null } | null | undefined)?.lifecycleState,
         })}
+        onRelease={handleRelease}
+        isReleasing={isReleasing}
+        releaseAvailable={releaseAvailability.available}
+        releaseDisabledReason={releaseAvailability.reason}
       />
 
       <PromptDetailHeader
