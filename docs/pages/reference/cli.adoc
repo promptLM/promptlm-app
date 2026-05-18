@@ -1,0 +1,133 @@
+= CLI reference
+:page-slug: cli
+:page-section: REFERENCE
+:page-description: All promptlm-cli commands and flags, verified against the source.
+:page-prev-label: Lifecycle states
+:page-prev-href: lifecycle.html
+
+Every command, flag, and default below is taken directly from the
+picocli `@Command` / `@Option` annotations in the CLI module under
+`apps/promptlm-cli/src/main/java/dev/promptlm/cli/`.
+
+== Repository commands
+
+=== `repo create`
+
+Create a new promptLM repository and set it as active.
+// source: RepositoryCommands.java:46-60
+
+[cols="1,1,3"]
+|===
+| Flag | Required | Description
+
+| `--dir`   | yes | Directory where the repository should be created.
+| `--name`  | yes | Repository name in `<owner>/<repo>` form, e.g. `promptlm/my-prompts`.
+|===
+
+=== `repo clone`
+
+Clone an existing remote repository and set it as active.
+// source: RepositoryCommands.java:62-69
+
+[cols="1,1,3"]
+|===
+| Flag | Required | Description
+
+| `--repo`    | yes | URL of the remote Git store to clone.
+| `--target`  | yes | Local directory the repo will be cloned into.
+|===
+
+=== `repo use`
+
+Switch the active repository to a local promptLM repository on disk.
+// source: RepositoryCommands.java:71-82
+
+[cols="1,1,3"]
+|===
+| Flag | Required | Description
+
+| `--path` | yes | Path to the local promptLM repository.
+|===
+
+== Prompt commands
+
+=== `prompt create`
+
+Create a prompt draft from the backend template.
+// source: PromptCommands.java:57-66
+
+[cols="1,1,1,3"]
+|===
+| Flag | Short | Default | Description
+
+| `--name`         |     |           | *Required.* Prompt name.
+| `--group`        |     | `default` | Prompt group.
+| `--userMessage`  | `-u` |          | *Required.* User message template.
+| `--placeholder`  |     | `{}`      | Placeholder override in `key=value` form. Repeat to pass multiple.
+|===
+
+The command returns the new prompt's id.
+
+=== `prompt show`
+
+Show the latest version of a prompt.
+// source: PromptCommands.java:133-147
+
+[cols="1,1,3"]
+|===
+| Flag | Required | Description
+
+| `--id` | yes | Prompt id.
+|===
+
+=== `prompt release`
+
+Request or perform a prompt release.
+// source: PromptCommands.java:149-159
+
+[cols="1,1,3"]
+|===
+| Flag | Required | Description
+
+| `--id` | yes | Prompt id.
+|===
+
+In the default `direct` promotion mode this performs the release in a
+single step. In `pr_two_phase` mode it opens a release PR; complete the
+release after the PR merges with `prompt release complete` below.
+// source: PromptCommands.java:249-281; apps/promptlm-cli/src/main/resources/application.yml:9-11
+
+=== `prompt release complete`
+
+Complete a two-phase prompt release after the release PR is merged.
+Only available when `promptlm.release.promotion.mode=pr_two_phase`.
+// source: PromptCommands.java:161-172
+
+[cols="1,1,3"]
+|===
+| Flag | Required | Description
+
+| `--id` | yes | Prompt id.
+| `--pr` | yes | Pull request number or reference.
+|===
+
+== Studio
+
+=== `studio`
+
+Start promptLM Studio (local web UI).
+// source: StudioCommands.java:35-44
+
+[cols="1,1,3"]
+|===
+| Flag | Default | Description
+
+| `--port`        | `8085`  | Port Studio binds to.
+| `--no-browser`  | `false` | Do not auto-open a browser on startup.
+|===
+
+== Deprecated
+
+`prompt change` is marked deprecated in source and prints a pointer to
+Studio. It is not documented as a working command.
+// source: PromptCommands.java:117-129

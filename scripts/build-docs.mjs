@@ -79,6 +79,23 @@ async function expandWidgets(html) {
   return html;
 }
 
+/** Strip `// source: <file>:<lines>` citations from rendered HTML.
+ *  Authors keep these citations in .adoc source as part of the
+ *  verification trail — they make it easy to audit a page against the
+ *  actual code in PR review. But they shouldn't leak into the public
+ *  docs site, especially when they end up inside list items where
+ *  Asciidoctor's normal line-comment handling doesn't catch them.
+ *
+ *  We strip exact lines of the form `// source: ...` (with leading
+ *  whitespace), plus any preceding <br> so we don't leave dangling
+ *  line breaks. */
+function stripSourceCitations(html) {
+  return html
+    .replace(/<br[^>]*>\s*\/\/ source:[^\n<]*/g, '')
+    .replace(/\/\/ source:[^\n<]*\n?/g, '')
+    .replace(/\n\s*\n\s*\n/g, '\n\n');
+}
+
 /** Annotate <div class="listingblock"> with data-lang from the inner
  *  <code class="language-xyz hljs"> attribute. CSS uses this to render
  *  the language strip above the code (BASH / TS / etc). */
@@ -164,6 +181,7 @@ async function buildPage(adocPath, nav, template) {
   let body = doc.convert();
   body = await expandWidgets(body);
   body = annotateListings(body);
+  body = stripSourceCitations(body);
 
   const breadcrumb = section
     ? `${escapeHtml(section)} / ${escapeHtml(title.toUpperCase())}`
