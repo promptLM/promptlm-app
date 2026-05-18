@@ -28,9 +28,10 @@ import {
   SpecBlock,
   ToastAction,
 } from '@promptlm/ui';
-import { usePromptDetails } from '@/api/hooks';
+import { useActiveProject, usePromptDetails } from '@/api/hooks';
 import { useGeneratedApiClient } from '@api-common/generatedClientProvider';
 import { mapPromptSpecToDetailViewModel } from '@api-common/viewModels/promptsV2';
+import { buildViewOnRemoteUrl } from '@/features/prompt-editor/buildViewOnRemoteUrl';
 import { featureFlags } from '@/lib/featureFlags';
 import { useToast } from '@/hooks/use-toast';
 import { toDisplayError } from '@api-common/apiError';
@@ -44,9 +45,11 @@ interface TopBarProps {
   editTo: string;
   isRunning: boolean;
   onRun: () => void;
+  /** Client-composed (#188). Renders "View on GitHub" when set; hidden when undefined. */
+  viewOnRemoteUrl?: string;
 }
 
-const TopBar = ({ name, editTo, isRunning, onRun }: TopBarProps) => (
+const TopBar = ({ name, editTo, isRunning, onRun, viewOnRemoteUrl }: TopBarProps) => (
   <header
     style={{
       height: DETAIL_TOPBAR_HEIGHT,
@@ -62,6 +65,32 @@ const TopBar = ({ name, editTo, isRunning, onRun }: TopBarProps) => (
       prompts / <span style={{ color: 'var(--pl-ink-800)' }}>{name}</span>
     </Mono>
     <div style={{ flex: 1 }} />
+    {viewOnRemoteUrl && (
+      <a
+        href={viewOnRemoteUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-testid="prompt-detail-view-on-remote"
+        title="Open this prompt on GitHub"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          height: 32,
+          padding: '0 12px',
+          fontSize: 13,
+          color: 'var(--pl-ink-700)',
+          textDecoration: 'none',
+          border: '1px solid var(--pl-ink-200)',
+          borderRadius: 4,
+          background: 'transparent',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <span aria-hidden="true" style={{ fontFamily: 'var(--pl-mono)', fontSize: 11 }}>↗</span>
+        View on GitHub
+      </a>
+    )}
     <button
       type="button"
       onClick={onRun}
@@ -97,6 +126,7 @@ const TopBar = ({ name, editTo, isRunning, onRun }: TopBarProps) => (
 export default function PromptDetail() {
   const { id } = useParams<{ id: string }>();
   const { data, isLoading, error, refresh } = usePromptDetails(id ?? null);
+  const { activeProject } = useActiveProject();
   const { promptSpecs } = useGeneratedApiClient();
   const { toast } = useToast();
   const [isRunning, setIsRunning] = useState(false);
@@ -233,7 +263,18 @@ export default function PromptDetail() {
         flexDirection: 'column',
       }}
     >
-      <TopBar name={view.name} editTo={editTo} isRunning={isRunning} onRun={handleRun} />
+      <TopBar
+        name={view.name}
+        editTo={editTo}
+        isRunning={isRunning}
+        onRun={handleRun}
+        viewOnRemoteUrl={buildViewOnRemoteUrl({
+          projectRemoteUrl: activeProject?.repositoryUrl,
+          specPath: (data as { path?: string | null } | null | undefined)?.path,
+          headSha: (data as { headShortSha?: string | null } | null | undefined)?.headShortSha,
+          lifecycleState: (data as { lifecycleState?: string | null } | null | undefined)?.lifecycleState,
+        })}
+      />
 
       <PromptDetailHeader
         name={view.name}
