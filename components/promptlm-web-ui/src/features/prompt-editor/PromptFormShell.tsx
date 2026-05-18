@@ -43,6 +43,13 @@ import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 
 import {
+  PLACEHOLDER_INSERT_NO_CARET_HINT,
+  buildPlaceholderToken,
+  insertPlaceholderAtCaret,
+  type CaretSelection,
+} from './insertPlaceholderAtCaret';
+
+import {
   PromptFormPage,
   type EditorRunRecord,
   type PromptFormContext,
@@ -204,6 +211,15 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
   const [toolConfigs, setToolConfigs] = useState<PromptFormToolConfig[]>([]);
   const [editorRunState, setEditorRunState] = useState<'idle' | 'running'>('idle');
   const [lastEditorRun, setLastEditorRun] = useState<EditorRunRecord | null>(null);
+  // Issue #187: track the last caret/selection emitted by MessagesEditor so a
+  // click on a placeholder's Insert button knows where to splice the token.
+  // We keep the value in a ref (not state) to avoid re-renders on every key
+  // stroke; reads only happen inside event handlers.
+  const caretSelectionRef = useRef<CaretSelection | null>(null);
+  const [placeholderInsertHint, setPlaceholderInsertHint] = useState<string | null>(null);
+  // Bump on every hint set so identical messages still re-trigger the auto-
+  // clear timer (e.g. user clicks Insert twice with no caret).
+  const placeholderInsertHintNonce = useRef(0);
 
   // Issue #185 — baseline (last persisted snapshot) tracking + dialog state.
   const [baseline, setBaseline] = useState<PromptEditorState | null>(null);
@@ -538,6 +554,88 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
     if (perform) perform();
   }, [persistDraft]);
 
+  // Issue #187: bridge MessagesEditor's selection events into a ref so the
+  // Insert handler can read the latest caret without subscribing to renders.
+  const handleContentSelectionChange = useCallback(
+    (selection: CaretSelection | null) => {
+      caretSelectionRef.current = selection;
+    },
+    [],
+  );
+
+  // Auto-clear the no-caret hint after 4s so it doesn't linger as a permanent
+  // banner. Re-runs whenever the hint value changes; the nonce ref above is
+  // not used in the dep array because the hint string itself changes value
+  // each time we set it (we append a zero-width nonce indirectly via state).
+  useEffect(() => {
+    if (!placeholderInsertHint) return undefined;
+    const handle = window.setTimeout(() => setPlaceholderInsertHint(null), 4000);
+    return () => window.clearTimeout(handle);
+  }, [placeholderInsertHint]);
+
+  const handleInsertPlaceholder = useCallback(
+    (name: string) => {
+      if (!name) return;
+      const selection = caretSelectionRef.current;
+      const startPattern = editor.state.draft.placeholders.startPattern ?? '{{';
+      const endPattern = editor.state.draft.placeholders.endPattern ?? '}}';
+      const token = buildPlaceholderToken(startPattern, name, endPattern);
+      const result = insertPlaceholderAtCaret(
+        editor.state.draft.request.messages,
+        token,
+        selection,
+      );
+      if (result.type !== 'inserted') {
+        placeholderInsertHintNonce.current += 1;
+        // Append a zero-width marker so identical messages still mutate state
+        // and re-trigger the auto-clear effect on every click.
+        setPlaceholderInsertHint(
+          `${PLACEHOLDER_INSERT_NO_CARET_HINT}${'​'.repeat(placeholderInsertHintNonce.current % 5)}`,
+        );
+        return;
+      }
+      // Apply the next content immutably onto the draft. Mirrors the shape
+      // used by applyFormDraft above so the existing reducer accepts it.
+      const nextMessages = editor.state.draft.request.messages.map((m, index) =>
+        index === result.messageIndex ? { ...m, content: result.nextContent } : m,
+      );
+      editor.replaceState({
+        ...editor.state,
+        draft: {
+          ...editor.state.draft,
+          request: {
+            ...editor.state.draft.request,
+            messages: nextMessages,
+          },
+        },
+      });
+      setPlaceholderInsertHint(null);
+      // After React commits the new content, refocus the matching textarea
+      // and place the caret after the inserted token. We locate it by its
+      // aria-label, which MessagesEditor sets to "Message content {1-based}".
+      const target = result.messageIndex;
+      const caret = result.caretPosition;
+      window.setTimeout(() => {
+        const selector = `textarea[aria-label="Message content ${target + 1}"]`;
+        const el = document.querySelector(selector) as HTMLTextAreaElement | null;
+        if (!el) return;
+        el.focus();
+        try {
+          el.setSelectionRange(caret, caret);
+        } catch {
+          // Some test environments don't implement setSelectionRange on
+          // textareas — focusing is still useful.
+        }
+        caretSelectionRef.current = {
+          messageIndex: target,
+          selectionStart: caret,
+          selectionEnd: caret,
+        };
+      }, 0);
+    },
+    [editor],
+  );
+
   if (data.promptError) {
     return (
       <div
@@ -592,6 +690,9 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
         editorRunState={editorRunState}
         lastEditorRun={lastEditorRun}
         isDirty={isDirty}
+        onContentSelectionChange={handleContentSelectionChange}
+        onInsertPlaceholder={handleInsertPlaceholder}
+        placeholderInsertHint={placeholderInsertHint}
       />
       <UnsavedChangesDialog
         open={dialogOpen}
