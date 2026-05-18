@@ -691,7 +691,12 @@ public class PromptSpecController {
     public ResponseEntity<?> executeStoredPrompt(
             @Parameter(description = "ID of the prompt specification to execute", required = true)
             @PathVariable("promptSpecId") String promptSpecId,
-            @RequestBody(description = "Prompt specification to execute", required = false,
+            @RequestBody(description = "Prompt specification to execute. When supplied, the contained "
+                    + "`promptSpec` is executed in place of the stored YAML. This lets the editor run "
+                    + "the current form state without saving (issue #183). The path id is always "
+                    + "authoritative; a body id that mismatches the path id returns 400. The execution "
+                    + "is still recorded against the stored prompt id and its stored revision.",
+                    required = false,
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ExecutePromptRequest.class)))
             @Valid @org.springframework.web.bind.annotation.RequestBody(required = false) ExecutePromptRequest request) {
@@ -700,21 +705,32 @@ public class PromptSpecController {
             return ResponseEntity.notFound().build();
         }
 
+        PromptSpec storedSpec = latestStoredSpec.get();
+        PromptSpec promptSpecToExecute = storedSpec;
+
         if (request != null && request.getPromptSpec() != null) {
             PromptSpec requestPromptSpec = request.getPromptSpec();
             if (requestPromptSpec.getId() != null && !promptSpecId.equals(requestPromptSpec.getId())) {
                 return ResponseEntity.badRequest().build();
             }
+            // Execute the draft from the request body (issue #183). The path id is
+            // authoritative — force it onto the spec so any downstream code that
+            // reads the id sees the canonical one. We do not persist the draft;
+            // it lives only for this single execution.
+            promptSpecToExecute = requestPromptSpec.withId(promptSpecId);
         }
 
-        PromptSpec promptSpecToExecute = latestStoredSpec.get();
         if (promptSpecToExecute.getId() == null || promptSpecToExecute.getId().isBlank()) {
             promptSpecToExecute = promptSpecToExecute.withId(promptSpecId);
         }
         Instant runStart = Instant.now();
         try {
             PromptSpec executedSpec = promptExecutor.runPromptAndAttachResponse(promptSpecToExecute);
-            Execution devRun = buildDevExecution(executedSpec, runStart);
+            // The recorded execution's revision is pinned to the stored spec's
+            // revision: a draft has no real revision yet, and the run should
+            // appear in history as "executed against revision N" — the revision
+            // the draft was branched from.
+            Execution devRun = buildDevExecution(executedSpec, storedSpec.getRevision(), runStart);
             PromptSpec persisted = promptLifecycleFacade.recordExecution(promptSpecId, devRun);
             return ResponseEntity.ok(PromptSpecApiView.toApiView(persisted, lifecycleDeriver));
         } catch (RuntimeException exception) {
@@ -722,7 +738,7 @@ public class PromptSpecController {
         }
     }
 
-    private static Execution buildDevExecution(PromptSpec executedSpec, Instant runStart) {
+    private static Execution buildDevExecution(PromptSpec executedSpec, int revision, Instant runStart) {
         Instant now = Instant.now();
         long latencyMs = java.time.Duration.between(runStart, now).toMillis();
         return new Execution(
@@ -736,7 +752,7 @@ public class PromptSpecController {
                 null,
                 null,
                 null,
-                Integer.toString(executedSpec.getRevision()),
+                Integer.toString(revision),
                 null,
                 true,
                 null,

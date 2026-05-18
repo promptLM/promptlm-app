@@ -493,16 +493,33 @@ class PromptSpecControllerWebMvcTest {
     }
 
     @Test
-    void executeStoredPromptRecordsExecutionAndReturnsPersistedSpec() throws Exception {
+    void executeStoredPromptExecutesRequestBodyDraftWhenProvided() throws Exception {
+        // Issue #183: when the request body carries a PromptSpec (e.g. the
+        // editor's current form state), the controller must execute *that*
+        // spec rather than the stored YAML. The recorded execution still
+        // belongs to the stored prompt id at the stored revision (the draft
+        // is a hypothetical overlay; it has not been persisted).
         String promptId = "prompt-a";
 
-        ChatCompletionRequest requestPayload = ChatCompletionRequest.builder()
+        ChatCompletionRequest storedRequestPayload = ChatCompletionRequest.builder()
                 .withVendor("openai")
                 .withModel("gpt-4o")
                 .withMessages(List.of(
                         ChatCompletionRequest.Message.builder()
                                 .withRole("user")
-                                .withContent("Ping")
+                                .withContent("Stored ping")
+                                .build()
+                ))
+                .withParameters(Map.of())
+                .build();
+
+        ChatCompletionRequest draftRequestPayload = ChatCompletionRequest.builder()
+                .withVendor("openai")
+                .withModel("gpt-4o")
+                .withMessages(List.of(
+                        ChatCompletionRequest.Message.builder()
+                                .withRole("user")
+                                .withContent("Draft ping — unsaved edit")
                                 .build()
                 ))
                 .withParameters(Map.of())
@@ -513,39 +530,46 @@ class PromptSpecControllerWebMvcTest {
                 .withName("prompt-a")
                 .withVersion("1.0.0")
                 .withRevision(3)
-                .withDescription("desc")
-                .withRequest(requestPayload)
+                .withDescription("stored desc")
+                .withRequest(storedRequestPayload)
                 .build()
                 .withId(promptId);
 
-        PromptSpec requestBodyPrompt = PromptSpec.builder()
-                .withGroup("malicious")
-                .withName("override")
-                .withVersion("9.9.9")
-                .withRevision(999)
-                .withDescription("request body should not be executed")
-                .withRequest(requestPayload)
+        // Draft uses the same id and group/name (the form does not let users
+        // mutate those once edit mode is open), but its request content is
+        // different from what is on disk.
+        PromptSpec draftPrompt = PromptSpec.builder()
+                .withGroup("support")
+                .withName("prompt-a")
+                .withVersion("1.0.0")
+                .withRevision(3)
+                .withDescription("draft desc — unsaved")
+                .withRequest(draftRequestPayload)
                 .build()
                 .withId(promptId);
 
         ChatCompletionResponse response = new ChatCompletionResponse(10L, null, "Pong");
-        PromptSpec executedPrompt = storedPrompt.withResponse(response);
+        // The executor returns whatever spec it was handed, with a response
+        // attached — the controller passes the draft, so we mirror that.
+        PromptSpec executedDraft = draftPrompt.withResponse(response);
         Execution recorded = new Execution(
                 "exec-uuid",
                 Instant.parse("2026-05-12T12:00:00Z"),
                 response,
                 null,
                 null);
+        // The persisted spec after recording is the stored prompt with the
+        // execution attached — storage truth is unchanged, only history grew.
         PromptSpec persistedPrompt = storedPrompt
                 .withResponse(response)
                 .withExecutions(List.of(recorded));
 
-        when(promptExecutor.runPromptAndAttachResponse(any(PromptSpec.class))).thenReturn(executedPrompt);
+        when(promptExecutor.runPromptAndAttachResponse(any(PromptSpec.class))).thenReturn(executedDraft);
         when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(storedPrompt));
         when(promptLifecycleFacade.recordExecution(eq(promptId), any(Execution.class)))
                 .thenReturn(persistedPrompt);
 
-        ExecutePromptRequest executePromptRequest = new ExecutePromptRequest(requestBodyPrompt);
+        ExecutePromptRequest executePromptRequest = new ExecutePromptRequest(draftPrompt);
 
         mockMvc.perform(post("/api/prompts/{promptSpecId}/execute", promptId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -556,13 +580,20 @@ class PromptSpecControllerWebMvcTest {
                 .andExpect(jsonPath("$.executions[0].id").value("exec-uuid"))
                 .andExpect(jsonPath("$.executions[0].response.content").value("Pong"));
 
+        // The executor was called with the *draft* spec (issue #183).
         ArgumentCaptor<PromptSpec> executedPromptCaptor = ArgumentCaptor.forClass(PromptSpec.class);
         verify(promptExecutor).runPromptAndAttachResponse(executedPromptCaptor.capture());
-        assertThat(executedPromptCaptor.getValue().getGroup()).isEqualTo("support");
-        assertThat(executedPromptCaptor.getValue().getName()).isEqualTo("prompt-a");
-        assertThat(executedPromptCaptor.getValue().getVersion()).isEqualTo("1.0.0");
-        assertThat(executedPromptCaptor.getValue().getRevision()).isEqualTo(3);
+        PromptSpec executed = executedPromptCaptor.getValue();
+        assertThat(executed.getDescription()).isEqualTo("draft desc — unsaved");
+        ChatCompletionRequest executedRequest = (ChatCompletionRequest) executed.getRequest();
+        assertThat(executedRequest.getMessages())
+                .extracting(ChatCompletionRequest.Message::getContent)
+                .containsExactly("Draft ping — unsaved edit");
+        // Path id is authoritative.
+        assertThat(executed.getId()).isEqualTo(promptId);
 
+        // The recorded execution is pinned to the *stored* revision — the draft
+        // does not get to spoof a revision number into history.
         ArgumentCaptor<Execution> executionCaptor = ArgumentCaptor.forClass(Execution.class);
         verify(promptLifecycleFacade).recordExecution(eq(promptId), executionCaptor.capture());
         Execution captured = executionCaptor.getValue();
@@ -571,6 +602,161 @@ class PromptSpecControllerWebMvcTest {
         assertThat(captured.getOk()).isTrue();
         assertThat(captured.getRevision()).isEqualTo("3");
         assertThat(((ChatCompletionResponse) captured.getResponse()).getContent()).isEqualTo("Pong");
+    }
+
+    @Test
+    void executeStoredPromptForcesPathIdOntoBodySpecWhenBodyIdIsBlank() throws Exception {
+        // Issue #183: a draft body might omit the spec id (the editor doesn't
+        // always populate it). The controller must still execute it, with the
+        // path id forced onto the spec.
+        String promptId = "prompt-b";
+
+        ChatCompletionRequest payload = ChatCompletionRequest.builder()
+                .withVendor("openai")
+                .withModel("gpt-4o")
+                .withMessages(List.of(
+                        ChatCompletionRequest.Message.builder()
+                                .withRole("user")
+                                .withContent("Draft body, no id")
+                                .build()
+                ))
+                .withParameters(Map.of())
+                .build();
+
+        PromptSpec storedPrompt = PromptSpec.builder()
+                .withGroup("support")
+                .withName("prompt-b")
+                .withVersion("1.0.0")
+                .withRevision(2)
+                .withDescription("stored")
+                .withRequest(payload)
+                .build()
+                .withId(promptId);
+
+        // Note: no .withId(...) on the draft — id is null in the request body.
+        PromptSpec draftPrompt = PromptSpec.builder()
+                .withGroup("support")
+                .withName("prompt-b")
+                .withVersion("1.0.0")
+                .withRevision(2)
+                .withDescription("draft, no id")
+                .withRequest(payload)
+                .build();
+
+        ChatCompletionResponse response = new ChatCompletionResponse(5L, null, "Pong");
+        PromptSpec executedDraft = draftPrompt.withId(promptId).withResponse(response);
+        PromptSpec persisted = storedPrompt.withResponse(response);
+
+        when(promptExecutor.runPromptAndAttachResponse(any(PromptSpec.class))).thenReturn(executedDraft);
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(storedPrompt));
+        when(promptLifecycleFacade.recordExecution(eq(promptId), any(Execution.class)))
+                .thenReturn(persisted);
+
+        mockMvc.perform(post("/api/prompts/{promptSpecId}/execute", promptId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new ExecutePromptRequest(draftPrompt))))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<PromptSpec> executedCaptor = ArgumentCaptor.forClass(PromptSpec.class);
+        verify(promptExecutor).runPromptAndAttachResponse(executedCaptor.capture());
+        assertThat(executedCaptor.getValue().getId()).isEqualTo(promptId);
+        assertThat(executedCaptor.getValue().getDescription()).isEqualTo("draft, no id");
+    }
+
+    @Test
+    void executeStoredPromptFallsBackToStoredSpecWhenNoRequestBody() throws Exception {
+        // No request body at all — the controller executes the stored spec.
+        // This preserves the legacy `executeStoredPrompt(id)` call site in
+        // PromptDetail.tsx and any future no-body callers.
+        String promptId = "prompt-c";
+
+        ChatCompletionRequest payload = ChatCompletionRequest.builder()
+                .withVendor("openai")
+                .withModel("gpt-4o")
+                .withMessages(List.of(
+                        ChatCompletionRequest.Message.builder()
+                                .withRole("user")
+                                .withContent("Stored only")
+                                .build()
+                ))
+                .withParameters(Map.of())
+                .build();
+
+        PromptSpec storedPrompt = PromptSpec.builder()
+                .withGroup("support")
+                .withName("prompt-c")
+                .withVersion("1.0.0")
+                .withRevision(7)
+                .withDescription("stored")
+                .withRequest(payload)
+                .build()
+                .withId(promptId);
+
+        ChatCompletionResponse response = new ChatCompletionResponse(5L, null, "Pong");
+        PromptSpec executed = storedPrompt.withResponse(response);
+        PromptSpec persisted = storedPrompt.withResponse(response);
+
+        when(promptExecutor.runPromptAndAttachResponse(any(PromptSpec.class))).thenReturn(executed);
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(storedPrompt));
+        when(promptLifecycleFacade.recordExecution(eq(promptId), any(Execution.class)))
+                .thenReturn(persisted);
+
+        // No body — sending an empty content (Spring treats `required=false`).
+        mockMvc.perform(post("/api/prompts/{promptSpecId}/execute", promptId)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<PromptSpec> executedCaptor = ArgumentCaptor.forClass(PromptSpec.class);
+        verify(promptExecutor).runPromptAndAttachResponse(executedCaptor.capture());
+        assertThat(executedCaptor.getValue().getDescription()).isEqualTo("stored");
+        assertThat(executedCaptor.getValue().getId()).isEqualTo(promptId);
+    }
+
+    @Test
+    void executeStoredPromptRejectsBodyWithMismatchedId() throws Exception {
+        // Path id is authoritative. A draft body carrying a different id is a
+        // 400. Pins the existing safeguard against id-smuggling.
+        String pathId = "prompt-d";
+        String otherId = "prompt-e";
+
+        ChatCompletionRequest payload = ChatCompletionRequest.builder()
+                .withVendor("openai")
+                .withModel("gpt-4o")
+                .withMessages(List.of(
+                        ChatCompletionRequest.Message.builder()
+                                .withRole("user")
+                                .withContent("Mismatched id")
+                                .build()
+                ))
+                .withParameters(Map.of())
+                .build();
+
+        PromptSpec stored = PromptSpec.builder()
+                .withGroup("support")
+                .withName("prompt-d")
+                .withVersion("1.0.0")
+                .withRevision(1)
+                .withDescription("stored")
+                .withRequest(payload)
+                .build()
+                .withId(pathId);
+
+        PromptSpec mismatchedDraft = PromptSpec.builder()
+                .withGroup("support")
+                .withName("prompt-e")
+                .withVersion("1.0.0")
+                .withRevision(1)
+                .withDescription("draft with wrong id")
+                .withRequest(payload)
+                .build()
+                .withId(otherId);
+
+        when(promptStore.getLatestVersion(pathId)).thenReturn(Optional.of(stored));
+
+        mockMvc.perform(post("/api/prompts/{promptSpecId}/execute", pathId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new ExecutePromptRequest(mismatchedDraft))))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
