@@ -46,6 +46,7 @@ import {
   createPromptDraftFromPrompt,
   usePromptEditorDraft,
 } from './draftState';
+import { buildEditorRunRequest } from './buildEditorRunRequest';
 import { releasePromptAction, savePromptDraftAction } from './editorActions';
 import { usePromptEditorData } from './usePromptEditorData';
 import { useCapabilities } from '@/api/hooks';
@@ -351,7 +352,16 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
     setEditorRunState('running');
     const startMs = Date.now();
     try {
-      const result = await promptSpecs.executeStoredPrompt(effectivePromptId);
+      // Issue #183: send the current form-state draft as the request body so
+      // the backend executes what the user sees in the editor, not the stored
+      // YAML. The path id remains authoritative — the controller forces it
+      // onto the spec and records the execution under the stored prompt id.
+      const executeRequest = buildEditorRunRequest({
+        draft: editor.state.draft,
+        evaluationEnabled: evaluationEnabledForPayload,
+        repositoryUrl: data.activeProject?.repositoryUrl,
+      });
+      const result = await promptSpecs.executeStoredPrompt(effectivePromptId, executeRequest);
       const exec = result?.executions?.[0];
       const ms = Date.now() - startMs;
       const userMessagePh = (exec?.placeholders ?? []).find((ph) => ph.name === 'user_message');
@@ -387,7 +397,15 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
     } finally {
       setEditorRunState('idle');
     }
-  }, [effectivePromptId, editorRunState, promptSpecs, formContext.revision]);
+  }, [
+    effectivePromptId,
+    editorRunState,
+    promptSpecs,
+    formContext.revision,
+    editor.state.draft,
+    evaluationEnabledForPayload,
+    data.activeProject?.repositoryUrl,
+  ]);
 
   if (data.promptError) {
     return (
