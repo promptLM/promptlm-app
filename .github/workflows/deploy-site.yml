@@ -1,10 +1,32 @@
 name: Deploy site to Pages
 
+# Triggers on any change that affects what the static site serves:
+#   - site/**                 the website itself
+#   - docs/**                 AsciiDoc source for the user docs
+#   - scripts/build-docs.mjs  the docs renderer
+#   - package.json / lock     devDeps for the renderer
+# The docs are rebuilt from source on every deploy, so the published
+# site is always in sync with `docs/` regardless of whether the
+# committed `site/docs/*.html` snapshots have been refreshed locally.
 on:
   push:
     branches: [main]
     paths:
       - 'site/**'
+      - 'docs/**'
+      - 'scripts/build-docs.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/deploy-site.yml'
+  # Build (but do not deploy) on PRs that touch the same paths, so
+  # broken AsciiDoc fails a PR check rather than the deploy.
+  pull_request:
+    paths:
+      - 'site/**'
+      - 'docs/**'
+      - 'scripts/build-docs.mjs'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/deploy-site.yml'
   workflow_dispatch:
 
@@ -18,13 +40,41 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build docs (AsciiDoc → site/docs/)
+        run: npm run docs:build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: ./site
+          retention-days: 1
+
   deploy:
+    needs: build
+    # Deploy only on pushes to main / manual dispatch. PR runs stop at `build`.
+    if: github.event_name != 'pull_request'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: ./site
 
       - uses: actions/configure-pages@v5
 

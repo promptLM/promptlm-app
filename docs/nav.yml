@@ -1,0 +1,33 @@
+# Sidebar nav for the documentation site.
+# Each `items[].slug` is the basename of an .adoc file under
+# docs/pages/<group-dir>/<slug>.adoc, rendered to site/docs/<slug>.html.
+# When `slug` is omitted, the item is shown as a non-link placeholder
+# (the page hasn't been written yet).
+
+groups:
+  - heading: GET STARTED
+    items:
+      - { label: "Introduction" }
+      - { label: "Install the CLI" }
+      - { label: "Your first run" }
+      - { label: "Configuration" }
+
+  - heading: CORE
+    items:
+      - { label: "Test suites" }
+      - { label: "Fixtures" }
+      - { label: "Mocking models" }
+      - { label: "MCP record & replay", slug: "mcp-record-replay" }
+
+  - heading: INTEGRATIONS
+    items:
+      - { label: "GitHub Actions" }
+      - { label: "Vitest / Jest" }
+      - { label: "OpenTelemetry" }
+      - { label: "OpenAI-compat" }
+
+  - heading: REFERENCE
+    items:
+      - { label: "CLI" }
+      - { label: "Config schema" }
+      - { label: "Adapter API" }
