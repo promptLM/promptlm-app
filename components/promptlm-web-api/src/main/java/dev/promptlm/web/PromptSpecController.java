@@ -77,15 +77,18 @@ public class PromptSpecController {
     private final PromptExecutor promptExecutor;
     private final PromptLifecycleFacade promptLifecycleFacade;
     private final AppContext appContext;
+    private final PromptSpecLifecycleDeriver lifecycleDeriver;
 
     public PromptSpecController(PromptStore promptStore,
                                 PromptExecutor promptExecutor,
                                 PromptLifecycleFacade promptLifecycleFacade,
-                                AppContext appContext) {
+                                AppContext appContext,
+                                PromptSpecLifecycleDeriver lifecycleDeriver) {
         this.promptStore = promptStore;
         this.promptExecutor = promptExecutor;
         this.promptLifecycleFacade = promptLifecycleFacade;
         this.appContext = appContext;
+        this.lifecycleDeriver = lifecycleDeriver;
     }
 
     /**
@@ -104,7 +107,7 @@ public class PromptSpecController {
             @Parameter(description = "Unique identifier of the prompt specification")
             @PathVariable(name = "promptSpecId") String promptSpecId) {
         Optional<PromptSpec> latestVersion = promptStore.getLatestVersion(promptSpecId);
-        return ResponseEntity.of(latestVersion.map(PromptSpecApiView::toApiView));
+        return ResponseEntity.of(latestVersion.map(spec -> PromptSpecApiView.toApiView(spec, lifecycleDeriver)));
     }
 
     /**
@@ -119,7 +122,7 @@ public class PromptSpecController {
     @GetMapping
     public ResponseEntity<List<PromptSpec>> listPromptSpecs() {
         List<PromptSpec> prompts = promptStore.listAllPrompts();
-        return ResponseEntity.ok(PromptSpecApiView.toApiView(prompts));
+        return ResponseEntity.ok(PromptSpecApiView.toApiView(prompts, lifecycleDeriver));
     }
     
     /**
@@ -146,7 +149,7 @@ public class PromptSpecController {
 
         try {
             PromptSpec created = promptLifecycleFacade.createPromptSpec(promptSpec);
-            return ResponseEntity.ok(PromptSpecApiView.toApiView(created));
+            return ResponseEntity.ok(PromptSpecApiView.toApiView(created, lifecycleDeriver));
         } catch (PromptSpecAlreadyExistsException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage(), e);
         }
@@ -182,7 +185,7 @@ public class PromptSpecController {
         }
         
         PromptSpec spec = promptLifecycleFacade.updatePrompt(promptSpecId, promptSpec);
-        return ResponseEntity.ok(PromptSpecApiView.toApiView(spec));
+        return ResponseEntity.ok(PromptSpecApiView.toApiView(spec, lifecycleDeriver));
     }
 
     @Operation(
@@ -662,7 +665,7 @@ public class PromptSpecController {
         PromptSpec promptSpec = request.getPromptSpec();
         try {
             PromptSpec executedSpec = promptExecutor.runPromptAndAttachResponse(promptSpec);
-            return ResponseEntity.ok(PromptSpecApiView.toApiView(executedSpec));
+            return ResponseEntity.ok(PromptSpecApiView.toApiView(executedSpec, lifecycleDeriver));
         } catch (RuntimeException exception) {
             throw mapPromptExecutionException(promptSpec.getId(), exception);
         }
@@ -713,7 +716,7 @@ public class PromptSpecController {
             PromptSpec executedSpec = promptExecutor.runPromptAndAttachResponse(promptSpecToExecute);
             Execution devRun = buildDevExecution(executedSpec, runStart);
             PromptSpec persisted = promptLifecycleFacade.recordExecution(promptSpecId, devRun);
-            return ResponseEntity.ok(PromptSpecApiView.toApiView(persisted));
+            return ResponseEntity.ok(PromptSpecApiView.toApiView(persisted, lifecycleDeriver));
         } catch (RuntimeException exception) {
             throw mapPromptExecutionException(promptSpecId, exception);
         }
