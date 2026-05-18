@@ -58,6 +58,7 @@ import {
 } from './draftState';
 import { buildEditorRunRequest } from './buildEditorRunRequest';
 import { releasePromptAction, savePromptDraftAction } from './editorActions';
+import { selectRevisionId } from './selectRevisionId';
 import { usePromptEditorData } from './usePromptEditorData';
 import { usePromptFormDirty } from './dirtyState';
 import { UnsavedChangesDialog } from './UnsavedChangesDialog';
@@ -280,11 +281,22 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
       data.activeProject?.repositoryUrl ??
       data.prompt?.repositoryUrl ??
       'local repository';
+    // Issue #184: prefer the release tag, otherwise the Git short SHA. Both
+    // fields are server-derived (see PromptSpecApiView) and may be absent —
+    // in which case the topbar falls back to the legacy "next will bump"
+    // copy. Selection logic lives in `selectRevisionId` so it can be tested
+    // independently of the React component.
+    const revisionId = selectRevisionId(
+      data.prompt as
+        | (typeof data.prompt & { releaseTag?: string | null; headShortSha?: string | null })
+        | null,
+    );
     return {
       version: data.prompt?.version ?? FALLBACK_VERSION,
       revision: data.prompt?.revision ? `r${data.prompt.revision}` : FALLBACK_REVISION,
       repositoryUrl,
       branch: 'main',
+      revisionId,
     };
   }, [data.activeProject?.repositoryUrl, data.prompt]);
 

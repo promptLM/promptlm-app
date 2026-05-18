@@ -283,8 +283,9 @@ class PromptSpecControllerWebMvcTest {
         String promptId = "welcome";
         PromptSpec stored = baseSpec("support/" + promptId);
         when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(stored));
-        when(lifecycleDeriver.derive(any(PromptSpec.class)))
-                .thenReturn(dev.promptlm.domain.promptspec.PromptSpecLifecycleState.PUSHED);
+        when(lifecycleDeriver.deriveResult(any(PromptSpec.class)))
+                .thenReturn(new PromptSpecLifecycleDeriver.Result(
+                        dev.promptlm.domain.promptspec.PromptSpecLifecycleState.PUSHED, null));
 
         mockMvc.perform(get("/api/prompts/{promptSpecId}", promptId))
                 .andExpect(status().isOk())
@@ -292,15 +293,17 @@ class PromptSpecControllerWebMvcTest {
     }
 
     @Test
-    void getByIdOmitsLifecycleStateWhenDeriverReturnsNull() throws Exception {
+    void getByIdOmitsLifecycleStateWhenDeriverReturnsEmpty() throws Exception {
         String promptId = "welcome";
         PromptSpec stored = baseSpec("support/" + promptId);
         when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(stored));
-        when(lifecycleDeriver.derive(any(PromptSpec.class))).thenReturn(null);
+        when(lifecycleDeriver.deriveResult(any(PromptSpec.class)))
+                .thenReturn(PromptSpecLifecycleDeriver.Result.EMPTY);
 
         mockMvc.perform(get("/api/prompts/{promptSpecId}", promptId))
                 .andExpect(status().isOk())
-                .andExpect(content().string(not(containsString("\"lifecycleState\""))));
+                .andExpect(content().string(not(containsString("\"lifecycleState\""))))
+                .andExpect(content().string(not(containsString("\"headShortSha\""))));
     }
 
     @Test
@@ -313,12 +316,51 @@ class PromptSpecControllerWebMvcTest {
         String promptId = "welcome";
         PromptSpec stored = baseSpec("support/" + promptId);
         when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(stored));
-        when(lifecycleDeriver.derive(any(PromptSpec.class)))
-                .thenReturn(dev.promptlm.domain.promptspec.PromptSpecLifecycleState.SAVED);
+        when(lifecycleDeriver.deriveResult(any(PromptSpec.class)))
+                .thenReturn(new PromptSpecLifecycleDeriver.Result(
+                        dev.promptlm.domain.promptspec.PromptSpecLifecycleState.SAVED, null));
 
         mockMvc.perform(get("/api/prompts/{promptSpecId}", promptId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.lifecycleState").value("saved"));
+    }
+
+    @Test
+    void getByIdIncludesHeadShortShaWhenDeriverProvidesIt() throws Exception {
+        String promptId = "welcome";
+        PromptSpec stored = baseSpec("support/" + promptId);
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(stored));
+        when(lifecycleDeriver.deriveResult(any(PromptSpec.class)))
+                .thenReturn(new PromptSpecLifecycleDeriver.Result(
+                        dev.promptlm.domain.promptspec.PromptSpecLifecycleState.PUSHED, "a1b2c3d"));
+
+        mockMvc.perform(get("/api/prompts/{promptSpecId}", promptId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lifecycleState").value("pushed"))
+                .andExpect(jsonPath("$.headShortSha").value("a1b2c3d"));
+    }
+
+    @Test
+    void getByIdExposesReleaseTagWhenExtensionPresent() throws Exception {
+        String promptId = "welcome";
+        ReleaseMetadata release = new ReleaseMetadata(
+                ReleaseMetadata.STATE_RELEASED,
+                ReleaseMetadata.MODE_DIRECT,
+                "1.4.0",
+                "v1.4",
+                "main",
+                null,
+                null,
+                null);
+        PromptSpec stored = baseSpec("support/" + promptId)
+                .withReleaseMetadata(release);
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(stored));
+        when(lifecycleDeriver.deriveResult(any(PromptSpec.class)))
+                .thenReturn(PromptSpecLifecycleDeriver.Result.EMPTY);
+
+        mockMvc.perform(get("/api/prompts/{promptSpecId}", promptId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.releaseTag").value("v1.4"));
     }
 
     @Test

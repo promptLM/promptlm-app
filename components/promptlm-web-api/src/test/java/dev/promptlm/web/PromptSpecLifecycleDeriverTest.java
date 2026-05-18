@@ -86,6 +86,69 @@ class PromptSpecLifecycleDeriverTest {
     }
 
     @Test
+    void deriveResultIncludesShortShaForPushedSpec(@TempDir Path tempDir) throws Exception {
+        Path local = initRepoWithPromptCommit(tempDir.resolve("local"));
+        Path remote = initBareRemote(tempDir.resolve("remote.git"));
+        configureRemoteAndPush(local, remote);
+
+        wireActiveProject(local);
+        PromptSpec spec = newSpecWithPath(Path.of(SPEC_RELATIVE_PATH));
+
+        PromptSpecLifecycleDeriver.Result result = deriver.deriveResult(spec);
+
+        assertThat(result.state()).isEqualTo(PromptSpecLifecycleState.PUSHED);
+        assertThat(result.headShortSha()).matches("^[0-9a-f]{7}$");
+        assertThat(result.headShortSha()).isEqualTo(headFullShaOf(local).substring(0, 7));
+    }
+
+    @Test
+    void deriveResultIncludesShortShaForCommittedSpec(@TempDir Path tempDir) throws Exception {
+        Path local = initRepoWithPromptCommit(tempDir.resolve("local"));
+        // No remote → committed but not pushed.
+
+        wireActiveProject(local);
+        PromptSpec spec = newSpecWithPath(Path.of(SPEC_RELATIVE_PATH));
+
+        PromptSpecLifecycleDeriver.Result result = deriver.deriveResult(spec);
+
+        assertThat(result.state()).isEqualTo(PromptSpecLifecycleState.COMMITTED);
+        assertThat(result.headShortSha()).isEqualTo(headFullShaOf(local).substring(0, 7));
+    }
+
+    @Test
+    void deriveResultOmitsShortShaForSavedSpec(@TempDir Path tempDir) throws Exception {
+        Path local = initRepoWithPromptCommit(tempDir.resolve("local"));
+        // Mutate the working tree without committing → SAVED.
+        Files.writeString(local.resolve(SPEC_RELATIVE_PATH), SPEC_YAML + "description: edited\n");
+
+        wireActiveProject(local);
+        PromptSpec spec = newSpecWithPath(Path.of(SPEC_RELATIVE_PATH));
+
+        PromptSpecLifecycleDeriver.Result result = deriver.deriveResult(spec);
+
+        assertThat(result.state()).isEqualTo(PromptSpecLifecycleState.SAVED);
+        assertThat(result.headShortSha()).as("SAVED state has no representative commit").isNull();
+    }
+
+    @Test
+    void deriveResultIsEmptyWhenActiveProjectAbsent() {
+        when(appContext.getActiveProject()).thenReturn(null);
+
+        PromptSpec spec = newSpecWithPath(Path.of(SPEC_RELATIVE_PATH));
+
+        PromptSpecLifecycleDeriver.Result result = deriver.deriveResult(spec);
+
+        assertThat(result.state()).isNull();
+        assertThat(result.headShortSha()).isNull();
+    }
+
+    private static String headFullShaOf(Path local) throws Exception {
+        try (Git git = Git.open(local.toFile())) {
+            return git.getRepository().resolve("HEAD").getName();
+        }
+    }
+
+    @Test
     void returnsCommittedWhenWorkingTreeMatchesHeadButOriginIsBehind(@TempDir Path tempDir) throws Exception {
         Path local = initRepoWithPromptCommit(tempDir.resolve("local"));
         Path remote = initBareRemote(tempDir.resolve("remote.git"));

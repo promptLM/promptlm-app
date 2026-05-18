@@ -174,6 +174,37 @@ public class PromptSpec {
             accessMode = Schema.AccessMode.READ_ONLY)
     private final PromptSpecLifecycleState lifecycleState;
 
+    /**
+     * Short SHA (7 chars) of the Git commit that currently carries the spec
+     * content. Server-derived only; never accepted from clients on writes.
+     * Empty when the spec is not yet committed or when the active project has
+     * no Git context.
+     *
+     * <p>Surfaces to the UI as the fallback revision identifier when no
+     * release tag is present (see issue #184).
+     */
+    @JsonProperty("headShortSha")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @Schema(description = "Server-derived Git short SHA (7 chars) of HEAD when the working tree matches a commit. Omitted otherwise.",
+            nullable = true,
+            accessMode = Schema.AccessMode.READ_ONLY,
+            example = "a1b2c3d")
+    private final String headShortSha;
+
+    /**
+     * Flat-field projection of the release tag stored under the
+     * {@code x-release} extension. Server-derived only; never accepted from
+     * clients on writes. The UI uses this as the preferred revision
+     * identifier in the editor topbar (see issue #184).
+     */
+    @JsonProperty("releaseTag")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @Schema(description = "Server-derived release tag for the current revision. Omitted when the spec has not been released.",
+            nullable = true,
+            accessMode = Schema.AccessMode.READ_ONLY,
+            example = "v1.4")
+    private final String releaseTag;
+
     public String getRepositoryUrl() {
         return repositoryUrl;
     }
@@ -301,16 +332,19 @@ public class PromptSpec {
                 path,
                 executions,
                 semanticHash,
+                null,
+                null,
                 null
         );
     }
 
     /**
-     * Full-args constructor including the derived {@link #lifecycleState}.
-     * The {@code lifecycleState} parameter is intentionally <em>not</em> part
-     * of the {@code @JsonCreator} signature — the API derives the value at the
-     * boundary (see {@code PromptSpecLifecycleDeriver}) and any incoming JSON
-     * value is silently ignored on deserialization.
+     * Full-args constructor including the derived {@link #lifecycleState},
+     * {@link #headShortSha}, and {@link #releaseTag}. These boundary-only
+     * parameters are intentionally <em>not</em> part of the {@code @JsonCreator}
+     * signature — the API derives the values at the boundary (see
+     * {@code PromptSpecLifecycleDeriver}) and any incoming JSON value is
+     * silently ignored on deserialization.
      */
     private PromptSpec(
             String specVersion,
@@ -336,7 +370,9 @@ public class PromptSpec {
             Path path,
             List<Execution> executions,
             String semanticHash,
-            PromptSpecLifecycleState lifecycleState) {
+            PromptSpecLifecycleState lifecycleState,
+            String headShortSha,
+            String releaseTag) {
 
         this.specVersion = specVersion;
         this.uuid = uuid;
@@ -362,6 +398,8 @@ public class PromptSpec {
         this.executions = executions;
         this.semanticHash = semanticHash;
         this.lifecycleState = lifecycleState;
+        this.headShortSha = headShortSha;
+        this.releaseTag = releaseTag;
     }
 
     public PromptSpec(
@@ -567,11 +605,91 @@ public class PromptSpec {
                 this.path,
                 this.executions,
                 this.semanticHash,
-                lifecycleState);
+                lifecycleState,
+                this.headShortSha,
+                this.releaseTag);
+    }
+
+    /**
+     * Returns a copy with the given Git short SHA attached. Intended for use
+     * at the API boundary only — see {@link #withLifecycleState} for the same
+     * "never persist this to disk" warning.
+     */
+    public PromptSpec withHeadShortSha(String headShortSha) {
+        return Objects.equals(this.headShortSha, headShortSha) ? this : new PromptSpec(
+                this.specVersion,
+                this.uuid,
+                this.id,
+                this.name,
+                this.group,
+                this.version,
+                this.revision,
+                this.description,
+                this.authors,
+                this.purpose,
+                this.repositoryUrl,
+                this.status,
+                this.createdAt,
+                this.updatedAt,
+                this.retiredAt,
+                this.retiredReason,
+                this.request,
+                this.placeholders,
+                this.response,
+                this.extensions,
+                this.path,
+                this.executions,
+                this.semanticHash,
+                this.lifecycleState,
+                headShortSha,
+                this.releaseTag);
+    }
+
+    /**
+     * Returns a copy with the given release tag attached. Intended for use at
+     * the API boundary only — see {@link #withLifecycleState} for the same
+     * "never persist this to disk" warning.
+     */
+    public PromptSpec withReleaseTag(String releaseTag) {
+        return Objects.equals(this.releaseTag, releaseTag) ? this : new PromptSpec(
+                this.specVersion,
+                this.uuid,
+                this.id,
+                this.name,
+                this.group,
+                this.version,
+                this.revision,
+                this.description,
+                this.authors,
+                this.purpose,
+                this.repositoryUrl,
+                this.status,
+                this.createdAt,
+                this.updatedAt,
+                this.retiredAt,
+                this.retiredReason,
+                this.request,
+                this.placeholders,
+                this.response,
+                this.extensions,
+                this.path,
+                this.executions,
+                this.semanticHash,
+                this.lifecycleState,
+                this.headShortSha,
+                releaseTag);
     }
 
     public PromptSpecLifecycleState getLifecycleState() {
         return lifecycleState;
+    }
+
+    public String getHeadShortSha() {
+        return headShortSha;
+    }
+
+    public String getReleaseTag() {
+        return releaseTag;
     }
 
     @JsonIgnore
