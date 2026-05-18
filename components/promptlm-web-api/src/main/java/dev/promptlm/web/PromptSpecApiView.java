@@ -18,6 +18,7 @@ package dev.promptlm.web;
 
 import dev.promptlm.domain.promptspec.Execution;
 import dev.promptlm.domain.promptspec.PromptSpec;
+import dev.promptlm.domain.promptspec.PromptSpecLifecycleState;
 import dev.promptlm.domain.promptspec.ReleaseMetadata;
 
 import java.time.Instant;
@@ -26,12 +27,18 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * API-boundary view of {@link PromptSpec}. The domain object stays order-agnostic for
- * {@code executions[]}; this helper presents them newest-first when the spec is
- * returned to HTTP callers, matching the {@link RepoHistoryAssembler} contract.
+ * API-boundary assembler that turns a domain {@link PromptSpec} into the
+ * dedicated {@link PromptSpecResponseDto} returned by the HTTP controllers.
  *
- * <p>Apply at every controller return path that surfaces a {@link PromptSpec} so the
- * frontend can rely on {@code executions[0]} being the most recent run.
+ * <p>The DTO holds the server-derived UI hints (lifecycle state, HEAD short
+ * SHA, release tag) that used to be stamped onto {@link PromptSpec} via
+ * withers. Keeping them on the DTO means the domain type stays free of
+ * API-only fields while the JSON wire format consumed by the frontend stays
+ * byte-identical.
+ *
+ * <p>Apply at every controller return path that surfaces a {@link PromptSpec}
+ * so the frontend can rely on {@code executions[0]} being the most recent
+ * run and on the boundary hints being present when derivable.
  */
 final class PromptSpecApiView {
 
@@ -41,35 +48,44 @@ final class PromptSpecApiView {
     private PromptSpecApiView() {
     }
 
-    static PromptSpec toApiView(PromptSpec spec) {
+    static PromptSpecResponseDto toApiView(PromptSpec spec) {
         return toApiView(spec, null);
     }
 
     /**
      * Returns the spec mapped for HTTP output (executions newest-first) with
-     * an optional derived lifecycle state attached. Pass {@code null} for
-     * {@code deriver} when the caller has no lifecycle context (e.g. internal
-     * mappings or tests of unrelated code paths) — the field is then omitted
-     * from the JSON response.
+     * the derived lifecycle state, HEAD short SHA, and release tag attached
+     * to the DTO. Pass {@code null} for {@code deriver} when the caller has
+     * no lifecycle context (e.g. internal mappings or tests of unrelated
+     * code paths) — the lifecycle and SHA fields are then omitted from JSON.
      */
-    static PromptSpec toApiView(PromptSpec spec, PromptSpecLifecycleDeriver deriver) {
+    static PromptSpecResponseDto toApiView(PromptSpec spec, PromptSpecLifecycleDeriver deriver) {
         if (spec == null) {
             return null;
         }
-        PromptSpec withExecutions = sortExecutionsNewestFirst(spec);
-        PromptSpec withRevision = withRevisionMetadata(withExecutions, deriver);
-        return withReleaseTagAttached(withRevision);
+        PromptSpec sorted = sortExecutionsNewestFirst(spec);
+        PromptSpecLifecycleState lifecycleState = null;
+        String headShortSha = null;
+        if (deriver != null) {
+            PromptSpecLifecycleDeriver.Result result = deriver.deriveResult(sorted);
+            if (result != null) {
+                lifecycleState = result.state();
+                headShortSha = result.headShortSha();
+            }
+        }
+        String releaseTag = releaseTagOrNull(sorted);
+        return new PromptSpecResponseDto(sorted, lifecycleState, headShortSha, releaseTag);
     }
 
-    static List<PromptSpec> toApiView(List<PromptSpec> specs) {
+    static List<PromptSpecResponseDto> toApiView(List<PromptSpec> specs) {
         return toApiView(specs, null);
     }
 
-    static List<PromptSpec> toApiView(List<PromptSpec> specs, PromptSpecLifecycleDeriver deriver) {
+    static List<PromptSpecResponseDto> toApiView(List<PromptSpec> specs, PromptSpecLifecycleDeriver deriver) {
         if (specs == null) {
             return null;
         }
-        List<PromptSpec> mapped = new ArrayList<>(specs.size());
+        List<PromptSpecResponseDto> mapped = new ArrayList<>(specs.size());
         for (PromptSpec spec : specs) {
             mapped.add(toApiView(spec, deriver));
         }
@@ -86,37 +102,16 @@ final class PromptSpecApiView {
         return spec.withExecutions(sorted);
     }
 
-    private static PromptSpec withRevisionMetadata(PromptSpec spec, PromptSpecLifecycleDeriver deriver) {
-        if (deriver == null) {
-            return spec;
-        }
-        PromptSpecLifecycleDeriver.Result result = deriver.deriveResult(spec);
-        if (result == null) {
-            return spec;
-        }
-        PromptSpec updated = spec;
-        if (result.state() != null) {
-            updated = updated.withLifecycleState(result.state());
-        }
-        if (result.headShortSha() != null) {
-            updated = updated.withHeadShortSha(result.headShortSha());
-        }
-        return updated;
-    }
-
-    private static PromptSpec withReleaseTagAttached(PromptSpec spec) {
-        if (spec == null) {
-            return null;
-        }
+    private static String releaseTagOrNull(PromptSpec spec) {
         ReleaseMetadata release = spec.getReleaseMetadata();
         if (release == null) {
-            return spec;
+            return null;
         }
         String tag = release.tag();
         if (tag == null || tag.isBlank()) {
-            return spec;
+            return null;
         }
-        return spec.withReleaseTag(tag);
+        return tag;
     }
 
     private static Instant timestampOrEpoch(Execution execution) {

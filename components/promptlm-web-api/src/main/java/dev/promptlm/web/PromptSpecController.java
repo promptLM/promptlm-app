@@ -103,7 +103,7 @@ public class PromptSpecController {
         @ApiResponse(responseCode = "404", description = "Prompt specification not found")
     })
     @GetMapping(path = "/{promptSpecId}")
-    public ResponseEntity<PromptSpec> getById(
+    public ResponseEntity<PromptSpecResponseDto> getById(
             @Parameter(description = "Unique identifier of the prompt specification")
             @PathVariable(name = "promptSpecId") String promptSpecId) {
         Optional<PromptSpec> latestVersion = promptStore.getLatestVersion(promptSpecId);
@@ -120,7 +120,7 @@ public class PromptSpecController {
                 content = @Content(mediaType = "application/json",
                         array = @ArraySchema(schema = @Schema(implementation = PromptSpec.class))))
     @GetMapping
-    public ResponseEntity<List<PromptSpec>> listPromptSpecs() {
+    public ResponseEntity<List<PromptSpecResponseDto>> listPromptSpecs() {
         List<PromptSpec> prompts = promptStore.listAllPrompts();
         return ResponseEntity.ok(PromptSpecApiView.toApiView(prompts, lifecycleDeriver));
     }
@@ -137,7 +137,7 @@ public class PromptSpecController {
         @ApiResponse(responseCode = "404", description = "Failed to create prompt specification")
     })
     @PostMapping
-    public ResponseEntity<PromptSpec> createPromptSpec(
+    public ResponseEntity<PromptSpecResponseDto> createPromptSpec(
             @RequestBody(description = "Prompt specification creation request details", required = true,
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = PromptSpecCreationRequest.class)))
@@ -167,7 +167,7 @@ public class PromptSpecController {
         @ApiResponse(responseCode = "404", description = "Prompt specification not found")
     })
     @PutMapping("/{promptSpecId}")
-    public ResponseEntity<PromptSpec> updatePromptSpec(
+    public ResponseEntity<PromptSpecResponseDto> updatePromptSpec(
             @Parameter(description = "ID of the prompt specification to update")
             @PathVariable("promptSpecId") String promptSpecId,
             @RequestBody(description = "Updated prompt specification details", required = true,
