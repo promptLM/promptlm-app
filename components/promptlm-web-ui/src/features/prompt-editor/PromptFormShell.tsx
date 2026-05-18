@@ -27,8 +27,18 @@
  * - Tool configs (MCP mocks) and placeholder schema fields (type/required/
  *   description) are surfaced in the rail UI but are client-side-only until
  *   backend support lands; user edits don't round-trip yet.
+ *
+ * Issue #185 — adds:
+ * - Dirty detection via `usePromptFormDirty` (passed to `PromptFormPage` so
+ *   the sticky header can render the "Modified" chip).
+ * - A `beforeunload` listener that prompts on tab close / reload while dirty.
+ * - A `popstate` interceptor (with a sentinel history entry) that catches
+ *   browser back and routes the user through `UnsavedChangesDialog`.
+ * - A guarded Cancel button.
+ * Sidebar/header nav links are *not* guarded by this PR — the app uses
+ * `BrowserRouter` (not a data router) so `useBlocker` is unavailable.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 
@@ -40,7 +50,7 @@ import {
   type PromptFormToolConfig,
 } from '@promptlm/ui';
 
-import type { PromptEditorMode } from './types';
+import type { PromptEditorMode, PromptEditorState } from './types';
 import {
   createEmptyPromptDraft,
   createPromptDraftFromPrompt,
@@ -48,6 +58,8 @@ import {
 } from './draftState';
 import { releasePromptAction, savePromptDraftAction } from './editorActions';
 import { usePromptEditorData } from './usePromptEditorData';
+import { usePromptFormDirty } from './dirtyState';
+import { UnsavedChangesDialog } from './UnsavedChangesDialog';
 import { useCapabilities } from '@/api/hooks';
 import { useGeneratedApiClient } from '@api-common/generatedClientProvider';
 import { featureFlags } from '@/lib/featureFlags';
@@ -174,6 +186,9 @@ const applyFormDraft = (
   })),
 });
 
+// Issue #185 — popstate sentinel marker.
+const POPSTATE_SENTINEL_KEY = '__promptlmDirtyGuard';
+
 export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
   const navigate = useNavigate();
   const data = usePromptEditorData({ mode, promptId });
@@ -188,20 +203,31 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
   const [editorRunState, setEditorRunState] = useState<'idle' | 'running'>('idle');
   const [lastEditorRun, setLastEditorRun] = useState<EditorRunRecord | null>(null);
 
+  // Issue #185 — baseline (last persisted snapshot) tracking + dialog state.
+  const [baseline, setBaseline] = useState<PromptEditorState | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const pendingNavigationRef = useRef<(() => void) | null>(null);
+
   // Hydrate draft on load. Depend only on the replaceState callback (stable
   // reference from the useReducer dispatch) — depending on `editor` triggers
   // an infinite loop because the memoised actions object changes per render.
   useEffect(() => {
     if (mode === 'edit' && data.prompt) {
-      replaceState(createPromptDraftFromPrompt(data.prompt));
+      const next = createPromptDraftFromPrompt(data.prompt);
+      replaceState(next);
+      setBaseline(next);
       return;
     }
     if (mode === 'create') {
       if (data.promptTemplate) {
-        replaceState(createPromptDraftFromPrompt(data.promptTemplate));
+        const next = createPromptDraftFromPrompt(data.promptTemplate);
+        replaceState(next);
+        setBaseline(next);
         return;
       }
-      replaceState(createEmptyPromptDraft());
+      const empty = createEmptyPromptDraft();
+      replaceState(empty);
+      setBaseline(empty);
     }
   }, [data.prompt, data.promptTemplate, mode, replaceState]);
 
@@ -226,6 +252,9 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
     () => toFormDraft(editor.state, toolConfigs),
     [editor.state, toolConfigs],
   );
+
+  // Issue #185 — dirty signal. Compared against the post-hydration baseline.
+  const isDirty = usePromptFormDirty({ current: editor.state, baseline });
 
   const handleChangeDraft = useCallback(
     (next: PromptFormDraft) => {
@@ -258,13 +287,30 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
     };
   }, [data.activeProject?.repositoryUrl, data.prompt]);
 
+  // Issue #185 — guarded navigation helper. If the form is dirty, defer the
+  // navigation until the user picks Save / Discard / Cancel; otherwise run
+  // immediately.
+  const requestNavigation = useCallback(
+    (perform: () => void) => {
+      if (!isDirty) {
+        perform();
+        return;
+      }
+      pendingNavigationRef.current = perform;
+      setDialogOpen(true);
+    },
+    [isDirty],
+  );
+
   const handleCancel = useCallback(() => {
-    if (mode === 'edit' && promptId) {
-      navigate(`/prompts/${promptId}`);
-      return;
-    }
-    navigate('/prompts');
-  }, [mode, navigate, promptId]);
+    requestNavigation(() => {
+      if (mode === 'edit' && promptId) {
+        navigate(`/prompts/${promptId}`);
+        return;
+      }
+      navigate('/prompts');
+    });
+  }, [mode, navigate, promptId, requestNavigation]);
 
   const evaluationEnabledForPayload = isEvaluationCapabilityEnabled
     ? editor.state.evaluationEnabled
@@ -285,7 +331,9 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
       updatePrompt: data.updatePrompt,
     });
     if (result.updatedPrompt && mode === 'edit') {
-      editor.replaceState(createPromptDraftFromPrompt(result.updatedPrompt));
+      const refreshed = createPromptDraftFromPrompt(result.updatedPrompt);
+      editor.replaceState(refreshed);
+      setBaseline(refreshed);
     }
     if (result.shouldRefreshPrompt) {
       await data.refreshPrompt();
@@ -331,7 +379,9 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
         releasePrompt: data.releasePrompt,
       });
       if (releaseResult.releasedPrompt && mode === 'edit') {
-        editor.replaceState(createPromptDraftFromPrompt(releaseResult.releasedPrompt));
+        const refreshed = createPromptDraftFromPrompt(releaseResult.releasedPrompt);
+        editor.replaceState(refreshed);
+        setBaseline(refreshed);
       }
       if (releaseResult.shouldRefreshPrompt) {
         await data.refreshPrompt();
@@ -389,6 +439,75 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
     }
   }, [effectivePromptId, editorRunState, promptSpecs, formContext.revision]);
 
+  // Issue #185 — `beforeunload`: prompt on tab close / reload while dirty.
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      // Older Chrome/Edge require the legacy returnValue setter.
+      event.returnValue = '';
+      return '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
+
+  // Issue #185 — in-app browser-back guard. While dirty, push a sentinel
+  // history entry so the first `popstate` lands on our handler. We swallow
+  // the back navigation, route the user through the dialog, and re-issue
+  // `history.back()` if they confirm. If they cancel, the sentinel stays
+  // in place so the next back press is still intercepted.
+  useEffect(() => {
+    if (!isDirty) return;
+    window.history.pushState({ [POPSTATE_SENTINEL_KEY]: true }, '');
+    const handler = () => {
+      pendingNavigationRef.current = () => {
+        // Step out of the form route. The sentinel entry was already
+        // consumed by the popstate that just fired.
+        window.history.back();
+      };
+      setDialogOpen(true);
+    };
+    window.addEventListener('popstate', handler);
+    return () => {
+      window.removeEventListener('popstate', handler);
+      // Best-effort cleanup: if the sentinel is still the current entry,
+      // pop it so we don't leak history entries when the form unmounts
+      // through a non-back navigation.
+      const state = window.history.state as Record<string, unknown> | null;
+      if (state && state[POPSTATE_SENTINEL_KEY] === true) {
+        window.history.back();
+      }
+    };
+  }, [isDirty]);
+
+  const handleDialogCancel = useCallback(() => {
+    pendingNavigationRef.current = null;
+    setDialogOpen(false);
+  }, []);
+
+  const handleDialogDiscard = useCallback(() => {
+    if (baseline) {
+      editor.replaceState(baseline);
+    }
+    const perform = pendingNavigationRef.current;
+    pendingNavigationRef.current = null;
+    setDialogOpen(false);
+    if (perform) perform();
+  }, [baseline, editor]);
+
+  const handleDialogSave = useCallback(async () => {
+    const result = await persistDraft();
+    if (result.toast.severity === 'error') {
+      // Save failed; keep the dialog open so the user can pick another path.
+      return;
+    }
+    const perform = pendingNavigationRef.current;
+    pendingNavigationRef.current = null;
+    setDialogOpen(false);
+    if (perform) perform();
+  }, [persistDraft]);
+
   if (data.promptError) {
     return (
       <div
@@ -424,24 +543,34 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
   void validationRequested;
 
   return (
-    <PromptFormPage
-      mode={mode}
-      draft={formDraft}
-      context={formContext}
-      evalEnabled={editor.state.evaluationEnabled}
-      evalsAvailable={isEvaluationCapabilityEnabled}
-      isBusy={data.isSaving || isReleasing}
-      isSaving={data.isSaving}
-      onChangeDraft={handleChangeDraft}
-      onToggleEvalEnabled={handleToggleEvalEnabled}
-      onCancel={handleCancel}
-      onSaveDraft={handleSaveDraft}
-      onSubmit={handleSubmit}
-      releaseFlowEnabled={featureFlags.releaseFlow}
-      onEditorRun={effectivePromptId ? handleEditorRun : undefined}
-      editorRunState={editorRunState}
-      lastEditorRun={lastEditorRun}
-    />
+    <>
+      <PromptFormPage
+        mode={mode}
+        draft={formDraft}
+        context={formContext}
+        evalEnabled={editor.state.evaluationEnabled}
+        evalsAvailable={isEvaluationCapabilityEnabled}
+        isBusy={data.isSaving || isReleasing}
+        isSaving={data.isSaving}
+        onChangeDraft={handleChangeDraft}
+        onToggleEvalEnabled={handleToggleEvalEnabled}
+        onCancel={handleCancel}
+        onSaveDraft={handleSaveDraft}
+        onSubmit={handleSubmit}
+        releaseFlowEnabled={featureFlags.releaseFlow}
+        onEditorRun={effectivePromptId ? handleEditorRun : undefined}
+        editorRunState={editorRunState}
+        lastEditorRun={lastEditorRun}
+        isDirty={isDirty}
+      />
+      <UnsavedChangesDialog
+        open={dialogOpen}
+        isSaving={data.isSaving}
+        onSave={handleDialogSave}
+        onDiscard={handleDialogDiscard}
+        onCancel={handleDialogCancel}
+      />
+    </>
   );
 };
 

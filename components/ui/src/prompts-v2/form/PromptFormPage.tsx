@@ -105,6 +105,13 @@ export interface PromptFormPageProps extends PromptFormReleaseFlowProps {
   editorRunState?: 'idle' | 'running';
   /** Last completed run record for the editor-tab response panel. */
   lastEditorRun?: EditorRunRecord | null;
+  /**
+   * Issue #185 — when `true`, render the "Modified" chip in the sticky
+   * header to signal the form has unsaved changes. The chip sits next to the
+   * existing revision label so issue #184 (topbar revision) can coordinate
+   * with the same signal.
+   */
+  isDirty?: boolean;
 }
 
 const HEADER_HEIGHT = 56;
@@ -166,6 +173,7 @@ const StickyHeader: React.FC<{
   releaseDisabledReason: string | null;
   onEditorRun?: () => void;
   isEditorRunning?: boolean;
+  isDirty?: boolean;
 }> = ({
   mode,
   draft,
@@ -180,6 +188,7 @@ const StickyHeader: React.FC<{
   releaseDisabledReason,
   onEditorRun,
   isEditorRunning,
+  isDirty = false,
 }) => {
   const isCreate = mode === 'create';
   const totalErrors =
@@ -264,6 +273,28 @@ const StickyHeader: React.FC<{
           </>
         )}
       </FormMono>
+
+      {isDirty && (
+        <span
+          data-testid="prompt-editor-dirty-indicator"
+          aria-label="Form has unsaved changes"
+          title="Form has unsaved changes"
+          style={{
+            padding: '2px 7px',
+            background: 'oklch(0.94 0.05 80)',
+            color: 'oklch(0.42 0.13 70)',
+            fontFamily: 'var(--pl-mono)',
+            fontSize: 10,
+            letterSpacing: '0.10em',
+            textTransform: 'uppercase',
+            borderRadius: 3,
+            fontWeight: 500,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Modified
+        </span>
+      )}
 
       <FormMono
         size={11}
@@ -356,6 +387,7 @@ export const PromptFormPage: React.FC<PromptFormPageProps> = ({
   onEditorRun,
   editorRunState = 'idle',
   lastEditorRun = null,
+  isDirty = false,
 }) => {
   const errors = React.useMemo(
     () => validateDraft(draft, evalEnabled),
@@ -462,6 +494,7 @@ export const PromptFormPage: React.FC<PromptFormPageProps> = ({
         }
         onEditorRun={onEditorRun}
         isEditorRunning={editorRunState === 'running'}
+        isDirty={isDirty}
       />
 
       {releaseFlowEnabled ? (
