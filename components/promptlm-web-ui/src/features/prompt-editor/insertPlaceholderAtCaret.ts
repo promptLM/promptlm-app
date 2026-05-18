@@ -15,11 +15,8 @@
 /**
  * Helper for issue #187 — "Insert" affordance on placeholder rows.
  *
- * Semantics differ from `placeholderInsertion.ts` (which falls back to
- * appending to the last user message). Per #187, when the editor does not
- * currently hold the caret, the click MUST NOT insert — the caller surfaces
- * a hint instead. This file is intentionally separate to avoid breaking the
- * existing helper's contract used by other call sites/tests.
+ * Per #187, when the editor does not currently hold the caret, the click MUST
+ * NOT insert — the caller surfaces a hint instead.
  */
 
 export type CaretSelection = {
