@@ -18,7 +18,7 @@ package dev.promptlm.web;
 
 import dev.promptlm.domain.promptspec.Execution;
 import dev.promptlm.domain.promptspec.PromptSpec;
-import dev.promptlm.domain.promptspec.PromptSpecLifecycleState;
+import dev.promptlm.domain.promptspec.ReleaseMetadata;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -57,7 +57,8 @@ final class PromptSpecApiView {
             return null;
         }
         PromptSpec withExecutions = sortExecutionsNewestFirst(spec);
-        return withLifecycleState(withExecutions, deriver);
+        PromptSpec withRevision = withRevisionMetadata(withExecutions, deriver);
+        return withReleaseTagAttached(withRevision);
     }
 
     static List<PromptSpec> toApiView(List<PromptSpec> specs) {
@@ -85,15 +86,37 @@ final class PromptSpecApiView {
         return spec.withExecutions(sorted);
     }
 
-    private static PromptSpec withLifecycleState(PromptSpec spec, PromptSpecLifecycleDeriver deriver) {
+    private static PromptSpec withRevisionMetadata(PromptSpec spec, PromptSpecLifecycleDeriver deriver) {
         if (deriver == null) {
             return spec;
         }
-        PromptSpecLifecycleState state = deriver.derive(spec);
-        if (state == null) {
+        PromptSpecLifecycleDeriver.Result result = deriver.deriveResult(spec);
+        if (result == null) {
             return spec;
         }
-        return spec.withLifecycleState(state);
+        PromptSpec updated = spec;
+        if (result.state() != null) {
+            updated = updated.withLifecycleState(result.state());
+        }
+        if (result.headShortSha() != null) {
+            updated = updated.withHeadShortSha(result.headShortSha());
+        }
+        return updated;
+    }
+
+    private static PromptSpec withReleaseTagAttached(PromptSpec spec) {
+        if (spec == null) {
+            return null;
+        }
+        ReleaseMetadata release = spec.getReleaseMetadata();
+        if (release == null) {
+            return spec;
+        }
+        String tag = release.tag();
+        if (tag == null || tag.isBlank()) {
+            return spec;
+        }
+        return spec.withReleaseTag(tag);
     }
 
     private static Instant timestampOrEpoch(Execution execution) {

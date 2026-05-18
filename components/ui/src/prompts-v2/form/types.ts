@@ -102,6 +102,13 @@ export interface PromptFormContext {
   repositoryUrl: string;
   /** "main" — branch name from git. */
   branch: string;
+  /**
+   * Identifier of the committed/pushed revision currently being edited —
+   * a release tag (e.g. "v1.4") when available, else the Git short SHA
+   * (e.g. "a1b2c3d"). When undefined the topbar falls back to the legacy
+   * "next will bump · {branch}" copy. See issue #184.
+   */
+  revisionId?: string;
 }
 
 export interface PromptFormErrors {

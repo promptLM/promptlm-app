@@ -258,6 +258,20 @@ const StickyHeader: React.FC<{
             v<span style={{ color: 'var(--pl-ink-700)' }}>{context.version}</span> ·{' '}
             <span style={{ color: 'var(--pl-ink-700)' }}>{context.revision}</span>
           </>
+        ) : context.revisionId ? (
+          // Issue #184: when the backend supplies a revision identifier
+          // (release tag or short SHA), surface it as the primary indicator
+          // of which committed revision the user is editing against. Rendered
+          // in its own span so #185's "modified" chip can render adjacent.
+          <>
+            v<span style={{ color: 'var(--pl-ink-700)' }}>{context.version}</span> ·{' '}
+            <span
+              style={{ color: 'var(--pl-ink-700)' }}
+              data-testid="prompt-editor-revision-id"
+            >
+              {context.revisionId}
+            </span>
+          </>
         ) : (
           <>
             v<span style={{ color: 'var(--pl-ink-700)' }}>{context.version}</span> → next will bump · {context.branch}

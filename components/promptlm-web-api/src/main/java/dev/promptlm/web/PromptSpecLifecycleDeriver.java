@@ -52,12 +52,37 @@ import java.util.Arrays;
  * derivation falls through to {@code null}. The lifecycle field is decorative
  * metadata for the UI; a Git read hiccup must not break the {@code GET}.
  *
+ * <p>Issue #184 extends the deriver to also surface the Git short SHA of the
+ * commit that currently carries the spec content (HEAD when the working tree
+ * matches HEAD). The UI uses this as the fallback revision identifier when no
+ * release tag is present in the spec extensions.
+ *
  * @see <a href="https://github.com/promptLM/promptlm-app/issues/189">Issue #189</a>
+ * @see <a href="https://github.com/promptLM/promptlm-app/issues/184">Issue #184</a>
  */
 @Component
 class PromptSpecLifecycleDeriver {
 
+    /**
+     * Result of a single derivation pass. {@link #state} captures the
+     * lifecycle classification; {@link #headShortSha} carries the 7-char
+     * abbreviation of HEAD when the working tree matches a commit (i.e. for
+     * {@link PromptSpecLifecycleState#COMMITTED} and
+     * {@link PromptSpecLifecycleState#PUSHED}). For
+     * {@link PromptSpecLifecycleState#SAVED} the SHA is {@code null} because
+     * the on-disk content is not represented by any commit yet.
+     */
+    record Result(PromptSpecLifecycleState state, String headShortSha) {
+
+        static final Result EMPTY = new Result(null, null);
+
+        static Result onlyState(PromptSpecLifecycleState state) {
+            return new Result(state, null);
+        }
+    }
+
     private static final Logger log = LoggerFactory.getLogger(PromptSpecLifecycleDeriver.class);
+    private static final int SHORT_SHA_LENGTH = 7;
 
     private final AppContext appContext;
 
@@ -68,24 +93,35 @@ class PromptSpecLifecycleDeriver {
     /**
      * Returns the lifecycle state of the given spec, or {@code null} when it
      * cannot be derived.
+     *
+     * <p>Retained as a convenience for callers that only care about the state
+     * classification. Prefer {@link #deriveResult(PromptSpec)} when the short
+     * SHA is also useful.
      */
     PromptSpecLifecycleState derive(PromptSpec spec) {
+        return deriveResult(spec).state();
+    }
+
+    /**
+     * Returns the full derivation result — state plus optional short SHA.
+     */
+    Result deriveResult(PromptSpec spec) {
         if (spec == null) {
-            return null;
+            return Result.EMPTY;
         }
         Path repoDir = resolveRepoDir();
         if (repoDir == null) {
-            return null;
+            return Result.EMPTY;
         }
         Path specPath = resolveSpecPath(spec, repoDir);
         if (specPath == null) {
-            return null;
+            return Result.EMPTY;
         }
         try (Git git = Git.open(repoDir.toFile())) {
             Repository repo = git.getRepository();
             String relativeGitPath = toGitPath(repoDir, specPath);
             if (relativeGitPath == null) {
-                return null;
+                return Result.EMPTY;
             }
 
             byte[] workingTreeContent = Files.exists(specPath)
@@ -96,19 +132,22 @@ class PromptSpecLifecycleDeriver {
             if (!Arrays.equals(workingTreeContent, headContent)) {
                 // Working tree differs from HEAD (or HEAD has no blob yet for
                 // this path). The change has been "saved" to disk but is not
-                // captured by a commit yet.
-                return PromptSpecLifecycleState.SAVED;
+                // captured by a commit yet. No short SHA — the on-disk content
+                // is not represented by any commit.
+                return Result.onlyState(PromptSpecLifecycleState.SAVED);
             }
 
-            // Working tree matches HEAD; differentiate committed vs pushed.
+            // Working tree matches HEAD; HEAD's short SHA identifies the
+            // current revision regardless of pushed-or-not.
+            String shortSha = shortShaOfHead(repo);
             if (isHeadReachableFromOrigin(repo)) {
-                return PromptSpecLifecycleState.PUSHED;
+                return new Result(PromptSpecLifecycleState.PUSHED, shortSha);
             }
-            return PromptSpecLifecycleState.COMMITTED;
+            return new Result(PromptSpecLifecycleState.COMMITTED, shortSha);
         } catch (IOException | RuntimeException e) {
             log.warn("Failed to derive lifecycle state for prompt {}/{} at {}: {}",
                     spec.getGroup(), spec.getName(), specPath, e.toString());
-            return null;
+            return Result.EMPTY;
         }
     }
 
@@ -208,5 +247,21 @@ class PromptSpecLifecycleDeriver {
             }
             return walk.isMergedInto(headCommit, originCommit);
         }
+    }
+
+    /**
+     * Returns the 7-char abbreviation of HEAD's commit SHA, or {@code null}
+     * when HEAD cannot be resolved.
+     */
+    private String shortShaOfHead(Repository repo) throws IOException {
+        ObjectId headId = repo.resolve("HEAD");
+        if (headId == null) {
+            return null;
+        }
+        String full = headId.getName();
+        if (full.length() <= SHORT_SHA_LENGTH) {
+            return full;
+        }
+        return full.substring(0, SHORT_SHA_LENGTH);
     }
 }
