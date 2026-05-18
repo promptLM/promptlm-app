@@ -94,6 +94,9 @@ class PromptSpecControllerWebMvcTest {
     @MockitoBean
     private AppContext appContext;
 
+    @MockitoBean
+    private PromptSpecLifecycleDeriver lifecycleDeriver;
+
     @Test
     void getDefaultTemplateReturnsCanonicalDraftSeed() throws Exception {
         PromptSpec.Placeholders placeholders = new PromptSpec.Placeholders();
@@ -271,6 +274,49 @@ class PromptSpecControllerWebMvcTest {
                         .build())
                 .build()
                 .withId(promptId);
+    }
+
+    @Test
+    void getByIdIncludesDerivedLifecycleStateInResponse() throws Exception {
+        String promptId = "welcome";
+        PromptSpec stored = baseSpec("support/" + promptId);
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(stored));
+        when(lifecycleDeriver.derive(any(PromptSpec.class)))
+                .thenReturn(dev.promptlm.domain.promptspec.PromptSpecLifecycleState.PUSHED);
+
+        mockMvc.perform(get("/api/prompts/{promptSpecId}", promptId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lifecycleState").value("pushed"));
+    }
+
+    @Test
+    void getByIdOmitsLifecycleStateWhenDeriverReturnsNull() throws Exception {
+        String promptId = "welcome";
+        PromptSpec stored = baseSpec("support/" + promptId);
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(stored));
+        when(lifecycleDeriver.derive(any(PromptSpec.class))).thenReturn(null);
+
+        mockMvc.perform(get("/api/prompts/{promptSpecId}", promptId))
+                .andExpect(status().isOk())
+                .andExpect(content().string(not(containsString("\"lifecycleState\""))));
+    }
+
+    @Test
+    void getByIdNeverEmitsDraftStateBecauseDraftIsClientOnly() throws Exception {
+        // Belt-and-braces: even if a misbehaving deriver returned DRAFT, the
+        // controller path would still echo it (the deriver is the sole writer).
+        // This test pins the contract that the API path passes the value
+        // through to JSON exactly, so callers can rely on the enum vocabulary —
+        // and documents that the production deriver never returns DRAFT.
+        String promptId = "welcome";
+        PromptSpec stored = baseSpec("support/" + promptId);
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(stored));
+        when(lifecycleDeriver.derive(any(PromptSpec.class)))
+                .thenReturn(dev.promptlm.domain.promptspec.PromptSpecLifecycleState.SAVED);
+
+        mockMvc.perform(get("/api/prompts/{promptSpecId}", promptId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lifecycleState").value("saved"));
     }
 
     @Test

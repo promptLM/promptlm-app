@@ -18,6 +18,7 @@ package dev.promptlm.web;
 
 import dev.promptlm.domain.promptspec.Execution;
 import dev.promptlm.domain.promptspec.PromptSpec;
+import dev.promptlm.domain.promptspec.PromptSpecLifecycleState;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -41,9 +42,40 @@ final class PromptSpecApiView {
     }
 
     static PromptSpec toApiView(PromptSpec spec) {
+        return toApiView(spec, null);
+    }
+
+    /**
+     * Returns the spec mapped for HTTP output (executions newest-first) with
+     * an optional derived lifecycle state attached. Pass {@code null} for
+     * {@code deriver} when the caller has no lifecycle context (e.g. internal
+     * mappings or tests of unrelated code paths) — the field is then omitted
+     * from the JSON response.
+     */
+    static PromptSpec toApiView(PromptSpec spec, PromptSpecLifecycleDeriver deriver) {
         if (spec == null) {
             return null;
         }
+        PromptSpec withExecutions = sortExecutionsNewestFirst(spec);
+        return withLifecycleState(withExecutions, deriver);
+    }
+
+    static List<PromptSpec> toApiView(List<PromptSpec> specs) {
+        return toApiView(specs, null);
+    }
+
+    static List<PromptSpec> toApiView(List<PromptSpec> specs, PromptSpecLifecycleDeriver deriver) {
+        if (specs == null) {
+            return null;
+        }
+        List<PromptSpec> mapped = new ArrayList<>(specs.size());
+        for (PromptSpec spec : specs) {
+            mapped.add(toApiView(spec, deriver));
+        }
+        return mapped;
+    }
+
+    private static PromptSpec sortExecutionsNewestFirst(PromptSpec spec) {
         List<Execution> executions = spec.getExecutions();
         if (executions == null || executions.size() < 2) {
             return spec;
@@ -53,15 +85,15 @@ final class PromptSpecApiView {
         return spec.withExecutions(sorted);
     }
 
-    static List<PromptSpec> toApiView(List<PromptSpec> specs) {
-        if (specs == null) {
-            return null;
+    private static PromptSpec withLifecycleState(PromptSpec spec, PromptSpecLifecycleDeriver deriver) {
+        if (deriver == null) {
+            return spec;
         }
-        List<PromptSpec> mapped = new ArrayList<>(specs.size());
-        for (PromptSpec spec : specs) {
-            mapped.add(toApiView(spec));
+        PromptSpecLifecycleState state = deriver.derive(spec);
+        if (state == null) {
+            return spec;
         }
-        return mapped;
+        return spec.withLifecycleState(state);
     }
 
     private static Instant timestampOrEpoch(Execution execution) {

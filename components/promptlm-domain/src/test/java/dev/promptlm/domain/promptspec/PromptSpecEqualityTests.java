@@ -73,4 +73,19 @@ class PromptSpecEqualityTests {
         PromptSpec spec2 = createPromptSpec("id", "name", "group1", "1", 2);
         assertNotEquals(spec1, spec2);
     }
+
+    @Test
+    void lifecycleStateIsExcludedFromEqualityBecauseItIsDerived() {
+        // Lifecycle state is a derived view, not part of identity. Two specs
+        // that differ only in lifecycle state must remain equal so that
+        // dedup / cache lookups by identity continue to work.
+        PromptSpec base = createPromptSpec("id", "name", "group1", "1", 1);
+        PromptSpec saved = base.withLifecycleState(PromptSpecLifecycleState.SAVED);
+        PromptSpec pushed = base.withLifecycleState(PromptSpecLifecycleState.PUSHED);
+
+        assertEquals(base, saved);
+        assertEquals(saved, pushed);
+        assertEquals(base.hashCode(), saved.hashCode());
+        assertEquals(saved.hashCode(), pushed.hashCode());
+    }
 }
