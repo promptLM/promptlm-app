@@ -172,7 +172,17 @@ async function buildPage(adocPath, nav, template) {
   const sidebar = renderSidebar(nav, slug);
   const toc = renderToc(body);
 
-  const filled = template
+  const prevLabel = attrs['page-prev-label'] || '';
+  const nextLabel = attrs['page-next-label'] || '';
+
+  // Strip the pager block entirely when a page has no prev/next links —
+  // markers are emitted by docs/templates/page.html.
+  let filled = template;
+  if (!prevLabel && !nextLabel) {
+    filled = filled.replace(/\s*<!-- PAGER:START -->[\s\S]*?<!-- PAGER:END -->/, '');
+  }
+
+  filled = filled
     .replaceAll('{{title}}', escapeHtml(title))
     .replaceAll('{{description}}', escapeHtml(description))
     .replaceAll('{{slug}}', slug)
@@ -180,9 +190,9 @@ async function buildPage(adocPath, nav, template) {
     .replaceAll('{{sidebar}}', sidebar)
     .replaceAll('{{toc}}', toc)
     .replaceAll('{{body}}', body)
-    .replaceAll('{{prevLabel}}', escapeHtml(attrs['page-prev-label'] || ''))
+    .replaceAll('{{prevLabel}}', escapeHtml(prevLabel))
     .replaceAll('{{prevHref}}', escapeHtml(attrs['page-prev-href'] || '#'))
-    .replaceAll('{{nextLabel}}', escapeHtml(attrs['page-next-label'] || ''))
+    .replaceAll('{{nextLabel}}', escapeHtml(nextLabel))
     .replaceAll('{{nextHref}}', escapeHtml(attrs['page-next-href'] || '#'))
     .replaceAll('{{sourcePath}}', path.relative(ROOT, adocPath));
 
@@ -207,6 +217,10 @@ async function main() {
     process.exit(1);
   }
 
+  // Clean the output dir so stale pages from a previous build (e.g. after
+  // an .adoc is renamed or removed) don't linger and confuse local preview.
+  // The directory is gitignored, so this is always safe.
+  await fs.rm(OUT_DIR, { recursive: true, force: true });
   await fs.mkdir(OUT_DIR, { recursive: true });
 
   // Copy docs.css next to the pages so they can <link rel="stylesheet" href="docs.css">.
@@ -219,13 +233,12 @@ async function main() {
   const slugs = [];
   for (const p of pages) slugs.push(await buildPage(p, nav, template));
 
-  // Convenience: write site/docs/index.html that redirects to the
-  // first available page in the nav.
-  const first = nav.groups.flatMap(g => g.items).find(it => it.slug);
-  if (first) {
-    const redirect = `<!doctype html><meta http-equiv="refresh" content="0; url=${first.slug}.html"><title>promptLM docs</title>`;
-    await fs.writeFile(path.join(OUT_DIR, 'index.html'), redirect);
-    console.log(`  ✓ site/docs/index.html → ${first.slug}.html`);
+  // The docs landing page is whatever .adoc declares `:page-slug: index`.
+  // No auto-generated redirect — if no index page exists, the build fails
+  // loudly below rather than producing a silently-empty site/docs/.
+  if (!slugs.includes('index')) {
+    console.error('  ! no page declares :page-slug: index — visiting site/docs/ will 404');
+    process.exit(1);
   }
 
   console.log(`\nBuilt ${slugs.length} page${slugs.length === 1 ? '' : 's'}.`);

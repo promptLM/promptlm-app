@@ -1,0 +1,42 @@
+= User documentation
+:page-slug: index
+:page-section: DOCS
+:page-description: User documentation for promptLM. Real content is being authored — track progress in issue #205.
+
+End-user documentation for promptLM lives in this site, rendered from
+AsciiDoc sources under `docs/pages/` in the repository. The pipeline is
+wired and the brand chrome is in place, but the actual pages have not
+been written yet — that work is tracked in
+https://github.com/promptLM/promptlm-app/issues/205[issue #205].
+
+[NOTE]
+====
+Until the first real pages land, this placeholder is the only published
+page. The sidebar shows the intended structure; items without a link
+are not yet authored.
+====
+
+== What lives here, eventually
+
+The plan is one AsciiDoc file per page, organised under the sidebar
+groups you see on the left:
+
+* *Get Started* — introduction, install, first run, configuration.
+* *Core* — prompt specs, lifecycle states, releases.
+* *Integrations* — GitHub Actions, test-runner adapters, OpenTelemetry, OpenAI-compatible endpoints.
+* *Reference* — CLI commands, configuration schema, adapter API.
+
+Each page is authored against current product behavior — no aspirational
+content, no design-mock fillers.
+
+== Contributing
+
+If you maintain a feature, you're the right person to write its docs.
+See https://github.com/promptLM/promptlm-app/blob/main/docs/README.md[`docs/README.md`]
+in the repository for the authoring workflow: drop a new `.adoc` under
+`docs/pages/<group>/`, add the slug to `docs/nav.yml`, run
+`npm run docs:build`, open a PR. CI handles the rest.
+
+For now, please claim a section on
+https://github.com/promptLM/promptlm-app/issues/205[issue #205] before
+starting, so two people don't double-write the same page.

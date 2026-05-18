@@ -1,8 +1,14 @@
 # Sidebar nav for the documentation site.
+#
 # Each `items[].slug` is the basename of an .adoc file under
 # docs/pages/<group-dir>/<slug>.adoc, rendered to site/docs/<slug>.html.
-# When `slug` is omitted, the item is shown as a non-link placeholder
-# (the page hasn't been written yet).
+#
+# Items WITHOUT a slug are placeholders — pages that the design calls
+# for but that no one has written yet. They render as non-link greyed
+# text in the sidebar. Don't promote an item to a link until the
+# matching .adoc lands AND its content reflects real product behavior.
+#
+# Real user documentation is being authored separately — see issue #205.
 
 groups:
   - heading: GET STARTED
@@ -17,7 +23,7 @@ groups:
       - { label: "Test suites" }
       - { label: "Fixtures" }
       - { label: "Mocking models" }
-      - { label: "MCP record & replay", slug: "mcp-record-replay" }
+      - { label: "MCP record & replay" }
 
   - heading: INTEGRATIONS
     items:

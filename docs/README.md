@@ -1,9 +1,16 @@
 # User documentation
 
 End-user docs for promptLM. AsciiDoc sources here are rendered into the
-brand-styled HTML pages under [`site/docs/`](../site/docs/) by
-[`scripts/build-docs.mjs`](../scripts/build-docs.mjs). The output is the
-static GitHub Pages site served from `site/`.
+brand-styled HTML pages under `site/docs/` by
+[`scripts/build-docs.mjs`](../scripts/build-docs.mjs). The output is part
+of the static GitHub Pages site served from `site/`.
+
+> **Status:** the rendering pipeline is in place but most pages have not
+> been written yet. Only [`pages/index.adoc`](pages/index.adoc) — the
+> landing placeholder — exists. Tracking issue:
+> [#205](https://github.com/promptLM/promptlm-app/issues/205). Please
+> claim a section there before authoring, so two people don't write the
+> same page.
 
 ## Layout
 
