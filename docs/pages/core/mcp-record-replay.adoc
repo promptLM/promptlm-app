@@ -1,0 +1,54 @@
+= MCP record & replay
+:page-section: CORE
+:page-section-href: ../#core
+:page-slug: mcp-record-replay
+:page-prev-label: Mocking models
+:page-prev-href: mocking-models.html
+:page-next-label: GitHub Actions
+:page-next-href: ../integrations/github-actions.html
+:page-description: Capture an MCP session against the real server, freeze the bytes, and play them back in CI. Deterministic by default.
+
+Capture an MCP session against the real server, freeze the bytes, and play them back in CI.
+The same tool sequence, the same payloads, on every run — no flaky network, no rate limits.
+
+[NOTE]
+====
+Recordings are deterministic by default. If you need real-time fuzz, see `--mode=live`.
+====
+
+== 1 · Record
+
+Wrap any MCP-speaking client. promptLM intercepts the transport and writes a
+session file to `.promptlm/sessions/`.
+
+[source,bash]
+----
+$ promptlm record --server tools/calendar \
+    --out booking_v3.session.json
+
+# recorded · 14 calls · 1.2s · 8.4 KiB
+----
+
+== 2 · Replay in tests
+
+Use the matching helper in your test runner. The replay enforces tool-call
+sequence; any drift fails loud.
+
+[source,typescript]
+----
+import { replay } from '@promptlm/mcp';
+
+test('booking flow', async () => {
+  await replay('booking_v3.session.json', async (mcp) => {
+    const result = await agent.run({ mcp });
+    expect(result.status).toBe('confirmed');
+  });
+});
+----
+
+== 3 · Inspect
+
+Open any session file in the inspector to see tool calls, latency, and
+payload diffs.
+
+widget::mcp-inspector[]

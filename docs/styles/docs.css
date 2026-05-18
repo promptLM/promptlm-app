@@ -1,0 +1,303 @@
+/* ─────────────────────────────────────────────────────────────
+ * promptLM docs — page styles.
+ *
+ * Loaded by every page in site/docs/ on top of styles.css (which
+ * supplies the brand tokens + .pl/.nav/.pl-btn primitives).
+ *
+ * This file does two jobs:
+ *   1. The 3-column docs shell (.docs-* selectors) — the static
+ *      chrome rendered by docs/templates/page.html.
+ *   2. Brand styling for Asciidoctor's default output — listing
+ *      blocks (.listingblock), admonitions (.admonitionblock.note),
+ *      section headings (.sect1 h2), paragraphs (.paragraph p).
+ *      We keep Asciidoctor's class names intact so future docs
+ *      authors can use stock AsciiDoc primitives.
+ * ───────────────────────────────────────────────────────────── */
+
+/* ─── shell ─── */
+.docs-shell {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr) 220px;
+  min-height: calc(100vh - 68px);
+}
+
+.docs-side {
+  padding: 40px 32px 40px 56px;
+  border-right: 1px solid var(--pl-ink-200);
+}
+
+.docs-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--pl-ink-200);
+  border-radius: 6px;
+  margin-bottom: 32px;
+}
+.docs-search-label { font-size: 13px; color: var(--pl-ink-500); }
+.docs-search-spacer { flex: 1; }
+.docs-search-key {
+  font-size: 10px;
+  padding: 2px 5px;
+  border: 1px solid var(--pl-ink-200);
+  border-radius: 3px;
+  color: var(--pl-ink-500);
+}
+
+.docs-side-group { margin-bottom: 28px; }
+.docs-side-heading {
+  font-size: 10px;
+  color: var(--pl-ink-500);
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+}
+.docs-side-item {
+  display: block;
+  font-size: 13.5px;
+  padding: 5px 0 5px 12px;
+  margin-left: -12px;
+  color: var(--pl-ink-700);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  font-weight: 400;
+}
+.docs-side-item:hover { color: var(--pl-ink-900); }
+.docs-side-item.is-placeholder {
+  color: var(--pl-ink-500);
+  cursor: default;
+}
+.docs-side-item[aria-current="page"] {
+  color: var(--pl-ink-900);
+  font-weight: 500;
+  border-left-color: var(--pl-signal-deep);
+  padding-left: 10px;
+}
+
+/* ─── main column ─── */
+.docs-main { padding: 48px 56px; min-width: 0; }
+
+.docs-crumb {
+  font-size: 11px;
+  color: var(--pl-ink-500);
+  letter-spacing: 0.04em;
+  margin-bottom: 18px;
+}
+.docs-title {
+  font-size: 44px;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  margin: 0 0 16px;
+  color: var(--pl-ink-900);
+}
+
+/* The first paragraph of the AsciiDoc body becomes the lede.
+ * Asciidoctor wraps the document preamble in <div id="preamble">. */
+#preamble .paragraph:first-of-type p {
+  font-size: 17px;
+  color: var(--pl-ink-600);
+  line-height: 1.6;
+  margin: 0 0 40px;
+}
+
+/* ─── prose ─── */
+.docs-main .paragraph p {
+  font-size: 15px;
+  color: var(--pl-ink-700);
+  line-height: 1.6;
+  margin: 0 0 16px;
+}
+.docs-main .paragraph p code,
+.docs-main p code {
+  font-family: var(--pl-mono);
+  font-size: 0.92em;
+  color: var(--pl-signal-deep);
+  background: transparent;
+  padding: 0;
+}
+.docs-main .sect1 > h2 {
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  margin: 32px 0 12px;
+  color: var(--pl-ink-900);
+}
+.docs-main .sect1:first-of-type > h2 { margin-top: 0; }
+
+/* anchor links injected by asciidoctor at the end of headings */
+.docs-main .sect1 > h2 .anchor { display: none; }
+
+/* ─── NOTE admonition → brand note card ─── */
+.docs-main .admonitionblock.note {
+  background: var(--pl-ink-100);
+  border: 1px solid var(--pl-ink-200);
+  border-left: 3px solid var(--pl-signal-deep);
+  padding: 16px 20px;
+  border-radius: 8px;
+  margin: 0 0 40px;
+}
+.docs-main .admonitionblock.note table,
+.docs-main .admonitionblock.note tbody,
+.docs-main .admonitionblock.note tr {
+  display: block;
+  width: 100%;
+}
+.docs-main .admonitionblock.note td {
+  display: block;
+  padding: 0;
+  border: 0;
+}
+.docs-main .admonitionblock.note .icon {
+  font-family: var(--pl-mono);
+  font-size: 11px;
+  color: var(--pl-signal-deep);
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+.docs-main .admonitionblock.note .icon::before { content: "NOTE"; }
+.docs-main .admonitionblock.note .icon .title { display: none; }
+.docs-main .admonitionblock.note .content p {
+  font-size: 13px;
+  color: var(--pl-ink-800);
+  line-height: 1.55;
+  margin: 0;
+}
+.docs-main .admonitionblock.note .content p code {
+  font-family: var(--pl-mono);
+  color: var(--pl-signal-deep);
+}
+
+/* ─── code listings → brand CodeBlock ─── */
+.docs-main .listingblock {
+  background: var(--pl-ink-900);
+  border-radius: 10px;
+  overflow: hidden;
+  font-family: var(--pl-mono);
+  font-size: 13px;
+  line-height: 1.7;
+  box-shadow: var(--pl-shadow-sm);
+  margin: 0 0 24px;
+  position: relative;
+}
+.docs-main .listingblock::before {
+  /* small language tag in the top-left of the dark block */
+  content: attr(data-lang);
+  display: block;
+  background: var(--pl-ink-800);
+  padding: 10px 16px;
+  font-size: 10px;
+  color: var(--pl-ink-400);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.docs-main .listingblock pre {
+  margin: 0;
+  padding: 14px 16px;
+  background: transparent;
+  color: var(--pl-ink-200);
+  overflow-x: auto;
+}
+.docs-main .listingblock pre code {
+  font-family: var(--pl-mono);
+  color: inherit;
+  background: transparent;
+  padding: 0;
+}
+/* Comment lines (starting with #) render in green, matching the design.
+ * The build script wraps them in <span class="cmt"> during a tiny
+ * post-process pass on the rendered HTML. */
+.docs-main .listingblock pre code .cmt { color: var(--pl-ok); }
+.docs-main .listingblock pre code .cmt-hash { color: var(--pl-ok); }
+.docs-main .listingblock pre code .prompt { color: var(--pl-ink-500); }
+
+/* ─── MCP inspector widget (block macro: widget::mcp-inspector[]) ─── */
+.mcp-mock {
+  background: var(--pl-ink-900);
+  border-radius: 12px;
+  padding: 24px;
+  font-family: var(--pl-mono);
+  color: var(--pl-ink-300);
+  font-size: 12px;
+  line-height: 1.7;
+  box-shadow: var(--pl-shadow-md);
+  margin: 0;
+}
+.mcp-mock-head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  color: var(--pl-ink-400);
+  letter-spacing: 0.04em;
+  font-size: 10px;
+}
+.mcp-mock-row {
+  display: grid;
+  grid-template-columns: 20px 1fr 80px;
+  gap: 12px;
+}
+.mcp-mock-dir { font-weight: 500; }
+.mcp-mock-tool { color: var(--pl-ink-200); }
+.mcp-mock-t {
+  color: var(--pl-ink-500);
+  text-align: right;
+}
+.is-send { color: var(--pl-signal-bright); }
+.is-ok   { color: var(--pl-ok); }
+.is-fail { color: var(--pl-fail); }
+
+/* ─── prev / next ─── */
+.docs-pager {
+  margin-top: 48px;
+  display: flex;
+  justify-content: space-between;
+  padding-top: 24px;
+  border-top: 1px solid var(--pl-ink-200);
+}
+.docs-pager a {
+  color: var(--pl-ink-700);
+  text-decoration: none;
+  font-size: 13px;
+}
+.docs-pager a:hover { color: var(--pl-ink-900); }
+.docs-pager a.is-disabled {
+  color: var(--pl-ink-400);
+  pointer-events: none;
+}
+
+/* ─── on this page ─── */
+.docs-toc {
+  padding: 48px 32px;
+  border-left: 1px solid var(--pl-ink-200);
+}
+.docs-toc-heading {
+  font-size: 10px;
+  color: var(--pl-ink-500);
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+}
+.docs-toc-item {
+  display: block;
+  font-size: 12.5px;
+  padding: 5px 0;
+  color: var(--pl-ink-600);
+  text-decoration: none;
+}
+.docs-toc-item[aria-current="true"] { color: var(--pl-ink-900); }
+.docs-toc-item:hover { color: var(--pl-ink-900); }
+
+/* ─── responsive ─── */
+@media (max-width: 1100px) {
+  .docs-shell { grid-template-columns: 240px minmax(0, 1fr); }
+  .docs-toc { display: none; }
+}
+@media (max-width: 760px) {
+  .docs-shell { grid-template-columns: 1fr; }
+  .docs-side {
+    border-right: 0;
+    border-bottom: 1px solid var(--pl-ink-200);
+    padding: 24px;
+  }
+  .docs-main { padding: 32px 24px; }
+  .docs-title { font-size: 32px; }
+}
