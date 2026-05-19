@@ -16,6 +16,20 @@ import * as React from 'react';
 import { FormMono } from './atoms';
 import { renderResponseText } from '../detail/ResponseText';
 
+/**
+ * Render a USD cost suitable for the dense header strip. Very small costs are
+ * shown with four decimals so a $0.0021 run doesn't collapse to "$0.00"; costs
+ * over a dollar use two decimals.
+ */
+const formatCostUsd = (cost: number): string => {
+  if (cost <= 0) return '$0.00';
+  const fractionDigits = cost < 1 ? 4 : 2;
+  return `$${cost.toLocaleString(undefined, {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  })}`;
+};
+
 export interface EditorRunRecord {
   /** Human-readable relative time, e.g. "2 min ago". */
   when: string;
@@ -27,6 +41,13 @@ export interface EditorRunRecord {
   tin: number;
   /** Output token count. */
   tout: number;
+  /**
+   * USD cost of the run derived from the configured per-model pricing.
+   * `null`/`undefined` when the backend has no price for the model — the chip
+   * is hidden rather than rendered as `$0.00`, which would be misleading
+   * (issue #182).
+   */
+  cost?: number | null;
   /** Whether the run succeeded. */
   ok: boolean;
   /** Rev label, e.g. "r34 · uncommitted". */
@@ -136,6 +157,19 @@ export const RunResponsePanel: React.FC<RunResponsePanelProps> = ({
             <FormMono size={10.5} color="var(--pl-ink-700)" style={{ fontVariantNumeric: 'tabular-nums' }}>
               {lastRun.tin.toLocaleString()} in · {lastRun.tout.toLocaleString()} out
             </FormMono>
+            {typeof lastRun.cost === 'number' && Number.isFinite(lastRun.cost) && (
+              <>
+                <span style={{ width: 1, height: 10, background: 'var(--pl-ink-300)' }} />
+                <FormMono
+                  size={10.5}
+                  color="var(--pl-ink-700)"
+                  style={{ fontVariantNumeric: 'tabular-nums' }}
+                  data-testid="prompt-editor-run-cost"
+                >
+                  {formatCostUsd(lastRun.cost)}
+                </FormMono>
+              </>
+            )}
             <span style={{ width: 1, height: 10, background: 'var(--pl-ink-300)' }} />
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
               <span style={{

@@ -113,6 +113,11 @@ export interface PromptFormPageProps extends PromptFormReleaseFlowProps {
    */
   isDirty?: boolean;
   /**
+   * Optional pre-formatted input-token estimate label (e.g. `~1,200 tokens`).
+   * Surfaced next to the Messages section's message count. Issue #182.
+   */
+  inputTokenEstimateLabel?: string | null;
+  /**
    * Issue #187: when present, each placeholder row in the rail renders an
    * Insert button. The callback receives the placeholder name; the host is
    * responsible for resolving delimiters and updating the draft.
@@ -442,6 +447,7 @@ export const PromptFormPage: React.FC<PromptFormPageProps> = ({
   editorRunState = 'idle',
   lastEditorRun = null,
   isDirty = false,
+  inputTokenEstimateLabel = null,
   onInsertPlaceholder,
   placeholderInsertHint = null,
 }) => {
@@ -626,6 +632,7 @@ export const PromptFormPage: React.FC<PromptFormPageProps> = ({
               itemErrors={errors.messageItems}
               onChange={setMessages}
               onContentSelectionChange={onContentSelectionChange}
+              estimateLabel={inputTokenEstimateLabel}
             />
             {onEditorRun && (
               <RunResponsePanel

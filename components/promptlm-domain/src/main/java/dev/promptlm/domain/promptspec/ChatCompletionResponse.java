@@ -16,6 +16,7 @@
 
 package dev.promptlm.domain.promptspec;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
@@ -133,8 +134,10 @@ public class ChatCompletionResponse implements Response {
 
     public static class Usage {
         @JsonProperty("input_tokens")
+        @JsonAlias({"prompt_tokens"})
         private Integer inputTokens;
         @JsonProperty("output_tokens")
+        @JsonAlias({"completion_tokens"})
         private Integer outputTokens;
         private Double cost;
 

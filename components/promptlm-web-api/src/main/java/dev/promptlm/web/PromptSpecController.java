@@ -21,11 +21,13 @@ import dev.promptlm.domain.projectspec.ProjectSpec;
 import dev.promptlm.lifecycle.PromptLifecycleFacade;
 import dev.promptlm.execution.PromptExecutor;
 import dev.promptlm.domain.promptspec.ChatCompletionRequest;
+import dev.promptlm.domain.promptspec.ChatCompletionResponse;
 import dev.promptlm.domain.promptspec.Execution;
 import dev.promptlm.domain.promptspec.ExecutionKind;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import dev.promptlm.domain.promptspec.ReleaseMetadata;
 import dev.promptlm.domain.promptspec.Request;
+import dev.promptlm.pricing.ModelPricingService;
 import dev.promptlm.lifecycle.application.PromptSpecAlreadyExistsException;
 import dev.promptlm.release.OnInfraFailure;
 import dev.promptlm.store.api.PromptStore;
@@ -78,17 +80,20 @@ public class PromptSpecController {
     private final PromptLifecycleFacade promptLifecycleFacade;
     private final AppContext appContext;
     private final PromptSpecLifecycleDeriver lifecycleDeriver;
+    private final ModelPricingService modelPricingService;
 
     public PromptSpecController(PromptStore promptStore,
                                 PromptExecutor promptExecutor,
                                 PromptLifecycleFacade promptLifecycleFacade,
                                 AppContext appContext,
-                                PromptSpecLifecycleDeriver lifecycleDeriver) {
+                                PromptSpecLifecycleDeriver lifecycleDeriver,
+                                ModelPricingService modelPricingService) {
         this.promptStore = promptStore;
         this.promptExecutor = promptExecutor;
         this.promptLifecycleFacade = promptLifecycleFacade;
         this.appContext = appContext;
         this.lifecycleDeriver = lifecycleDeriver;
+        this.modelPricingService = modelPricingService;
     }
 
     /**
@@ -107,7 +112,7 @@ public class PromptSpecController {
             @Parameter(description = "Unique identifier of the prompt specification")
             @PathVariable(name = "promptSpecId") String promptSpecId) {
         Optional<PromptSpec> latestVersion = promptStore.getLatestVersion(promptSpecId);
-        return ResponseEntity.of(latestVersion.map(spec -> PromptSpecApiView.toApiView(spec, lifecycleDeriver)));
+        return ResponseEntity.of(latestVersion.map(spec -> PromptSpecApiView.toApiView(spec, lifecycleDeriver, modelPricingService)));
     }
 
     /**
@@ -122,7 +127,7 @@ public class PromptSpecController {
     @GetMapping
     public ResponseEntity<List<PromptSpecResponseDto>> listPromptSpecs() {
         List<PromptSpec> prompts = promptStore.listAllPrompts();
-        return ResponseEntity.ok(PromptSpecApiView.toApiView(prompts, lifecycleDeriver));
+        return ResponseEntity.ok(PromptSpecApiView.toApiView(prompts, lifecycleDeriver, modelPricingService));
     }
     
     /**
@@ -149,7 +154,7 @@ public class PromptSpecController {
 
         try {
             PromptSpec created = promptLifecycleFacade.createPromptSpec(promptSpec);
-            return ResponseEntity.ok(PromptSpecApiView.toApiView(created, lifecycleDeriver));
+            return ResponseEntity.ok(PromptSpecApiView.toApiView(created, lifecycleDeriver, modelPricingService));
         } catch (PromptSpecAlreadyExistsException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage(), e);
         }
@@ -185,7 +190,7 @@ public class PromptSpecController {
         }
         
         PromptSpec spec = promptLifecycleFacade.updatePrompt(promptSpecId, promptSpec);
-        return ResponseEntity.ok(PromptSpecApiView.toApiView(spec, lifecycleDeriver));
+        return ResponseEntity.ok(PromptSpecApiView.toApiView(spec, lifecycleDeriver, modelPricingService));
     }
 
     @Operation(
@@ -665,7 +670,7 @@ public class PromptSpecController {
         PromptSpec promptSpec = request.getPromptSpec();
         try {
             PromptSpec executedSpec = promptExecutor.runPromptAndAttachResponse(promptSpec);
-            return ResponseEntity.ok(PromptSpecApiView.toApiView(executedSpec, lifecycleDeriver));
+            return ResponseEntity.ok(PromptSpecApiView.toApiView(executedSpec, lifecycleDeriver, modelPricingService));
         } catch (RuntimeException exception) {
             throw mapPromptExecutionException(promptSpec.getId(), exception);
         }
@@ -733,22 +738,37 @@ public class PromptSpecController {
                 // UI so it can be displayed, but nothing is written to history.
                 // History only ever contains runs of actually-stored content
                 // (D-183-5; reverses the consequence note in D-183-3).
-                return ResponseEntity.ok(PromptSpecApiView.toApiView(executedSpec, lifecycleDeriver));
+                return ResponseEntity.ok(PromptSpecApiView.toApiView(executedSpec, lifecycleDeriver, modelPricingService));
             }
             // No-body fallback (called by PromptDetail.tsx): the stored spec was
             // executed, so the run is genuine and is recorded against the
             // stored revision.
             Execution devRun = buildDevExecution(executedSpec, storedSpec.getRevision(), runStart);
             PromptSpec persisted = promptLifecycleFacade.recordExecution(promptSpecId, devRun);
-            return ResponseEntity.ok(PromptSpecApiView.toApiView(persisted, lifecycleDeriver));
+            return ResponseEntity.ok(PromptSpecApiView.toApiView(persisted, lifecycleDeriver, modelPricingService));
         } catch (RuntimeException exception) {
             throw mapPromptExecutionException(promptSpecId, exception);
         }
     }
 
-    private static Execution buildDevExecution(PromptSpec executedSpec, int revision, Instant runStart) {
+    private Execution buildDevExecution(PromptSpec executedSpec, int revision, Instant runStart) {
         Instant now = Instant.now();
         long latencyMs = java.time.Duration.between(runStart, now).toMillis();
+        // Issue #182: persist vendor-reported token counts on every recorded
+        // execution. USD cost is intentionally NOT persisted here — it depends
+        // on the operator-managed per-model pricing table which is mutable
+        // external state. Persisting cost would silently invalidate every
+        // historical record the moment application.yml is edited. The web view
+        // layer derives `costUsd` on read instead; see PromptSpecApiView.
+        Integer tokensIn = null;
+        Integer tokensOut = null;
+        if (executedSpec.getResponse() instanceof ChatCompletionResponse chatResponse) {
+            ChatCompletionResponse.Usage usage = chatResponse.getUsage();
+            if (usage != null) {
+                tokensIn = usage.getInputTokens();
+                tokensOut = usage.getOutputTokens();
+            }
+        }
         return new Execution(
                 UUID.randomUUID().toString(),
                 now,
@@ -756,8 +776,8 @@ public class PromptSpecController {
                 null,
                 null,
                 latencyMs,
-                null,
-                null,
+                tokensIn,
+                tokensOut,
                 null,
                 null,
                 Integer.toString(revision),

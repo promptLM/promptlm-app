@@ -16,10 +16,13 @@
 
 package dev.promptlm.web;
 
+import dev.promptlm.domain.promptspec.ChatCompletionRequest;
 import dev.promptlm.domain.promptspec.Execution;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import dev.promptlm.domain.promptspec.PromptSpecLifecycleState;
 import dev.promptlm.domain.promptspec.ReleaseMetadata;
+import dev.promptlm.domain.promptspec.Request;
+import dev.promptlm.pricing.ModelPricingService;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -39,6 +42,15 @@ import java.util.List;
  * <p>Apply at every controller return path that surfaces a {@link PromptSpec}
  * so the frontend can rely on {@code executions[0]} being the most recent
  * run and on the boundary hints being present when derivable.
+ *
+ * <p><b>Cost-on-read.</b> USD cost is intentionally derived in this view layer
+ * rather than persisted on {@link Execution}. The per-model pricing table is
+ * mutable external state (operator-managed {@code application.yml}) — if cost
+ * were frozen on the domain object, every historical value would become a
+ * silent lie the moment a price is corrected. Each execution is projected to
+ * an {@link ExecutionResponseDto} that pairs the domain object with the cost
+ * derived from the current pricing table; the domain class never sees the
+ * pricing service.
  */
 final class PromptSpecApiView {
 
@@ -49,7 +61,7 @@ final class PromptSpecApiView {
     }
 
     static PromptSpecResponseDto toApiView(PromptSpec spec) {
-        return toApiView(spec, null);
+        return toApiView(spec, null, null);
     }
 
     /**
@@ -58,8 +70,12 @@ final class PromptSpecApiView {
      * to the DTO. Pass {@code null} for {@code deriver} when the caller has
      * no lifecycle context (e.g. internal mappings or tests of unrelated
      * code paths) — the lifecycle and SHA fields are then omitted from JSON.
+     * Pass {@code null} for {@code pricingService} to skip cost projection
+     * (the {@code costUsd} field is then omitted on each execution).
      */
-    static PromptSpecResponseDto toApiView(PromptSpec spec, PromptSpecLifecycleDeriver deriver) {
+    static PromptSpecResponseDto toApiView(PromptSpec spec,
+                                           PromptSpecLifecycleDeriver deriver,
+                                           ModelPricingService pricingService) {
         if (spec == null) {
             return null;
         }
@@ -74,20 +90,23 @@ final class PromptSpecApiView {
             }
         }
         String releaseTag = releaseTagOrNull(sorted);
-        return new PromptSpecResponseDto(sorted, lifecycleState, headShortSha, releaseTag);
+        List<ExecutionResponseDto> projectedExecutions = projectExecutions(sorted, pricingService);
+        return new PromptSpecResponseDto(sorted, projectedExecutions, lifecycleState, headShortSha, releaseTag);
     }
 
     static List<PromptSpecResponseDto> toApiView(List<PromptSpec> specs) {
-        return toApiView(specs, null);
+        return toApiView(specs, null, null);
     }
 
-    static List<PromptSpecResponseDto> toApiView(List<PromptSpec> specs, PromptSpecLifecycleDeriver deriver) {
+    static List<PromptSpecResponseDto> toApiView(List<PromptSpec> specs,
+                                                 PromptSpecLifecycleDeriver deriver,
+                                                 ModelPricingService pricingService) {
         if (specs == null) {
             return null;
         }
         List<PromptSpecResponseDto> mapped = new ArrayList<>(specs.size());
         for (PromptSpec spec : specs) {
-            mapped.add(toApiView(spec, deriver));
+            mapped.add(toApiView(spec, deriver, pricingService));
         }
         return mapped;
     }
@@ -112,6 +131,32 @@ final class PromptSpecApiView {
             return null;
         }
         return tag;
+    }
+
+    /**
+     * Project the spec's executions into {@link ExecutionResponseDto} instances,
+     * deriving {@code costUsd} from the current pricing table when available.
+     * Returns {@code null} when the spec has no executions so the JSON field is
+     * omitted via {@code @JsonInclude(NON_NULL)} on the DTO field.
+     */
+    private static List<ExecutionResponseDto> projectExecutions(PromptSpec spec, ModelPricingService pricingService) {
+        List<Execution> executions = spec.getExecutions();
+        if (executions == null) {
+            return null;
+        }
+        String model = resolveModel(spec.getRequest());
+        List<ExecutionResponseDto> projected = new ArrayList<>(executions.size());
+        for (Execution execution : executions) {
+            projected.add(ExecutionResponseDto.from(execution, model, pricingService));
+        }
+        return projected;
+    }
+
+    private static String resolveModel(Request request) {
+        if (request instanceof ChatCompletionRequest chatRequest) {
+            return chatRequest.getModel();
+        }
+        return null;
     }
 
     private static Instant timestampOrEpoch(Execution execution) {
