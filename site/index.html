@@ -15,7 +15,7 @@
     <title>promptLM</title>
     <meta
       name="description"
-      content="Open-source prompt lifecycle management for engineering teams. Version your LLM prompts in Git, release them as signed artifacts, replay them in JUnit tests."
+      content="Open-source, Git-native prompt lifecycle management for engineering teams. Version LLM prompts in Git, ship signed releases, replay them in JUnit, pytest, or Vitest. No new SaaS, no new auth — lives in the Git you already trust."
     />
     <meta name="author" content="promptLM" />
 
@@ -29,24 +29,24 @@
     <meta property="og:title" content="promptLM" />
     <meta
       property="og:description"
-      content="Open-source prompt lifecycle management for engineering teams. Version your LLM prompts in Git, release them as signed artifacts, replay them in JUnit tests."
+      content="Open-source, Git-native prompt lifecycle management for engineering teams. Version LLM prompts in Git, ship signed releases, replay them in JUnit, pytest, or Vitest. No new SaaS, no new auth — lives in the Git you already trust."
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://promptlm.dev/" />
     <meta property="og:image" content="https://promptlm.dev/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="promptLM — the prompt lifecycle, under instrument." />
+    <meta property="og:image:alt" content="promptLM — your prompt lifecycle, under control." />
 
     <!-- Twitter / X -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="promptLM" />
     <meta
       name="twitter:description"
-      content="Open-source prompt lifecycle management for engineering teams. Version your LLM prompts in Git, release them as signed artifacts, replay them in JUnit tests."
+      content="Open-source, Git-native prompt lifecycle management for engineering teams. Version LLM prompts in Git, ship signed releases, replay them in JUnit, pytest, or Vitest. No new SaaS, no new auth — lives in the Git you already trust."
     />
     <meta name="twitter:image" content="https://promptlm.dev/og-image.png" />
-    <meta name="twitter:image:alt" content="promptLM — the prompt lifecycle, under instrument." />
+    <meta name="twitter:image:alt" content="promptLM — your prompt lifecycle, under control." />
 
     <!-- Self-hosted Geist + JetBrains Mono (no external font CDN; see fonts.css) -->
     <link rel="stylesheet" href="fonts.css" />
@@ -96,12 +96,13 @@
               v0.2 · early alpha · MCP record/replay in dev
             </p>
             <h1 id="hero-title" class="hero-title">
-              The prompt lifecycle,<br />
-              under instrument.
+              Your prompt lifecycle,<br />
+              under control.
             </h1>
             <p class="hero-sub">
-              Manage, version, and release LLM prompts the way you ship code.
-              Git-native specs, signed releases, JUnit-ready replay.
+              Specs in Git. Signed releases. Test harnesses for JUnit, pytest,
+              and Vitest. No new SaaS, no new auth — promptLM lives in the Git
+              infra your team already trusts.
             </p>
 
             <div class="hero-actions">
@@ -295,18 +296,93 @@ String reply = llm.send(filled, prompt.model(), prompt.parameters());</pre>
               </ul>
             </div>
 
-            <pre class="code-snippet" aria-label="JUnit test-support example"><span class="code-snippet-comment">// TranslationServiceTest.java</span>
+            <div class="code-tabs" data-code-tabs aria-label="Test-harness examples">
+              <div class="code-tabs-bar" role="tablist" aria-label="Language">
+                <button
+                  type="button"
+                  role="tab"
+                  class="code-tab is-active"
+                  data-code-tab="java"
+                  aria-selected="true"
+                  aria-controls="snippet-java"
+                  id="tab-java"
+                >Java · JUnit</button>
+                <button
+                  type="button"
+                  role="tab"
+                  class="code-tab"
+                  data-code-tab="python"
+                  aria-selected="false"
+                  aria-controls="snippet-python"
+                  id="tab-python"
+                  tabindex="-1"
+                >Python · pytest</button>
+                <button
+                  type="button"
+                  role="tab"
+                  class="code-tab"
+                  data-code-tab="typescript"
+                  aria-selected="false"
+                  aria-controls="snippet-typescript"
+                  id="tab-typescript"
+                  tabindex="-1"
+                >TypeScript · Vitest</button>
+              </div>
+              <pre
+                class="code-snippet code-tab-panel is-active"
+                id="snippet-java"
+                role="tabpanel"
+                aria-labelledby="tab-java"
+                data-code-panel="java"
+              ><span class="code-snippet-comment">// SupportServiceTest.java</span>
 <span class="code-key">@EnablePromptWireMock</span> <span class="code-snippet-comment">// boots WireMock on a local port,</span>
-<span class="code-fn">class</span> TranslationServiceTest {              <span class="code-snippet-comment">// pre-stubbed from your prompt repo</span>
+<span class="code-fn">class</span> SupportServiceTest {              <span class="code-snippet-comment">// pre-stubbed from your prompt repo</span>
 
   <span class="code-key">@Test</span>
-  <span class="code-fn">void</span> translates(<span class="code-key">@InjectResponse</span>(id = <span class="code-str">"translate-hello"</span>) String recorded) {
-    String result = callLLM(<span class="code-str">"translate-hello"</span>, Map.of(<span class="code-str">"text"</span>, <span class="code-str">"Hello"</span>)); <span class="code-snippet-comment">// pseudocode: your prod code that POSTs to the LLM</span>
+  <span class="code-fn">void</span> summarizesTicket(<span class="code-key">@InjectResponse</span>(id = <span class="code-str">"customer_support"</span>) String recorded) {
+    String reply = supportService.summarize(ticket); <span class="code-snippet-comment">// your prod code POSTs to the LLM</span>
     <span class="code-snippet-comment">// The LLM URL points at WireMock, so the recorded reply is returned.</span>
     <span class="code-snippet-comment">// No real model call, no tokens billed, deterministic across runs.</span>
-    assertThat(result).isEqualTo(recorded);
+    assertThat(reply).isEqualTo(recorded);
   }
 }</pre>
+              <pre
+                class="code-snippet code-tab-panel"
+                id="snippet-python"
+                role="tabpanel"
+                aria-labelledby="tab-python"
+                data-code-panel="python"
+                hidden
+              ><span class="code-snippet-comment"># test_support_service.py</span>
+<span class="code-key">from</span> promptlm.testing <span class="code-key">import</span> enable_prompt_mock, inject_response
+
+<span class="code-key">@enable_prompt_mock</span>                                  <span class="code-snippet-comment"># boots a mock LLM on a local port,</span>
+<span class="code-key">@inject_response</span>(<span class="code-str">"customer_support"</span>)                   <span class="code-snippet-comment"># pre-stubbed from your prompt repo</span>
+<span class="code-fn">def</span> test_summarizes_ticket(recorded: str):
+    reply = support_service.summarize(ticket)        <span class="code-snippet-comment"># your prod code POSTs to the LLM</span>
+    <span class="code-snippet-comment"># The LLM URL points at the mock, so the recorded reply is returned.</span>
+    <span class="code-snippet-comment"># No real model call, no tokens billed, deterministic across runs.</span>
+    <span class="code-key">assert</span> reply == recorded</pre>
+              <pre
+                class="code-snippet code-tab-panel"
+                id="snippet-typescript"
+                role="tabpanel"
+                aria-labelledby="tab-typescript"
+                data-code-panel="typescript"
+                hidden
+              ><span class="code-snippet-comment">// supportService.test.ts</span>
+<span class="code-key">import</span> { enablePromptMock, injectResponse } <span class="code-key">from</span> <span class="code-str">'@promptlm/testing'</span>;
+
+enablePromptMock();                                  <span class="code-snippet-comment">// boots a mock LLM on a local port,</span>
+
+test(<span class="code-str">'summarizes ticket'</span>, () =&gt; {                    <span class="code-snippet-comment">// pre-stubbed from your prompt repo</span>
+  <span class="code-key">const</span> recorded = injectResponse(<span class="code-str">'customer_support'</span>);
+  <span class="code-key">const</span> reply    = supportService.summarize(ticket); <span class="code-snippet-comment">// your prod code POSTs to the LLM</span>
+  <span class="code-snippet-comment">// The LLM URL points at the mock, so the recorded reply is returned.</span>
+  <span class="code-snippet-comment">// No real model call, no tokens billed, deterministic across runs.</span>
+  expect(reply).toBe(recorded);
+});</pre>
+            </div>
           </div>
 
           <!-- Beat 4: MCP record/replay — coming soon, pure text -->

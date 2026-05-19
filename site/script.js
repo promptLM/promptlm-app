@@ -31,4 +31,36 @@
       }
     });
   }
+
+  // ── code-tabs (Java / Python / TypeScript test-harness examples) ──
+  document.querySelectorAll('[data-code-tabs]').forEach((group) => {
+    const tabs = Array.from(group.querySelectorAll('[data-code-tab]'));
+    const panels = Array.from(group.querySelectorAll('[data-code-panel]'));
+    const activate = (key) => {
+      tabs.forEach((tab) => {
+        const isActive = tab.dataset.codeTab === key;
+        tab.classList.toggle('is-active', isActive);
+        tab.setAttribute('aria-selected', String(isActive));
+        tab.tabIndex = isActive ? 0 : -1;
+      });
+      panels.forEach((panel) => {
+        const isActive = panel.dataset.codePanel === key;
+        panel.classList.toggle('is-active', isActive);
+        panel.hidden = !isActive;
+      });
+    };
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => activate(tab.dataset.codeTab));
+      tab.addEventListener('keydown', (event) => {
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+        event.preventDefault();
+        const idx = tabs.indexOf(tab);
+        const next = event.key === 'ArrowRight'
+          ? (idx + 1) % tabs.length
+          : (idx - 1 + tabs.length) % tabs.length;
+        activate(tabs[next].dataset.codeTab);
+        tabs[next].focus();
+      });
+    });
+  });
 })();

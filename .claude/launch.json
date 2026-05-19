@@ -24,6 +24,12 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "5182", "--directory", "design/handoff"],
       "port": 5182
+    },
+    {
+      "name": "marketing-site",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "5183", "--directory", "site"],
+      "port": 5183
     }
   ]
 }
