@@ -38,9 +38,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const PAGES_DIR = path.join(ROOT, 'docs/pages');
 const TEMPLATE_DIR = path.join(ROOT, 'docs/templates');
+const PARTIALS_DIR = path.join(TEMPLATE_DIR, 'partials');
 const STYLES_DIR = path.join(ROOT, 'docs/styles');
 const NAV_PATH = path.join(ROOT, 'docs/nav.yml');
 const OUT_DIR = path.join(ROOT, 'site/docs');
+const SITE_INDEX = path.join(ROOT, 'site/index.html');
+
+// Markers wrapping the footer block in the marketing landing page and in
+// docs/templates/page.html. The build replaces everything between them
+// with the rendered partial from docs/templates/partials/footer.html.
+const FOOTER_START = '<!-- footer:start -->';
+const FOOTER_END = '<!-- footer:end -->';
 
 const adoc = asciidoctor();
 
@@ -221,14 +229,77 @@ async function buildPage(adocPath, nav, template) {
   return slug;
 }
 
+/** Render the footer partial for a given consumer context. Substitutes
+ *  `{{root}}` (path prefix to site root) and `{{homeHref}}` (wordmark
+ *  destination). The returned string has no surrounding markers. */
+function renderFooter(rawPartial, { root, homeHref }) {
+  return rawPartial
+    .replaceAll('{{root}}', root)
+    .replaceAll('{{homeHref}}', homeHref);
+}
+
+/** Replace the block between FOOTER_START and FOOTER_END in `host` with
+ *  `body`. Indents every line of `body` to match the column at which the
+ *  start marker sits in `host`. Throws if the markers are missing —
+ *  that means the consumer file was tampered with and we'd silently
+ *  no-op without this check. */
+function spliceBetweenMarkers(host, body, label) {
+  const startIdx = host.indexOf(FOOTER_START);
+  const endIdx = host.indexOf(FOOTER_END, startIdx + 1);
+  if (startIdx === -1 || endIdx === -1) {
+    throw new Error(`${label}: footer markers not found (expected ${FOOTER_START} … ${FOOTER_END})`);
+  }
+  // Column at which the start marker line begins — same indent used for
+  // the body lines and the trailing end marker.
+  const lineStart = host.lastIndexOf('\n', startIdx) + 1;
+  const indent = host.slice(lineStart, startIdx).match(/^[ \t]*/)[0];
+  const indented = body
+    .replace(/\n+$/, '')
+    .split('\n')
+    .map(line => (line.length === 0 ? line : indent + line))
+    .join('\n');
+  const head = host.slice(0, startIdx + FOOTER_START.length);
+  const tail = host.slice(endIdx);
+  return `${head}\n${indented}\n${indent}${tail}`;
+}
+
+/** Write `content` to `outPath` only if it differs from what's on disk.
+ *  Keeps `git status` clean when nothing changed. */
+async function writeIfChanged(outPath, content, label) {
+  let existing = null;
+  try { existing = await fs.readFile(outPath, 'utf8'); } catch {}
+  if (existing === content) {
+    console.log(`  · ${label} unchanged`);
+    return false;
+  }
+  await fs.writeFile(outPath, content);
+  console.log(`  ✓ ${label} updated`);
+  return true;
+}
+
 async function main() {
   console.log('promptLM docs · build');
 
-  const [nav, template, pages] = await Promise.all([
+  const [nav, rawTemplate, footerPartial, pages] = await Promise.all([
     fs.readFile(NAV_PATH, 'utf8').then(s => YAML.parse(s)),
     fs.readFile(path.join(TEMPLATE_DIR, 'page.html'), 'utf8'),
+    fs.readFile(path.join(PARTIALS_DIR, 'footer.html'), 'utf8'),
     walk(PAGES_DIR),
   ]);
+
+  // Inject the footer into the marketing landing page (in-place between
+  // markers). Paths are site-root-relative; the wordmark "home" is `#`
+  // so clicking it scrolls to top instead of reloading.
+  const siteIndex = await fs.readFile(SITE_INDEX, 'utf8');
+  const footerForIndex = renderFooter(footerPartial, { root: '', homeHref: '#' });
+  const newSiteIndex = spliceBetweenMarkers(siteIndex, footerForIndex, 'site/index.html');
+  await writeIfChanged(SITE_INDEX, newSiteIndex, 'site/index.html');
+
+  // Bake the footer into the docs page template (in memory only; the
+  // committed template keeps the marker block empty). Paths get a `../`
+  // prefix because rendered docs sit at site/docs/*.html.
+  const footerForDocs = renderFooter(footerPartial, { root: '../', homeHref: '../index.html' });
+  const template = spliceBetweenMarkers(rawTemplate, footerForDocs, 'docs/templates/page.html');
 
   if (pages.length === 0) {
     console.error('  ! no .adoc files found under docs/pages/');

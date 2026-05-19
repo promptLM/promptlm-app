@@ -1,6 +1,12 @@
 name: Deploy site to Pages
 
-# Triggers on any change that affects what the static site serves:
+# Runs only on pushes to main (i.e. after a PR is merged) and manual
+# dispatch. Pull requests do NOT trigger this workflow — broken builds
+# surface here when main rebuilds, so run `npm run docs:build` locally
+# before opening a PR to catch them sooner.
+#
+# Path filter keeps unrelated main pushes (backend code, tests, …) from
+# spinning up a Pages deploy:
 #   - site/**                 the website itself
 #   - docs/**                 AsciiDoc source for the user docs
 #   - scripts/build-docs.mjs  the docs renderer
@@ -11,16 +17,6 @@ name: Deploy site to Pages
 on:
   push:
     branches: [main]
-    paths:
-      - 'site/**'
-      - 'docs/**'
-      - 'scripts/build-docs.mjs'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/deploy-site.yml'
-  # Build (but do not deploy) on PRs that touch the same paths, so
-  # broken AsciiDoc fails a PR check rather than the deploy.
-  pull_request:
     paths:
       - 'site/**'
       - 'docs/**'
@@ -64,8 +60,6 @@ jobs:
 
   deploy:
     needs: build
-    # Deploy only on pushes to main / manual dispatch. PR runs stop at `build`.
-    if: github.event_name != 'pull_request'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
