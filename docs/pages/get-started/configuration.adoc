@@ -1,0 +1,66 @@
+= Configuration
+:page-slug: configuration
+:page-section: GET STARTED
+:page-description: Environment variables and Spring properties read by promptlm-cli and Studio.
+:page-prev-label: Studio
+:page-prev-href: studio.html
+:page-next-label: Lifecycle states
+:page-next-href: lifecycle.html
+
+promptLM is a Spring Boot application — it picks up configuration from
+environment variables and from `application.yml`.
+
+== Environment variables
+
+The repository ships a `.env.example` in its root with the four
+variables that the CLI and Studio expect.
+// source: .env.example
+
+[cols="1,3"]
+|===
+| Variable | Purpose
+
+| `REPO_REMOTE_URL`       | Base URL of the Git host's REST API (GitHub or self-hosted Gitea). Used by the store to create and read remote repositories.
+| `REPO_REMOTE_USERNAME`  | User or owner on the remote host.
+| `REPO_REMOTE_TOKEN`     | Personal access token with repo scope.
+| `OPENAI_API_KEY`        | Used by Spring AI's OpenAI client for prompt execution.
+|===
+
+`ANTHROPIC_API_KEY` is also read by the Spring AI Anthropic client when
+the model catalog routes a prompt to Claude.
+// source: apps/promptlm-cli/src/main/resources/application.yml:21-27
+
+`REPO_REMOTE_ALLOW_LOOPBACK_HOST_ALIASES` (optional, defaults to `true`)
+controls whether loopback aliases are permitted when resolving the
+remote URL — useful for local Gitea setups.
+// source: application.yml:17
+
+[NOTE]
+====
+Never commit a real PAT into `.env.example`. Use placeholder values in
+the template and rely on a `.env` file (gitignored) for the actual
+secrets in development.
+====
+
+== Spring properties
+
+Key properties read from `apps/promptlm-cli/src/main/resources/application.yml`:
+
+[cols="2,3"]
+|===
+| Property | What it controls
+
+| `promptlm.release.promotion.mode`              | `direct` (default) or `pr_two_phase`. See xref:first-prompt.html[Your first prompt § 4].
+| `promptlm.store.local.workspace-root`          | Local directory under which prompt stores are created. Defaults to `${user.home}`.
+| `promptlm.store.remote.username` / `.token` / `.base-url` | Mirror the env vars above for the remote store client.
+| `promptlm.store.remote.allow-loopback-host-aliases` | See env var above.
+|===
+// source: apps/promptlm-cli/src/main/resources/application.yml:9-19
+
+== LLM provider configuration
+
+Spring AI configuration is wired under `spring.ai.openai.api-key` and
+`spring.ai.anthropic.api-key`. To route through a LiteLLM gateway
+instead, enable `promptlm.gateway.litellm.enabled=true` and follow the
+configuration in the project README.
+// source: README.adoc:202-272

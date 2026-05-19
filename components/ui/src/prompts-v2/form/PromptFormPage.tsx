@@ -117,6 +117,19 @@ export interface PromptFormPageProps extends PromptFormReleaseFlowProps {
    * Surfaced next to the Messages section's message count. Issue #182.
    */
   inputTokenEstimateLabel?: string | null;
+  /**
+   * Issue #187: when present, each placeholder row in the rail renders an
+   * Insert button. The callback receives the placeholder name; the host is
+   * responsible for resolving delimiters and updating the draft.
+   */
+  onInsertPlaceholder?: (name: string) => void;
+  /**
+   * Issue #187: transient hint surfaced when the user clicks Insert without
+   * a captured caret in the editor. Rendered as a small status strip above
+   * the messages editor and re-rendered whenever the value changes — the
+   * host typically clears it after a short delay.
+   */
+  placeholderInsertHint?: string | null;
 }
 
 const HEADER_HEIGHT = 56;
@@ -435,6 +448,8 @@ export const PromptFormPage: React.FC<PromptFormPageProps> = ({
   lastEditorRun = null,
   isDirty = false,
   inputTokenEstimateLabel = null,
+  onInsertPlaceholder,
+  placeholderInsertHint = null,
 }) => {
   const errors = React.useMemo(
     () => validateDraft(draft, evalEnabled),
@@ -592,6 +607,24 @@ export const PromptFormPage: React.FC<PromptFormPageProps> = ({
             onChange={set}
           />
           <div style={{ paddingTop: 16 }}>
+            {placeholderInsertHint ? (
+              <div
+                role="status"
+                data-testid="placeholder-insert-hint"
+                style={{
+                  marginBottom: 10,
+                  padding: '8px 12px',
+                  borderRadius: 5,
+                  border: '1px solid color-mix(in oklch, var(--pl-warn, oklch(0.78 0.13 80)) 35%, var(--pl-ink-200))',
+                  background: 'color-mix(in oklch, var(--pl-warn, oklch(0.78 0.13 80)) 12%, var(--pl-paper))',
+                  color: 'var(--pl-ink-800)',
+                  fontSize: 12,
+                  fontFamily: 'var(--pl-display)',
+                }}
+              >
+                {placeholderInsertHint}
+              </div>
+            ) : null}
             <MessagesEditor
               messages={draft.request.messages}
               placeholders={draft.placeholders}
@@ -634,6 +667,7 @@ export const PromptFormPage: React.FC<PromptFormPageProps> = ({
             itemErrors={errors.placeholderItems}
             defaultOpen={phOpen}
             onChange={setPlaceholders}
+            onInsertPlaceholder={onInsertPlaceholder}
           />
           <RailTools
             configs={draft.toolConfigs}

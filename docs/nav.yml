@@ -1,0 +1,49 @@
+# Sidebar nav for the documentation site.
+#
+# Each `items[].slug` is the basename of an .adoc file under
+# docs/pages/<group-dir>/<slug>.adoc, rendered to site/docs/<slug>.html.
+#
+# Items WITHOUT a slug are placeholders — real product surfaces that
+# exist but where a faithful page is too large for first ship, or
+# where the API isn't stable enough to document yet. They render as
+# non-link greyed text. Tracking issue: #205.
+#
+# Items removed from the original design-mock structure (no backing
+# code in the repo): Test suites, Fixtures, Mocking models, MCP
+# record & replay, Vitest / Jest, OpenTelemetry, OpenAI-compat
+# (as an exposed endpoint), Adapter API.
+
+groups:
+  - heading: GET STARTED
+    items:
+      - { label: "Introduction",       slug: "introduction" }
+      - { label: "Install the CLI",    slug: "install-cli" }
+      - { label: "Your first prompt",  slug: "first-prompt" }
+      - { label: "Studio",             slug: "studio" }
+      - { label: "Configuration",      slug: "configuration" }
+
+  - heading: CORE
+    items:
+      - { label: "Lifecycle states",   slug: "lifecycle" }
+      - { label: "Prompt specs" }
+      - { label: "Releases" }
+      - { label: "Evaluations" }
+
+  - heading: CLIENTS
+    items:
+      - { label: "Java SDK" }
+      - { label: "TypeScript SDK" }
+      - { label: "Python SDK" }
+      - { label: "macOS menubar" }
+
+  - heading: INTEGRATIONS
+    items:
+      - { label: "LLM providers" }
+      - { label: "JUnit (Gitea + Artifactory)" }
+
+  - heading: REFERENCE
+    items:
+      - { label: "CLI",                slug: "cli" }
+      - { label: "REST API" }
+      - { label: "PromptSpec schema" }
+      - { label: "Config schema" }

@@ -13,6 +13,11 @@
     "contracts:generate": "npm --workspace @promptlm/api-client run generate",
     "contracts:build": "npm --workspace @promptlm/api-client run build",
     "webapp:test": "npm --workspace @promptlm/web-ui run test",
-    "webapp:build": "npm --workspace @promptlm/web-ui run build"
+    "webapp:build": "npm --workspace @promptlm/web-ui run build",
+    "docs:build": "node scripts/build-docs.mjs"
+  },
+  "devDependencies": {
+    "@asciidoctor/core": "^3.0.4",
+    "yaml": "^2.6.1"
   }
 }

@@ -1,0 +1,90 @@
+= Your first prompt
+:page-slug: first-prompt
+:page-section: GET STARTED
+:page-description: Create a prompt repository, author a draft, and release it from the CLI.
+:page-prev-label: Install the CLI
+:page-prev-href: install-cli.html
+:page-next-label: Studio
+:page-next-href: studio.html
+
+End-to-end walkthrough using the verified `promptlm-cli` commands.
+
+== 1. Create a prompt repository
+
+Most CLI commands operate against an active project — a Git-backed
+prompt store on disk.
+// source: apps/promptlm-cli/src/main/java/dev/promptlm/cli/PromptCommands.java:240-246
+
+Create a new one (and have promptLM register it as the active repo):
+
+[source,bash]
+----
+promptlm-cli repo create \
+  --dir ~/prompts \
+  --name myorg/my-prompts
+----
+// source: apps/promptlm-cli/src/main/java/dev/promptlm/cli/RepositoryCommands.java:46-60
+
+Or clone an existing remote:
+
+[source,bash]
+----
+promptlm-cli repo clone \
+  --repo https://github.com/myorg/my-prompts.git \
+  --target ~/prompts
+----
+// source: RepositoryCommands.java:62-69
+
+To switch the active repo to one already on disk: `promptlm-cli repo
+use --path ~/prompts`.
+// source: RepositoryCommands.java:71-82
+
+== 2. Create a prompt draft
+
+[source,bash]
+----
+promptlm-cli prompt create \
+  --name support_welcome \
+  --group support \
+  --userMessage "Greet {customer_name} warmly."
+----
+// source: apps/promptlm-cli/src/main/java/dev/promptlm/cli/PromptCommands.java:57-66
+
+`--placeholder` (repeatable, `key=value`) can be passed alongside to
+override placeholder defaults.
+
+The command returns the new prompt's id — keep it for the next steps.
+
+== 3. Inspect the latest version
+
+[source,bash]
+----
+promptlm-cli prompt show --id <prompt-id>
+----
+// source: PromptCommands.java:133-147
+
+== 4. Release the prompt
+
+[source,bash]
+----
+promptlm-cli prompt release --id <prompt-id>
+----
+// source: PromptCommands.java:149-159
+
+[NOTE]
+====
+When `promptlm.release.promotion.mode=pr_two_phase` is configured,
+releases are two-step: the command above opens a release PR, and after
+that PR is merged you complete the release with:
+
+[source,bash]
+----
+promptlm-cli prompt release complete --id <prompt-id> --pr <pr-number>
+----
+
+In the default `direct` mode no second step is needed.
+// source: apps/promptlm-cli/src/main/resources/application.yml:9-11; PromptCommands.java:161-172,249-281
+====
+
+Once released, the prompt is reachable from the
+xref:index.html[client SDKs] as a versioned JSON bundle.

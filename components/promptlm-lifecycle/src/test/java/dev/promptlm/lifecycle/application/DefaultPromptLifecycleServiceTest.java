@@ -520,6 +520,91 @@ class DefaultPromptLifecycleServiceTest {
     }
 
     @Test
+    void releasePromptStampsReleasedSemanticHashOnReleasedSpec() {
+        // Issue #186: when a release transitions to `released`, the lifecycle
+        // service must stamp the released spec's semantic hash onto the
+        // metadata so the UI can compute "no changes since last release".
+        EvaluationResults successResults = new EvaluationResults(List.of(new EvaluationResult("eval", "type", 1.0, null, null)));
+        PromptSpec evaluated = basePromptSpec.withEvaluationResults(successResults);
+        PromptSpec released = evaluated
+                .withVersion("1.0.0")
+                .withReleaseMetadata(new ReleaseMetadata(
+                        ReleaseMetadata.STATE_RELEASED,
+                        ReleaseMetadata.MODE_DIRECT,
+                        "1.0.0",
+                        "group/name-v1.0.0",
+                        "main",
+                        null,
+                        null,
+                        false
+                ));
+
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
+        when(repository.requestRelease(evaluated)).thenReturn(released);
+
+        PromptSpec result = service.releasePrompt(PROMPT_ID);
+
+        // The hash on the returned metadata matches the released spec's hash.
+        ReleaseMetadata metadata = result.getReleaseMetadata();
+        assertThat(metadata).isNotNull();
+        assertThat(metadata.releasedSemanticHash()).isNotNull();
+        assertThat(metadata.releasedSemanticHash()).isEqualTo(released.computeSemanticHash());
+    }
+
+    @Test
+    void releasePromptPreservesExistingReleasedSemanticHash() {
+        // Pre-stamped hash must not be overwritten — the metadata's hash is
+        // the released-content baseline and must remain stable.
+        EvaluationResults successResults = new EvaluationResults(List.of(new EvaluationResult("eval", "type", 1.0, null, null)));
+        PromptSpec evaluated = basePromptSpec.withEvaluationResults(successResults);
+        ReleaseMetadata preStamped = new ReleaseMetadata(
+                ReleaseMetadata.STATE_RELEASED,
+                ReleaseMetadata.MODE_DIRECT,
+                "1.0.0",
+                "group/name-v1.0.0",
+                "main",
+                null,
+                null,
+                false
+        ).withReleasedSemanticHash("preexisting-hash");
+        PromptSpec released = evaluated.withVersion("1.0.0").withReleaseMetadata(preStamped);
+
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
+        when(repository.requestRelease(evaluated)).thenReturn(released);
+
+        PromptSpec result = service.releasePrompt(PROMPT_ID);
+
+        assertThat(result.getReleaseMetadata().releasedSemanticHash()).isEqualTo("preexisting-hash");
+    }
+
+    @Test
+    void releasePromptDoesNotStampHashWhenStateIsRequested() {
+        // PR-two-phase: the release is requested but not yet released. No
+        // baseline exists to stamp until completion lands.
+        EvaluationResults successResults = new EvaluationResults(List.of(new EvaluationResult("eval", "type", 1.0, null, null)));
+        PromptSpec evaluated = basePromptSpec.withEvaluationResults(successResults);
+        PromptSpec requested = evaluated
+                .withVersion("1.0.0")
+                .withReleaseMetadata(new ReleaseMetadata(
+                        ReleaseMetadata.STATE_REQUESTED,
+                        ReleaseMetadata.MODE_PR_TWO_PHASE,
+                        "1.0.0",
+                        "group/name-v1.0.0",
+                        "release/group-name-1.0.0",
+                        7,
+                        "https://github.com/o/r/pull/7",
+                        false
+                ));
+
+        when(repository.getLatestVersion(PROMPT_ID)).thenReturn(Optional.of(evaluated));
+        when(repository.requestRelease(evaluated)).thenReturn(requested);
+
+        PromptSpec result = service.releasePrompt(PROMPT_ID);
+
+        assertThat(result.getReleaseMetadata().releasedSemanticHash()).isNull();
+    }
+
+    @Test
     void releasePromptRunsPreReleaseGateWhenEnabled() {
         EvaluationResults successResults = new EvaluationResults(List.of(new EvaluationResult("eval", "type", 1.0, null, null)));
         PromptSpec evaluated = basePromptSpec.withEvaluationResults(successResults);
