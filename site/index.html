@@ -189,47 +189,22 @@
           </div>
         </section>
 
-        <!-- ─── three pillars ─── -->
+        <!-- ─── capabilities ─── -->
         <section class="pillars" aria-labelledby="pillars-title">
           <p class="pl-eyebrow pillars-eyebrow">03 — capabilities</p>
           <h2 id="pillars-title" class="pillars-headline">
-            One tool for the full loop —<br />
-            <span class="pillars-headline-muted">from first prompt to thousandth regression.</span>
+            Spec to release to replay —<br />
+            <span class="pillars-headline-muted">the prompt lifecycle, one tool deep.</span>
           </h2>
 
+          <!-- Beat 1: develop & release — yaml spec + studio catalog -->
           <div class="pillars-grid">
-            <!-- MCP testing -->
             <article>
-              <p class="pl-eyebrow pillar-eyebrow">
-                <span>MCP TESTING</span>
-                <span class="pillar-pill">PLANNED</span>
-              </p>
-              <h3 class="pillar-title">Record real MCP sessions. Replay them deterministically.</h3>
+              <p class="pl-eyebrow pillar-eyebrow"><span>PROMPTS AS SPEC</span></p>
+              <h3 class="pillar-title">Define a prompt. Version it. Release it.</h3>
               <p class="pillar-copy">
-                Capture every tool call, freeze the responses, and run them back in CI.
-                No flaky network. No vendor rate limits. Same bytes, every time.
-              </p>
-              <figure class="mcp-mock" aria-label="MCP inspector preview">
-                <div class="mcp-mock-head">
-                  <span>MCP · TOOLS/CALENDAR</span>
-                  <span>● recording · 00:14</span>
-                </div>
-                <div class="mcp-row"><span class="mcp-dir-out">→</span><span class="mcp-tool">list_events</span><span class="mcp-time">+0.012s</span></div>
-                <div class="mcp-row"><span class="mcp-dir-ok">←</span><span class="mcp-tool">list_events · 200</span><span class="mcp-time">+0.184s</span></div>
-                <div class="mcp-row"><span class="mcp-dir-out">→</span><span class="mcp-tool">create_event</span><span class="mcp-time">+0.224s</span></div>
-                <div class="mcp-row"><span class="mcp-dir-ok">←</span><span class="mcp-tool">create_event · 200</span><span class="mcp-time">+0.412s</span></div>
-                <div class="mcp-row"><span class="mcp-dir-out">→</span><span class="mcp-tool">send_invite</span><span class="mcp-time">+0.430s</span></div>
-                <div class="mcp-row"><span class="mcp-dir-err">←</span><span class="mcp-tool">send_invite · 429</span><span class="mcp-time">+1.124s</span></div>
-              </figure>
-            </article>
-
-            <!-- Prompt regression -->
-            <article>
-              <p class="pl-eyebrow pillar-eyebrow"><span>PROMPT REGRESSION</span></p>
-              <h3 class="pillar-title">Diff prompts. Track quality. Catch drift before users do.</h3>
-              <p class="pillar-copy">
-                Every prompt is versioned. Every change runs the suite.
-                Pass-rate, latency, and tokens land in the PR before review.
+                Every prompt is a spec file — vendor, model, parameters, messages.
+                Versioned in Git. Released as a signed JAR your app pins.
               </p>
               <pre class="code-snippet" aria-label="promptlm.yaml example"><span class="code-snippet-comment"># promptlm.yaml</span>
 <span class="code-key">id</span>: customer_support
@@ -245,42 +220,80 @@
     - <span class="code-key">role</span>: user
       <span class="code-key">content</span>: <span class="code-str">"Summarize: {{ticket}}"</span></pre>
             </article>
+
+            <article>
+              <p class="pl-eyebrow pillar-eyebrow"><span>STUDIO CATALOG</span></p>
+              <h3 class="pillar-title">Every prompt. Every release. One catalog.</h3>
+              <p class="pillar-copy">
+                Browse, search, and filter the inventory. See status, executions,
+                and latency at a glance. Syncs from Git on push.
+              </p>
+              <figure class="studio-shot" aria-label="promptLM studio catalog screenshot">
+                <img src="media/studio-catalog.png" alt="promptLM studio — prompt catalog with version, model, status, and execution counts" width="1500" height="937" loading="lazy" />
+              </figure>
+            </article>
           </div>
 
-          <!-- Model mocking -->
+          <!-- Beat 2: use released prompts in your app — detail screenshot + SDK snippet -->
+          <div class="use-in-app">
+            <div class="use-in-app-intro">
+              <p class="pl-eyebrow pillar-eyebrow"><span>IN YOUR APP</span></p>
+              <h3 class="mocking-title">Pin a version. Load it. Ship it.</h3>
+              <p class="mocking-copy">
+                Released prompts ship as a JAR your app depends on. Load by id,
+                fill placeholders, send. Vendor, model, and parameters travel with
+                the spec — your code never drifts from the prompt.
+              </p>
+            </div>
+
+            <figure class="studio-shot" aria-label="promptLM studio prompt detail screenshot">
+              <img src="media/studio-detail.png" alt="promptLM studio — prompt detail showing version 1.8.0, model, parameters, and dev execution metrics" width="1500" height="937" loading="lazy" />
+            </figure>
+
+            <pre class="code-snippet" aria-label="promptLM SDK usage example"><span class="code-snippet-comment">// SupportBot.java</span>
+Prompt prompt = PromptLoader.load(<span class="code-str">"doc-rag-answer"</span>);   <span class="code-snippet-comment">// pinned v1.8.0 in pom.xml</span>
+String filled = prompt.fill(Map.of(
+  <span class="code-str">"question"</span>, question,
+  <span class="code-str">"chunks"</span>,   retrievedChunks));
+
+<span class="code-snippet-comment">// vendor, model, parameters come from the spec — not your code</span>
+String reply = llm.send(filled, prompt.model(), prompt.parameters());</pre>
+          </div>
+
+          <!-- Beat 3: test against recorded responses — existing JUnit/WireMock -->
           <div class="mocking">
             <div>
-              <p class="pl-eyebrow pillar-eyebrow"><span>MODEL MOCKING</span></p>
-              <h3 class="mocking-title">Mock any model.<br />Test the messy edges.</h3>
+              <p class="pl-eyebrow pillar-eyebrow"><span>TEST SUPPORT</span></p>
+              <h3 class="mocking-title">Test against<br />recorded responses.</h3>
               <p class="mocking-copy">
-                Inject malformed JSON. Force a refusal. Drop a tool call halfway through.
-                Build the failure modes that production will eventually serve you — and write the tests
-                that catch them.
+                Each released prompt ships with golden responses captured during
+                dev. Your tests replay them locally via WireMock — no real LLM
+                calls, no tokens billed, deterministic in CI.
               </p>
               <ul class="mocking-list">
                 <li>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                     <path d="M3 8 L7 11 L13 4" stroke="var(--pl-signal-deep)" stroke-width="1.5" stroke-linecap="square" />
                   </svg>
-                  Token streaming with synthetic latency
+                  Golden responses bundled with the prompt JAR
                 </li>
                 <li>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                     <path d="M3 8 L7 11 L13 4" stroke="var(--pl-signal-deep)" stroke-width="1.5" stroke-linecap="square" />
                   </svg>
-                  Tool-call sequences with deterministic seeds
+                  WireMock stubs auto-generated — no manual fixtures
                 </li>
                 <li>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                     <path d="M3 8 L7 11 L13 4" stroke="var(--pl-signal-deep)" stroke-width="1.5" stroke-linecap="square" />
                   </svg>
-                  Refusals, truncation, malformed JSON
+                  <code>@InjectResponse</code> for equality assertions
                 </li>
                 <li>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                     <path d="M3 8 L7 11 L13 4" stroke="var(--pl-signal-deep)" stroke-width="1.5" stroke-linecap="square" />
                   </svg>
-                  Side-by-side: gpt-4o vs claude-3-5-sonnet
+                  Zero tokens. Zero flake. Same bytes, every run.
                 </li>
               </ul>
             </div>
@@ -324,15 +337,15 @@
                 aria-labelledby="tab-java"
                 data-code-panel="java"
               ><span class="code-snippet-comment">// SupportServiceTest.java</span>
-<span class="code-key">@EnablePromptWireMock</span>
-<span class="code-fn">class</span> SupportServiceTest {
+<span class="code-key">@EnablePromptWireMock</span> <span class="code-snippet-comment">// boots WireMock on a local port,</span>
+<span class="code-fn">class</span> SupportServiceTest {              <span class="code-snippet-comment">// pre-stubbed from your prompt repo</span>
 
   <span class="code-key">@Test</span>
-  <span class="code-fn">void</span> summarizesTicket(
-    <span class="code-key">@InjectPrompt</span>(id = <span class="code-str">"customer_support"</span>) String prompt,
-    <span class="code-key">@InjectResponse</span>(id = <span class="code-str">"customer_support"</span>) String response) {
-    <span class="code-snippet-comment">// WireMock stubs auto-generated from your prompt repo</span>
-    supportService.summarize(ticket);
+  <span class="code-fn">void</span> summarizesTicket(<span class="code-key">@InjectResponse</span>(id = <span class="code-str">"customer_support"</span>) String recorded) {
+    String reply = supportService.summarize(ticket); <span class="code-snippet-comment">// your prod code POSTs to the LLM</span>
+    <span class="code-snippet-comment">// The LLM URL points at WireMock, so the recorded reply is returned.</span>
+    <span class="code-snippet-comment">// No real model call, no tokens billed, deterministic across runs.</span>
+    assertThat(reply).isEqualTo(recorded);
   }
 }</pre>
               <pre
@@ -343,11 +356,15 @@
                 data-code-panel="python"
                 hidden
               ><span class="code-snippet-comment"># test_support_service.py</span>
-<span class="code-key">@inject_prompt</span>(<span class="code-str">"customer_support"</span>)
-<span class="code-key">@inject_response</span>(<span class="code-str">"customer_support"</span>)
-<span class="code-fn">def</span> test_summarizes_ticket(prompt, response):
-    <span class="code-snippet-comment"># HTTP stubs auto-generated from your prompt repo</span>
-    support_service.summarize(ticket)</pre>
+<span class="code-key">from</span> promptlm.testing <span class="code-key">import</span> enable_prompt_mock, inject_response
+
+<span class="code-key">@enable_prompt_mock</span>                                  <span class="code-snippet-comment"># boots a mock LLM on a local port,</span>
+<span class="code-key">@inject_response</span>(<span class="code-str">"customer_support"</span>)                   <span class="code-snippet-comment"># pre-stubbed from your prompt repo</span>
+<span class="code-fn">def</span> test_summarizes_ticket(recorded: str):
+    reply = support_service.summarize(ticket)        <span class="code-snippet-comment"># your prod code POSTs to the LLM</span>
+    <span class="code-snippet-comment"># The LLM URL points at the mock, so the recorded reply is returned.</span>
+    <span class="code-snippet-comment"># No real model call, no tokens billed, deterministic across runs.</span>
+    <span class="code-key">assert</span> reply == recorded</pre>
               <pre
                 class="code-snippet code-tab-panel"
                 id="snippet-typescript"
@@ -356,15 +373,33 @@
                 data-code-panel="typescript"
                 hidden
               ><span class="code-snippet-comment">// supportService.test.ts</span>
-<span class="code-key">import</span> { injectPrompt, injectResponse } <span class="code-key">from</span> <span class="code-str">'@promptlm/testing'</span>;
+<span class="code-key">import</span> { enablePromptMock, injectResponse } <span class="code-key">from</span> <span class="code-str">'@promptlm/testing'</span>;
 
-test(<span class="code-str">'summarizes ticket'</span>, () =&gt; {
-  <span class="code-key">const</span> prompt   = injectPrompt(<span class="code-str">'customer_support'</span>);
-  <span class="code-key">const</span> response = injectResponse(<span class="code-str">'customer_support'</span>);
-  <span class="code-snippet-comment">// fetch stubs auto-generated from your prompt repo</span>
-  supportService.summarize(ticket);
+enablePromptMock();                                  <span class="code-snippet-comment">// boots a mock LLM on a local port,</span>
+
+test(<span class="code-str">'summarizes ticket'</span>, () =&gt; {                    <span class="code-snippet-comment">// pre-stubbed from your prompt repo</span>
+  <span class="code-key">const</span> recorded = injectResponse(<span class="code-str">'customer_support'</span>);
+  <span class="code-key">const</span> reply    = supportService.summarize(ticket); <span class="code-snippet-comment">// your prod code POSTs to the LLM</span>
+  <span class="code-snippet-comment">// The LLM URL points at the mock, so the recorded reply is returned.</span>
+  <span class="code-snippet-comment">// No real model call, no tokens billed, deterministic across runs.</span>
+  expect(reply).toBe(recorded);
 });</pre>
             </div>
+          </div>
+
+          <!-- Beat 4: MCP record/replay — coming soon, pure text -->
+          <div class="coming-soon">
+            <p class="pl-eyebrow pillar-eyebrow">
+              <span>COMING SOON</span>
+              <span class="pillar-pill">ROADMAP</span>
+            </p>
+            <h3 class="pillar-title">MCP record/replay test harness.</h3>
+            <p class="pillar-copy">
+              Capture every tool call against your real MCP servers, freeze the
+              bytes, and replay them deterministically in CI. No flaky network,
+              no vendor rate limits, no surprise charges. Same story as
+              prompt replay — extended to the tools your agent actually uses.
+            </p>
           </div>
         </section>
 
