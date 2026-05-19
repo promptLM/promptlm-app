@@ -249,11 +249,9 @@
               <img src="media/studio-detail.png" alt="promptLM studio — prompt detail showing version 1.8.0, model, parameters, and dev execution metrics" width="1500" height="937" loading="lazy" />
             </figure>
 
-            <pre class="code-snippet" aria-label="promptLM SDK usage example"><span class="code-snippet-comment">// SupportBot.java</span>
-Prompt prompt = PromptLoader.load(<span class="code-str">"doc-rag-answer"</span>);   <span class="code-snippet-comment">// pinned v1.8.0 in pom.xml</span>
-String filled = prompt.fill(Map.of(
-  <span class="code-str">"question"</span>, question,
-  <span class="code-str">"chunks"</span>,   retrievedChunks));
+            <pre class="code-snippet" aria-label="promptLM SDK usage example"><span class="code-snippet-comment">// SupportService.java</span>
+Prompt prompt = PromptLoader.load(<span class="code-str">"customer_support"</span>);  <span class="code-snippet-comment">// pinned v1.0.0 in pom.xml</span>
+String filled = prompt.fill(Map.of(<span class="code-str">"ticket"</span>, ticket));
 
 <span class="code-snippet-comment">// vendor, model, parameters come from the spec — not your code</span>
 String reply = llm.send(filled, prompt.model(), prompt.parameters());</pre>
