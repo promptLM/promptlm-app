@@ -25,6 +25,17 @@
     <meta property="og:type" content="article" />
     <meta property="og:url" content="https://promptlm.dev/docs/{{slug}}.html" />
     <meta property="og:image" content="https://promptlm.dev/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="promptLM — the prompt lifecycle, under instrument." />
+
+    <!-- Twitter / X (mirror of site/index.html) -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@promptlm" />
+    <meta name="twitter:title" content="{{title}} · promptLM docs" />
+    <meta name="twitter:description" content="{{description}}" />
+    <meta name="twitter:image" content="https://promptlm.dev/og-image.png" />
+    <meta name="twitter:image:alt" content="promptLM — the prompt lifecycle, under instrument." />
 
     <!-- Self-hosted Geist + JetBrains Mono (no external font CDN; see ../fonts.css) -->
     <link rel="stylesheet" href="../fonts.css" />
@@ -49,20 +60,18 @@
         </a>
 
         <nav class="nav-links" aria-label="Primary">
-          <a class="nav-link" href="../index.html">Product</a>
-          <a class="nav-link" href="mcp-record-replay.html" aria-current="page">Docs</a>
-          <a class="nav-link" href="#">Changelog</a>
+          <a class="nav-link" href="index.html" aria-current="page">Docs</a>
+          <a class="nav-link" href="https://github.com/promptLM/promptlm-app/releases">Changelog</a>
           <a class="nav-link" href="https://github.com/promptLM/promptlm-app">GitHub</a>
         </nav>
 
         <div class="nav-actions">
-          <button type="button" class="pl-btn pl-btn-ghost">Sign in</button>
-          <button type="button" class="pl-btn pl-btn-primary">
-            Start free
+          <a class="pl-btn pl-btn-primary" href="index.html#get-started">
+            Get started
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
               <path d="M2 6 H10 M7 3 L10 6 L7 9" stroke="currentColor" stroke-width="1.4" />
             </svg>
-          </button>
+          </a>
         </div>
       </header>
 
@@ -86,10 +95,12 @@
           <p class="pl-mono docs-crumb">{{breadcrumb}}</p>
           <h1 class="docs-title">{{title}}</h1>
 {{body}}
+          <!-- PAGER:START -->
           <nav class="docs-pager" aria-label="Page navigation">
             <a href="{{prevHref}}">← {{prevLabel}}</a>
             <a href="{{nextHref}}">{{nextLabel}} →</a>
           </nav>
+          <!-- PAGER:END -->
         </main>
 
         <!-- on this page (generated from H2 section IDs) -->
@@ -98,6 +109,46 @@
 {{toc}}
         </aside>
       </div>
+
+      <!-- ─── footer (mirrors site/index.html, paths adjusted for site/docs/) ─── -->
+      <footer class="site-footer" role="contentinfo">
+        <div class="footer-grid">
+          <div>
+            <a class="nav-wordmark" href="../index.html" aria-label="promptLM home">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <line x1="7" y1="7" x2="17" y2="12" stroke="var(--pl-ink-900)" stroke-width="1.5" stroke-linecap="round" />
+                <line x1="7" y1="7" x2="7" y2="17" stroke="var(--pl-ink-900)" stroke-width="1.5" stroke-linecap="round" />
+                <line x1="7" y1="17" x2="17" y2="12" stroke="var(--pl-signal-deep)" stroke-width="1.75" stroke-linecap="round" />
+                <circle cx="7" cy="7" r="2.6" fill="var(--pl-ink-900)" />
+                <circle cx="7" cy="17" r="2.6" fill="var(--pl-ink-900)" />
+                <circle cx="17" cy="12" r="2.8" fill="var(--pl-signal-deep)" />
+              </svg>
+              <span class="nav-wordmark-text" style="font-size: 17.6px;">prompt<strong>LM</strong></span>
+            </a>
+            <p class="footer-tagline">
+              prompt lifecycle management<br />
+              © 2026 · promptlm.dev
+            </p>
+          </div>
+
+          <div class="footer-cols">
+            <div class="footer-col">
+              <p class="footer-col-heading">Product</p>
+              <a href="../docs.html#get-started">CLI</a>
+              <a href="../docs.html#studio">Studio</a>
+              <a href="https://github.com/promptLM/promptlm-client-sdk">Java SDK</a>
+              <a href="https://github.com/promptLM/promptlm-macos">macOS app</a>
+              <a href="https://github.com/promptLM/promptlm-junit-gitea-artifactory">Test support</a>
+            </div>
+            <div class="footer-col">
+              <p class="footer-col-heading">Resources</p>
+              <a href="index.html">Docs</a>
+              <a href="https://github.com/promptLM/promptlm-app/releases">Changelog</a>
+              <a href="https://github.com/promptLM/promptlm-app">GitHub</a>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   </body>
 </html>

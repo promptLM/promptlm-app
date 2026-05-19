@@ -1,9 +1,19 @@
 # User documentation
 
 End-user docs for promptLM. AsciiDoc sources here are rendered into the
-brand-styled HTML pages under [`site/docs/`](../site/docs/) by
-[`scripts/build-docs.mjs`](../scripts/build-docs.mjs). The output is the
-static GitHub Pages site served from `site/`.
+brand-styled HTML pages under `site/docs/` by
+[`scripts/build-docs.mjs`](../scripts/build-docs.mjs). The output is part
+of the static GitHub Pages site served from `site/`.
+
+> **Status:** seven pages are live and verified against the codebase —
+> the Get Started flow (Introduction, Install, Your first prompt,
+> Studio, Configuration), CLI reference, and Lifecycle states. The
+> remaining sidebar items (Prompt specs, Releases, Evaluations, the
+> three client SDKs, macOS, JUnit support, LLM providers, REST API,
+> PromptSpec schema, Config schema) are real product surfaces but
+> haven't been authored yet — they show as greyed placeholders.
+> Tracking issue: [#205](https://github.com/promptLM/promptlm-app/issues/205).
+> Please claim a section there before authoring.
 
 ## Layout
 
@@ -59,9 +69,25 @@ The brand tokens, fonts, nav, and buttons are reused from
   border (see `.admonitionblock.note` in `docs.css`).
 - `[source,bash|typescript|...]` listings → dark code block with the
   language tag on top. Use the language id you'd expect in Markdown.
-- `widget::mcp-inspector[]` → inserts the partial at
-  `templates/widgets/mcp-inspector.html`. Add new widgets by dropping
-  files in that directory and referencing them with the same macro.
+- `widget::<name>[]` block macro → inserts the partial at
+  `templates/widgets/<name>.html`. Add new widgets by dropping files in
+  that directory and referencing them with the same macro.
+
+## Verification trail — keep `// source:` citations
+
+Pages must reflect the actual code in the repository (and the public
+`promptLM` org repos). The convention is to drop a one-line citation
+next to every concrete claim:
+
+```adoc
+* `--port` (default `8085`)
+// source: apps/promptlm-cli/src/main/java/dev/promptlm/cli/StudioCommands.java:40
+```
+
+The build script strips `// source: …` lines from the rendered HTML —
+they exist purely so a reviewer can audit a page against the code in
+five minutes. Don't make up file:line citations; they have to point at
+real evidence.
 
 ## CI and deployment
 
