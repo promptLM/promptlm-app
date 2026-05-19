@@ -285,14 +285,15 @@
             </div>
 
             <pre class="code-snippet" aria-label="JUnit test-support example"><span class="code-snippet-comment">// TranslationServiceTest.java</span>
-<span class="code-key">@EnablePromptWireMock</span>
-<span class="code-fn">class</span> TranslationServiceTest {
+<span class="code-key">@EnablePromptWireMock</span> <span class="code-snippet-comment">// boots WireMock on a local port,</span>
+<span class="code-fn">class</span> TranslationServiceTest {              <span class="code-snippet-comment">// pre-stubbed from your prompt repo</span>
 
   <span class="code-key">@Test</span>
-  <span class="code-fn">void</span> translates(
-    <span class="code-key">@InjectPrompt</span>(id = <span class="code-str">"translate-hello"</span>) String prompt,
-    <span class="code-key">@InjectResponse</span>(id = <span class="code-str">"translate-hello"</span>) String response) {
-    <span class="code-snippet-comment">// WireMock stubs auto-generated from your prompt repo</span>
+  <span class="code-fn">void</span> translates(<span class="code-key">@InjectResponse</span>(id = <span class="code-str">"translate-hello"</span>) String recorded) {
+    String result = callLLM(<span class="code-str">"translate-hello"</span>, Map.of(<span class="code-str">"text"</span>, <span class="code-str">"Hello"</span>)); <span class="code-snippet-comment">// pseudocode: your prod code that POSTs to the LLM</span>
+    <span class="code-snippet-comment">// The LLM URL points at WireMock, so the recorded reply is returned.</span>
+    <span class="code-snippet-comment">// No real model call, no tokens billed, deterministic across runs.</span>
+    assertThat(result).isEqualTo(recorded);
   }
 }</pre>
           </div>
