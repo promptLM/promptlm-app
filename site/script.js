@@ -10,9 +10,33 @@
 (function () {
   'use strict';
 
+  // ── install-line OS toggle (macOS·Linux / Windows) ────────────────
+  const osGroup = document.querySelector('[data-install-os-group]');
+  const cmdNode = document.querySelector('[data-install-cmd]');
+  const promptNode = document.querySelector('[data-install-prompt]');
+
+  if (osGroup && cmdNode) {
+    const osTabs = Array.from(osGroup.querySelectorAll('[data-install-os]'));
+    const activateOs = (key) => {
+      osTabs.forEach((tab) => {
+        const isActive = tab.dataset.installOs === key;
+        tab.classList.toggle('is-active', isActive);
+        tab.setAttribute('aria-selected', String(isActive));
+      });
+      const nextCmd = cmdNode.dataset['cmd' + key.charAt(0).toUpperCase() + key.slice(1)];
+      if (nextCmd) cmdNode.textContent = nextCmd;
+      if (promptNode) {
+        const nextPrompt = cmdNode.dataset['prompt' + key.charAt(0).toUpperCase() + key.slice(1)];
+        if (nextPrompt) promptNode.textContent = nextPrompt;
+      }
+    };
+    osTabs.forEach((tab) => {
+      tab.addEventListener('click', () => activateOs(tab.dataset.installOs));
+    });
+  }
+
   // ── install-line copy-to-clipboard ────────────────────────────────
   const copyButton = document.querySelector('[data-install-copy]');
-  const cmdNode = document.querySelector('[data-install-cmd]');
 
   if (copyButton && cmdNode && navigator.clipboard) {
     copyButton.addEventListener('click', async () => {

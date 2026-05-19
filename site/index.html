@@ -121,10 +121,33 @@
             </div>
 
             <!-- install line -->
-            <div class="install-line">
+            <div class="install-line" data-install-os-group>
+              <span class="install-os-tabs" role="tablist" aria-label="Operating system">
+                <button
+                  type="button"
+                  role="tab"
+                  class="install-os-tab is-active"
+                  data-install-os="unix"
+                  aria-selected="true"
+                >macOS · Linux</button>
+                <button
+                  type="button"
+                  role="tab"
+                  class="install-os-tab"
+                  data-install-os="windows"
+                  aria-selected="false"
+                >Windows</button>
+              </span>
+              <span class="install-line-divider" aria-hidden="true"></span>
               <span class="install-line-text">
-                <span class="install-line-prompt">$</span>
-                <span data-install-cmd>curl -fsSL https://raw.githubusercontent.com/promptLM/promptlm-app/main/scripts/install.sh | bash</span>
+                <span class="install-line-prompt" data-install-prompt>$</span>
+                <span
+                  data-install-cmd
+                  data-cmd-unix="curl -fsSL https://raw.githubusercontent.com/promptLM/promptlm-app/main/scripts/install.sh | bash"
+                  data-cmd-windows="irm https://raw.githubusercontent.com/promptLM/promptlm-app/main/scripts/install.ps1 | iex"
+                  data-prompt-unix="$"
+                  data-prompt-windows="PS&gt;"
+                >curl -fsSL https://raw.githubusercontent.com/promptLM/promptlm-app/main/scripts/install.sh | bash</span>
               </span>
               <span class="install-line-divider" aria-hidden="true"></span>
               <button

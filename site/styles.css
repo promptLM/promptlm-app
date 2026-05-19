@@ -301,6 +301,32 @@ img, svg { display: block; }
 .install-copy:hover { color: var(--pl-ink-800); }
 .install-copy.is-copied { color: var(--pl-ok); }
 
+.install-os-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+.install-os-tab {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-family: var(--pl-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pl-ink-500);
+  padding: 3px 7px;
+  border-radius: 4px;
+  transition: color .15s, background .15s;
+}
+.install-os-tab:hover { color: var(--pl-ink-800); }
+.install-os-tab.is-active {
+  color: var(--pl-ink-900);
+  background: var(--pl-ink-100, rgba(0, 0, 0, 0.05));
+}
+
 .hero-mock { margin-top: 80px; }
 
 /* ─── DiffMock — static replica of site.jsx DiffMock ─── */
