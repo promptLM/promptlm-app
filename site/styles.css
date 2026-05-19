@@ -495,6 +495,57 @@ img, svg { display: block; }
 .code-key  { color: var(--pl-ink-400); }
 .code-num  { color: var(--pl-ok); }
 
+.code-tabs {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 100%;
+}
+.code-tabs-bar {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--pl-ink-900);
+  border-radius: 12px 12px 0 0;
+  border-bottom: 1px solid color-mix(in oklch, var(--pl-paper) 8%, transparent);
+  /* Tabs fall back to horizontal scroll at very narrow widths
+     (sub-360px) rather than overflowing the viewport. */
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.code-tabs-bar::-webkit-scrollbar { display: none; }
+.code-tab { white-space: nowrap; flex: 0 0 auto; }
+.code-tab {
+  font-family: var(--pl-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pl-ink-400);
+  background: transparent;
+  border: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 120ms, background 120ms;
+}
+.code-tab:hover { color: var(--pl-paper); }
+.code-tab:focus-visible {
+  outline: 1px solid var(--pl-signal-bright);
+  outline-offset: 1px;
+}
+.code-tab.is-active {
+  color: var(--pl-paper);
+  background: color-mix(in oklch, var(--pl-paper) 6%, transparent);
+}
+.code-tabs .code-snippet {
+  border-radius: 0 0 12px 12px;
+  box-shadow: none;
+  min-width: 0;
+  max-width: 100%;
+}
+.code-tabs { box-shadow: var(--pl-shadow-md); border-radius: 12px; }
+.code-tab-panel[hidden] { display: none; }
+
 /* ─── CTA ─── */
 .cta {
   padding: 96px 56px;
@@ -592,7 +643,12 @@ img, svg { display: block; }
   .pillars { padding: 80px 24px; }
   .pillars-headline { font-size: 36px; }
   .pillars-grid { grid-template-columns: 1fr; gap: 56px; }
+  /* Grid items default to min-width:auto which expands to the natural
+     min-content (long code lines, model names, URLs). On narrow screens
+     that blows the page width out — force them to honor the track. */
+  .pillars-grid > article { min-width: 0; }
   .mocking { grid-template-columns: 1fr; gap: 32px; margin-top: 56px; }
+  .mocking > * { min-width: 0; }
   .mocking-title { font-size: 28px; }
   .cta { padding: 64px 24px; }
   .cta-headline { font-size: 44px; }
@@ -602,5 +658,21 @@ img, svg { display: block; }
 @media (max-width: 560px) {
   .hero-title { font-size: 40px; letter-spacing: -0.03em; }
   .hero-actions .pl-btn { width: 100%; justify-content: center; }
-  .install-line { width: 100%; }
+  .install-line {
+    display: flex;
+    width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
+  }
+  /* The curl URL is one unbreakable token — let it scroll horizontally
+     inside the install pill instead of pushing the page wider. */
+  .install-line-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: none;
+  }
+  .install-line-text::-webkit-scrollbar { display: none; }
+  .install-line-divider, .install-copy { flex: 0 0 auto; }
 }

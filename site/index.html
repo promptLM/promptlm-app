@@ -15,7 +15,7 @@
     <title>promptLM</title>
     <meta
       name="description"
-      content="Open-source prompt lifecycle management for engineering teams. Version your LLM prompts in Git, release them as signed artifacts, replay them in JUnit tests."
+      content="Open-source, Git-native prompt lifecycle management for engineering teams. Version LLM prompts in Git, ship signed releases, replay them in JUnit, pytest, or Vitest. No new SaaS, no new auth — lives in the Git you already trust."
     />
     <meta name="author" content="promptLM" />
 
@@ -29,7 +29,7 @@
     <meta property="og:title" content="promptLM" />
     <meta
       property="og:description"
-      content="Open-source prompt lifecycle management for engineering teams. Version your LLM prompts in Git, release them as signed artifacts, replay them in JUnit tests."
+      content="Open-source, Git-native prompt lifecycle management for engineering teams. Version LLM prompts in Git, ship signed releases, replay them in JUnit, pytest, or Vitest. No new SaaS, no new auth — lives in the Git you already trust."
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://promptlm.dev/" />
@@ -43,7 +43,7 @@
     <meta name="twitter:title" content="promptLM" />
     <meta
       name="twitter:description"
-      content="Open-source prompt lifecycle management for engineering teams. Version your LLM prompts in Git, release them as signed artifacts, replay them in JUnit tests."
+      content="Open-source, Git-native prompt lifecycle management for engineering teams. Version LLM prompts in Git, ship signed releases, replay them in JUnit, pytest, or Vitest. No new SaaS, no new auth — lives in the Git you already trust."
     />
     <meta name="twitter:image" content="https://promptlm.dev/og-image.png" />
     <meta name="twitter:image:alt" content="promptLM — your prompt lifecycle, under control." />
@@ -100,8 +100,9 @@
               under control.
             </h1>
             <p class="hero-sub">
-              Manage, version, and release LLM prompts the way you ship code.
-              Git-native specs, signed releases, JUnit-ready replay.
+              Specs in Git. Signed releases. Test harnesses for JUnit, pytest,
+              and Vitest. No new SaaS, no new auth — promptLM lives in the Git
+              infra your team already trusts.
             </p>
 
             <div class="hero-actions">
@@ -284,17 +285,86 @@
               </ul>
             </div>
 
-            <pre class="code-snippet" aria-label="JUnit test-support example"><span class="code-snippet-comment">// TranslationServiceTest.java</span>
+            <div class="code-tabs" data-code-tabs aria-label="Test-harness examples">
+              <div class="code-tabs-bar" role="tablist" aria-label="Language">
+                <button
+                  type="button"
+                  role="tab"
+                  class="code-tab is-active"
+                  data-code-tab="java"
+                  aria-selected="true"
+                  aria-controls="snippet-java"
+                  id="tab-java"
+                >Java · JUnit</button>
+                <button
+                  type="button"
+                  role="tab"
+                  class="code-tab"
+                  data-code-tab="python"
+                  aria-selected="false"
+                  aria-controls="snippet-python"
+                  id="tab-python"
+                  tabindex="-1"
+                >Python · pytest</button>
+                <button
+                  type="button"
+                  role="tab"
+                  class="code-tab"
+                  data-code-tab="typescript"
+                  aria-selected="false"
+                  aria-controls="snippet-typescript"
+                  id="tab-typescript"
+                  tabindex="-1"
+                >TypeScript · Vitest</button>
+              </div>
+              <pre
+                class="code-snippet code-tab-panel is-active"
+                id="snippet-java"
+                role="tabpanel"
+                aria-labelledby="tab-java"
+                data-code-panel="java"
+              ><span class="code-snippet-comment">// SupportServiceTest.java</span>
 <span class="code-key">@EnablePromptWireMock</span>
-<span class="code-fn">class</span> TranslationServiceTest {
+<span class="code-fn">class</span> SupportServiceTest {
 
   <span class="code-key">@Test</span>
-  <span class="code-fn">void</span> translates(
-    <span class="code-key">@InjectPrompt</span>(id = <span class="code-str">"translate-hello"</span>) String prompt,
-    <span class="code-key">@InjectResponse</span>(id = <span class="code-str">"translate-hello"</span>) String response) {
+  <span class="code-fn">void</span> summarizesTicket(
+    <span class="code-key">@InjectPrompt</span>(id = <span class="code-str">"customer_support"</span>) String prompt,
+    <span class="code-key">@InjectResponse</span>(id = <span class="code-str">"customer_support"</span>) String response) {
     <span class="code-snippet-comment">// WireMock stubs auto-generated from your prompt repo</span>
+    supportService.summarize(ticket);
   }
 }</pre>
+              <pre
+                class="code-snippet code-tab-panel"
+                id="snippet-python"
+                role="tabpanel"
+                aria-labelledby="tab-python"
+                data-code-panel="python"
+                hidden
+              ><span class="code-snippet-comment"># test_support_service.py</span>
+<span class="code-key">@inject_prompt</span>(<span class="code-str">"customer_support"</span>)
+<span class="code-key">@inject_response</span>(<span class="code-str">"customer_support"</span>)
+<span class="code-fn">def</span> test_summarizes_ticket(prompt, response):
+    <span class="code-snippet-comment"># HTTP stubs auto-generated from your prompt repo</span>
+    support_service.summarize(ticket)</pre>
+              <pre
+                class="code-snippet code-tab-panel"
+                id="snippet-typescript"
+                role="tabpanel"
+                aria-labelledby="tab-typescript"
+                data-code-panel="typescript"
+                hidden
+              ><span class="code-snippet-comment">// supportService.test.ts</span>
+<span class="code-key">import</span> { injectPrompt, injectResponse } <span class="code-key">from</span> <span class="code-str">'@promptlm/testing'</span>;
+
+test(<span class="code-str">'summarizes ticket'</span>, () =&gt; {
+  <span class="code-key">const</span> prompt   = injectPrompt(<span class="code-str">'customer_support'</span>);
+  <span class="code-key">const</span> response = injectResponse(<span class="code-str">'customer_support'</span>);
+  <span class="code-snippet-comment">// fetch stubs auto-generated from your prompt repo</span>
+  supportService.summarize(ticket);
+});</pre>
+            </div>
           </div>
         </section>
 
