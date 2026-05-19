@@ -543,6 +543,12 @@ export interface RailPlaceholdersProps {
   itemErrors: PromptFormErrors['placeholderItems'];
   defaultOpen: boolean;
   onChange: (patch: Partial<FormPlaceholdersConfig>) => void;
+  /**
+   * Issue #187: clicking the per-row Insert affordance asks the host to insert
+   * the placeholder token at the editor caret. Optional — when absent, the
+   * row renders without an Insert button (back-compat with v1 callers).
+   */
+  onInsertPlaceholder?: (name: string) => void;
 }
 
 export const RailPlaceholders: React.FC<RailPlaceholdersProps> = ({
@@ -551,6 +557,7 @@ export const RailPlaceholders: React.FC<RailPlaceholdersProps> = ({
   itemErrors,
   defaultOpen,
   onChange,
+  onInsertPlaceholder,
 }) => {
   const list = placeholders.list;
   const errCount =
@@ -668,6 +675,20 @@ export const RailPlaceholders: React.FC<RailPlaceholdersProps> = ({
                     onChange={(checked) => update(i, { required: checked })}
                     label="req"
                   />
+                  {onInsertPlaceholder ? (
+                    <GhostButton
+                      mini
+                      onClick={() => onInsertPlaceholder(ph.name)}
+                      disabled={!ph.name}
+                      testId={
+                        ph.name
+                          ? `placeholder-insert-button-${ph.name}`
+                          : `placeholder-insert-button-index-${i}`
+                      }
+                    >
+                      Insert
+                    </GhostButton>
+                  ) : null}
                   <GhostButton mini danger onClick={() => remove(i)}>
                     ×
                   </GhostButton>
