@@ -560,9 +560,23 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
   // the back navigation, route the user through the dialog, and re-issue
   // `history.back()` if they confirm. If they cancel, the sentinel stays
   // in place so the next back press is still intercepted.
+  //
+  // Race avoidance (#241): the push is idempotent, and the cleanup does NOT
+  // auto-`history.back()` to pop the sentinel. Auto-popping fires a
+  // `popstate` event asynchronously; when `isDirty` flickers (e.g., the
+  // default-template hydration arrives while the user is typing), this
+  // effect tears down + re-mounts, and the deferred popstate from the
+  // teardown's `history.back()` is caught by the *re-registered* listener,
+  // spuriously opening `UnsavedChangesDialog` mid-edit. The sentinel is
+  // explicitly popped via `pendingNavigationRef` on Save / Discard /
+  // intentional back; the worst case otherwise is a single residual history
+  // entry, which is harmless.
   useEffect(() => {
     if (!isDirty) return;
-    window.history.pushState({ [POPSTATE_SENTINEL_KEY]: true }, '');
+    const currentState = window.history.state as Record<string, unknown> | null;
+    if (!currentState || currentState[POPSTATE_SENTINEL_KEY] !== true) {
+      window.history.pushState({ [POPSTATE_SENTINEL_KEY]: true }, '');
+    }
     const handler = () => {
       pendingNavigationRef.current = () => {
         // Step out of the form route. The sentinel entry was already
@@ -574,13 +588,6 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
     window.addEventListener('popstate', handler);
     return () => {
       window.removeEventListener('popstate', handler);
-      // Best-effort cleanup: if the sentinel is still the current entry,
-      // pop it so we don't leak history entries when the form unmounts
-      // through a non-back navigation.
-      const state = window.history.state as Record<string, unknown> | null;
-      if (state && state[POPSTATE_SENTINEL_KEY] === true) {
-        window.history.back();
-      }
     };
   }, [isDirty]);
 
