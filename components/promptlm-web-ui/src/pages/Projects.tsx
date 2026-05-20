@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useMemo, useState, type MouseEvent } from 'react';
 import { Button } from '@promptlm/ui';
 import { Badge } from '@promptlm/ui';
-import { Plus, FolderOpen, FileText, Clock, Loader2, RefreshCw } from 'lucide-react';
+import { Plus, FolderOpen, FileText, Clock, Loader2, RefreshCw, Copy, Check } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { AlertTriangle } from 'lucide-react';
+import { truncateMiddlePath } from '@/utils/path';
 import {
   compareProjectsByUpdatedAt,
   getProjectSelectionBlockedReason,
@@ -32,6 +33,52 @@ import { ProjectModal } from '@/components/projects/ProjectModal';
 import { useProjects } from '@/api/hooks';
 import { useProjectsContext } from '@api-common/projects/ProjectsContext';
 import { useToast } from '@/hooks/use-toast';
+
+function LocalPathChip({ path }: { path: string }) {
+  const [copied, setCopied] = useState(false);
+  const display = truncateMiddlePath(path, 36);
+
+  const handleCopy = async (event: MouseEvent<HTMLButtonElement>) => {
+    // The chip sits inside the clickable card; don't trigger project
+    // selection when the user just wants to copy the path.
+    event.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(path);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard may be denied (e.g. insecure context). Swallow silently
+      // — the path is still visible and selectable via the tooltip.
+    }
+  };
+
+  return (
+    <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span
+        className="truncate font-mono"
+        title={path}
+        data-testid="project-card-local-path"
+      >
+        {display}
+      </span>
+      <button
+        type="button"
+        onClick={handleCopy}
+        onMouseDown={(event) => event.stopPropagation()}
+        aria-label={copied ? 'Path copied' : 'Copy local path'}
+        title={copied ? 'Copied' : 'Copy path'}
+        data-testid="project-card-copy-path"
+        className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+      >
+        {copied ? (
+          <Check className="h-3 w-3 text-emerald-500" />
+        ) : (
+          <Copy className="h-3 w-3" />
+        )}
+      </button>
+    </div>
+  );
+}
 
 export default function Projects() {
   const [modalOpen, setModalOpen] = useState(false);
@@ -148,8 +195,12 @@ export default function Projects() {
                           {project.description}
                         </p>
                       )}
+                      {project.localPath && <LocalPathChip path={project.localPath} />}
                       {project.repositoryUrl && (
-                        <p className="mt-2 text-xs text-muted-foreground truncate">
+                        <p
+                          className="mt-1 text-xs text-muted-foreground/80 truncate"
+                          title={project.repositoryUrl}
+                        >
                           {project.repositoryUrl}
                         </p>
                       )}
