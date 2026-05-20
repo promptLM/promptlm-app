@@ -23,5 +23,8 @@
     "@vitejs/plugin-react": "^4.3.4",
     "typescript": "^5.7.2",
     "vite": "^6.1.0"
+  },
+  "overrides": {
+    "yaml": "^1.10.3"
   }
 }
