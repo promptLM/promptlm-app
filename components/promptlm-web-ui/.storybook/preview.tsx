@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { Decorator, Preview } from '@storybook/react';
+import type { Decorator, Preview } from '@storybook/react-vite';
 import React from 'react';
 import { initialize, mswDecorator } from 'msw-storybook-addon';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -20,13 +20,23 @@ import { MemoryRouter } from 'react-router-dom';
 
 import '@/index.css';
 
-import { ThemeProvider } from '@/theme/ThemeProvider';
-import { PromptLMClientProvider } from '@/api/context';
+// NOTE: '@/theme/ThemeProvider' and '@/stories/mocks/handlers' were referenced
+// by an early Storybook scaffold but never landed in the source tree. There are
+// currently no *.stories.* files in this workspace, so these imports never
+// actually resolved anything at runtime — but they did break the static
+// `storybook build`. Stubbed locally to let the Storybook 9 preview bundle
+// compile; restore real imports when the first stories land and the matching
+// theme/mocks modules are added under src/.
+const ThemeProvider = ({ children }: { children: React.ReactNode; defaultTheme?: string }) => <>{children}</>;
+const defaultHandlers: unknown[] = [];
+
+// Pre-existing import 'PromptLMClientProvider' from '@/api/context' was
+// renamed in source to 'GeneratedApiClientProvider'; aliasing here so the
+// decorator below still compiles.
+import { GeneratedApiClientProvider as PromptLMClientProvider } from '@/api/context';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster as AppToaster } from '@/components/ui/toaster';
 import { Toaster as SonnerToaster } from '@/components/ui/sonner';
-
-import { defaultHandlers } from '@/stories/mocks/handlers';
 
 initialize({ onUnhandledRequest: 'bypass' });
 

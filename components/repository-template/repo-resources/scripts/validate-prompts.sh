@@ -19,8 +19,12 @@
 # Exits non-zero with a clear message if:
 #   - prompts/ is missing or contains no files
 #   - any file under prompts/ is empty (zero-byte or whitespace-only)
-#   - any promptlm.yml / promptlm.yaml file is missing one of the required fields:
-#       id, name, group, version, request
+#   - any per-prompt promptlm.yml / promptlm.yaml manifest under prompts/ is
+#     missing one of the required fields: id, name, group, version, request
+#
+# The repository-level configuration file at <repo>/promptlm.yml (release
+# toggle, provider, …) is intentionally NOT validated by this script — it has
+# a different schema and lives outside `prompts/`.
 #
 # Exits 0 on success with a summary of what was validated.
 #
@@ -74,7 +78,11 @@ if [[ -n "${empty_files}" ]]; then
     exit 1
 fi
 
-# 3. Every promptlm.yml / promptlm.yaml file must declare the required fields.
+# 3. Every per-prompt promptlm.yml / promptlm.yaml manifest must declare the
+#    required fields. The repository-level `<repo>/promptlm.yml` is a
+#    configuration file (release toggle, provider, …) and is intentionally
+#    excluded — it has a different schema and lives at the repo root, not
+#    under `prompts/`.
 promptlm_count=0
 missing_fields_report=""
 while IFS= read -r -d '' f; do
@@ -93,7 +101,7 @@ while IFS= read -r -d '' f; do
     if [[ -n "${missing}" ]]; then
         missing_fields_report+="${f}: missing ${missing}"$'\n'
     fi
-done < <(find "${REPO_ROOT}" -type f \( -name 'promptlm.yml' -o -name 'promptlm.yaml' \) -print0)
+done < <(find "${PROMPTS_DIR}" -type f \( -name 'promptlm.yml' -o -name 'promptlm.yaml' \) -print0)
 
 if [[ -n "${missing_fields_report}" ]]; then
     {
