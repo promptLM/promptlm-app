@@ -61,7 +61,13 @@ promptlm:
         input-per-million: 0.15
         output-per-million: 0.60
       # --- OpenAI: reasoning models ---
+      # The current OpenAI Java SDK exposes o3 only as the dated form, so the
+      # dated id is what gets persisted on PromptSpec.request.model. The bare
+      # `o3` key stays as forward-compat for an SDK bump that adds the alias.
       o3:
+        input-per-million: 2.00
+        output-per-million: 8.00
+      o3-2025-04-16:
         input-per-million: 2.00
         output-per-million: 8.00
       o3-mini:
