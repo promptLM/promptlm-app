@@ -1,5 +1,3 @@
-import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
 // Copyright 2025 promptLM
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,6 +11,9 @@ import { dirname, join } from "node:path";
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 
 import type { StorybookConfig } from '@storybook/react-vite';
 
