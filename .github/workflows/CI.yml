@@ -53,6 +53,9 @@ jobs:
           server-username: GITHUB_ACTOR
           server-password: GITHUB_TOKEN
 
+      - name: Install promptlm-platform parent POM
+        uses: ./.github/actions/install-platform-parent
+
       - name: Build promptLM Framework
         run: mvn -B -DskipTests install
 
