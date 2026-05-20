@@ -53,6 +53,13 @@ jobs:
           server-username: GITHUB_ACTOR
           server-password: GITHUB_TOKEN
 
+      - name: Clone promptlm-platform sibling and install parent POM
+        run: |
+          git clone --depth=1 \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/promptLM/promptlm-platform.git" \
+            "${GITHUB_WORKSPACE}/../promptlm-platform"
+          mvn -B -N -f "${GITHUB_WORKSPACE}/../promptlm-platform/pom.xml" install -DskipTests
+
       - name: Build promptLM Framework
         run: mvn -B -DskipTests install
 
