@@ -149,15 +149,35 @@ public class HappyPathUserJourneyTest {
         // v2 UX: there is no global "Add" dropdown — the New prompt button lives in
         // the catalog top bar. Navigate to /prompts and click it directly.
         navigateToPath("/prompts");
-        page.getByTestId("create-prompt-button").click();
+        // The /prompts/new route fetches a server-side default template
+        // (GET /api/prompts/template) that asynchronously hydrates the form
+        // with sample values ("support-prompt", "customer_name" placeholder,
+        // etc.). If we start typing before that response lands, the template
+        // hydration overwrites our input AND flips the dirty-state guard,
+        // which then surfaces an "Unsaved changes" dialog that blocks every
+        // subsequent click (e.g. `placeholder-add-button`). Wait for the
+        // template request to finish *before* the click, then verify the
+        // hydration landed before we start filling.
+        page.waitForResponse(
+                response -> response.url().contains("/api/prompts/template")
+                        && response.status() == 200,
+                () -> page.getByTestId("create-prompt-button").click());
 
         // Verify we're in the prompt editor via unique heading test id
         Locator editorHeading = page.getByTestId("prompt-editor-heading");
         editorHeading.waitFor();
         assertThat(editorHeading.isVisible()).isTrue();
 
+        // Confirm the template has hydrated by waiting for the default
+        // "support-prompt" name to appear in the name input. After this we
+        // can safely fill — Playwright's .fill() clears then types so our
+        // values cleanly overwrite the template defaults.
+        Locator nameInput = page.getByTestId("prompt-name-input");
+        nameInput.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
+        waitForInputHydrated(nameInput, Duration.ofSeconds(30));
+
         // Fill the form
-        page.getByTestId("prompt-name-input").fill(PROMPT_NAME);
+        nameInput.fill(PROMPT_NAME);
         page.getByTestId("prompt-group-input").fill(GROUP);
         page.getByTestId("description-text").fill("Description of the prompt.");
         configureCustomPlaceholderDelimiters("[[", "]]");
@@ -453,6 +473,30 @@ public class HappyPathUserJourneyTest {
         valueEditor.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE));
         valueEditor.fill(value);
         valueEditor.press("Tab");
+    }
+
+    /**
+     * Wait until the given input has a non-empty value. The /prompts/new
+     * route loads a server-side default template asynchronously
+     * (GET /api/prompts/template) and hydrates the form. If the test types
+     * before that hydration lands, the template's `replaceState` clobbers
+     * the user input and the resulting dirty-state flip can surface an
+     * "Unsaved changes" dialog that blocks every subsequent click. Polling
+     * the visible input value is the most reliable proxy for "template
+     * applied" without coupling the test to internal React state.
+     */
+    private void waitForInputHydrated(Locator input, Duration timeout) {
+        long deadline = System.nanoTime() + timeout.toNanos();
+        while (System.nanoTime() < deadline) {
+            String value = input.inputValue();
+            if (value != null && !value.isEmpty()) {
+                return;
+            }
+            page.waitForTimeout(100);
+        }
+        throw new IllegalStateException(
+                "Timed out waiting for prompt form template hydration (input still empty after "
+                        + timeout.toSeconds() + "s)");
     }
 
     private void insertPlaceholderToken(String placeholderName) {
