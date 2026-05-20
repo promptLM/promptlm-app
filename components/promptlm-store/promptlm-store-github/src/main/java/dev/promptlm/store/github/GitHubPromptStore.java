@@ -203,7 +203,7 @@ public class GitHubPromptStore implements PromptStore {
             return Optional.empty();
         }
         File repo = repoDir.toFile();
-        Predicate<PromptSpec> predicate = spec -> spec.getId().equals(promptId);
+        Predicate<PromptSpec> predicate = spec -> promptId.equals(spec.getId());
         // Don't filter by status when getting by ID - we want to retrieve it even if retired
         Optional<PromptSpec> match = searchInPromptSpecIncludingRetired(repo, predicate, p -> true);
         return match;
