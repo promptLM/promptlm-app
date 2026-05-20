@@ -379,6 +379,7 @@ export const Checkbox: React.FC<CheckboxProps> = ({
 export interface GhostButtonProps {
   children: React.ReactNode;
   onClick?: () => void;
+  onMouseDown?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   danger?: boolean;
   mini?: boolean;
   disabled?: boolean;
@@ -389,6 +390,7 @@ export interface GhostButtonProps {
 export const GhostButton: React.FC<GhostButtonProps> = ({
   children,
   onClick,
+  onMouseDown,
   danger,
   mini,
   disabled,
@@ -397,6 +399,7 @@ export const GhostButton: React.FC<GhostButtonProps> = ({
 }) => (
   <button
     onClick={onClick}
+    onMouseDown={onMouseDown}
     type={type}
     disabled={disabled}
     data-testid={testId}
