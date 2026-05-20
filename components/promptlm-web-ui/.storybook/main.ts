@@ -1,3 +1,5 @@
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 // Copyright 2025 promptLM
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,25 +16,33 @@
 
 import type { StorybookConfig } from '@storybook/react-vite';
 
+const require = createRequire(import.meta.url);
+
 const config: StorybookConfig = {
   stories: ['../src/**/*.stories.@(ts|tsx)'],
-  addons: ['@storybook/addon-essentials', '@storybook/addon-interactions', 'msw-storybook-addon'],
+
+  // Storybook 9 consolidates addon-essentials and addon-interactions into core.
+  // addon-docs is installed explicitly to keep autodocs support.
+  addons: [getAbsolutePath("@storybook/addon-docs"), getAbsolutePath("msw-storybook-addon")],
+
   // Reuse the webapp's public/ tree so the brand favicon set is served by
   // Storybook chrome too. See #111 BS-5.
   staticDirs: ['../public'],
+
   framework: {
-    name: '@storybook/react-vite',
+    name: getAbsolutePath("@storybook/react-vite"),
     options: {},
   },
-  docs: {
-    autodocs: 'tag',
-  },
+
   async viteFinal(viteConfig) {
     viteConfig.resolve ??= {};
     viteConfig.resolve.alias ??= {};
     Object.assign(viteConfig.resolve.alias, {
       '@': '/src',
-      '@api-common': new URL('../../../apps/promptlm-webapp/src/api-common', import.meta.url).pathname,
+      // Pre-existing path '../../../apps/promptlm-webapp/src/api-common' no
+      // longer exists — the api-common module lives inside this workspace.
+      // See vite.config.ts (which already points at the local copy).
+      '@api-common': new URL('../src/api-common', import.meta.url).pathname,
     });
 
     viteConfig.optimizeDeps ??= {};
@@ -44,7 +54,11 @@ const config: StorybookConfig = {
     ];
 
     return viteConfig;
-  },
+  }
 };
 
 export default config;
+
+function getAbsolutePath(value: string): string {
+  return dirname(require.resolve(join(value, "package.json")));
+}

@@ -21,8 +21,8 @@
 //
 // See #111 BS-8.
 
-import { create } from '@storybook/theming';
-import { addons } from '@storybook/manager-api';
+import { create } from 'storybook/theming';
+import { addons } from 'storybook/manager-api';
 
 const theme = create({
   base: 'light',
