@@ -1,0 +1,49 @@
+#
+# Copyright 2025 promptLM
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Install promptlm-platform parent POM
+description: |
+  Clones the sibling promptLM/promptlm-platform repo into ../promptlm-platform
+  and installs the parent POM into the runner's local Maven cache.
+
+  Required after the parent POM was extracted out of promptlm-app (#231) because
+  CI only checks out the current repo, leaving the relativePath in root pom.xml
+  unresolvable. Replace this with a remote-repository declaration once
+  promptlm-parent is released to GitHub Packages.
+
+inputs:
+  token:
+    description: GitHub token with read access to promptLM/promptlm-platform.
+    required: false
+    default: ${{ github.token }}
+  ref:
+    description: Ref of promptlm-platform to check out.
+    required: false
+    default: main
+
+runs:
+  using: composite
+  steps:
+    - name: Clone promptlm-platform sibling and install parent POM
+      shell: bash
+      run: |
+        set -euo pipefail
+        SIBLING="${GITHUB_WORKSPACE}/../promptlm-platform"
+        if [ ! -d "$SIBLING/.git" ]; then
+          git clone --depth=1 --branch "${{ inputs.ref }}" \
+            "https://x-access-token:${{ inputs.token }}@github.com/promptLM/promptlm-platform.git" \
+            "$SIBLING"
+        fi
+        mvn -B -N -f "$SIBLING/pom.xml" install -DskipTests
