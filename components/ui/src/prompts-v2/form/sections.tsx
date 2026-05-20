@@ -694,6 +694,11 @@ export const RailPlaceholders: React.FC<RailPlaceholdersProps> = ({
                   {onInsertPlaceholder ? (
                     <GhostButton
                       mini
+                      // Preserve the focused message textarea's caret across
+                      // the click — without preventDefault on mousedown the
+                      // textarea blurs first, which clears the selection ref
+                      // that the insert handler relies on. See #217.
+                      onMouseDown={(event) => event.preventDefault()}
                       onClick={() => onInsertPlaceholder(ph.name)}
                       disabled={!ph.name}
                       testId={
