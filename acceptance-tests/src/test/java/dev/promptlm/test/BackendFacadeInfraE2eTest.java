@@ -105,9 +105,12 @@ class BackendFacadeInfraE2eTest {
                     assertThat(contextFile).isRegularFile();
                     JsonNode context = JSON_MAPPER.readTree(Files.readString(contextFile));
                     assertThat(context.path("projects").isArray()).isTrue();
+                    // context.json stores activeProject as an id-only reference; full metadata lives in projects[].
                     assertThat(context.path("activeProject").path("id").asText()).isEqualTo(projectId);
-                    assertThat(context.path("activeProject").path("localPath").asText()).isEqualTo(localPath.toString());
-                    assertThat(context.path("activeProject").path("repositoryUrl").asText()).isEqualTo(repositoryUrl);
+                    JsonNode activeProjectEntry = findProjectById(context.path("projects"), projectId);
+                    assertThat(activeProjectEntry).as("activeProject entry in projects[]").isNotNull();
+                    assertThat(activeProjectEntry.path("localPath").asText()).isEqualTo(localPath.toString());
+                    assertThat(activeProjectEntry.path("repositoryUrl").asText()).isEqualTo(repositoryUrl);
                 });
 
         Path metadataFile = localPath.resolve(".promptlm/metadata.json");
@@ -388,6 +391,18 @@ class BackendFacadeInfraE2eTest {
                                 gitea.getAdminToken()
                         ),
                         Optional::isPresent);
+    }
+
+    private static JsonNode findProjectById(JsonNode projectsArray, String projectId) {
+        if (projectsArray == null || !projectsArray.isArray()) {
+            return null;
+        }
+        for (JsonNode entry : projectsArray) {
+            if (projectId.equals(entry.path("id").asText())) {
+                return entry;
+            }
+        }
+        return null;
     }
 
     private String uniqueRepoName(String prefix) {
