@@ -201,6 +201,11 @@ const applyFormDraft = (
 // Issue #185 — popstate sentinel marker.
 const POPSTATE_SENTINEL_KEY = '__promptlmDirtyGuard';
 
+// Issue #241 — sentinel value used by the hydration ref to denote "we
+// already hydrated an empty draft". Distinct from `null` (no hydration yet
+// at all) so the once-only guard can tell them apart.
+const EMPTY_HYDRATION_TOKEN: unique symbol = Symbol('emptyHydration');
+
 export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
   const navigate = useNavigate();
   const data = usePromptEditorData({ mode, promptId });
@@ -229,26 +234,50 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const pendingNavigationRef = useRef<(() => void) | null>(null);
 
+  // Issue #241 — guard against re-hydration clobbering user input. The
+  // hydration effect below depends on `data.prompt` / `data.promptTemplate`;
+  // a late re-delivery of either (React-Query refetch, provider re-mount,
+  // context churn from `useGeneratedApiClient` if the config reference
+  // shifts) would otherwise call `replaceState(template)` again and wipe
+  // anything the user has typed since the first hydration. We track the
+  // identity of what we hydrated *from* so re-runs with the same source
+  // are no-ops; switching mode or prompt id resets the guard so the next
+  // route genuinely re-hydrates.
+  const hydrationSourceRef = useRef<unknown>(null);
+  useEffect(() => {
+    hydrationSourceRef.current = null;
+  }, [mode, promptId]);
+
   // Hydrate draft on load. Depend only on the replaceState callback (stable
   // reference from the useReducer dispatch) — depending on `editor` triggers
   // an infinite loop because the memoised actions object changes per render.
   useEffect(() => {
     if (mode === 'edit' && data.prompt) {
+      if (hydrationSourceRef.current === data.prompt) return;
       const next = createPromptDraftFromPrompt(data.prompt);
       replaceState(next);
       setBaseline(next);
+      hydrationSourceRef.current = data.prompt;
       return;
     }
     if (mode === 'create') {
       if (data.promptTemplate) {
+        if (hydrationSourceRef.current === data.promptTemplate) return;
         const next = createPromptDraftFromPrompt(data.promptTemplate);
         replaceState(next);
         setBaseline(next);
+        hydrationSourceRef.current = data.promptTemplate;
         return;
       }
+      // No template yet — render an empty draft. Only hydrate empty once
+      // (sentinel value `EMPTY_HYDRATION_TOKEN`) so flickering template
+      // loading states don't churn the draft. Once a real template arrives
+      // it replaces the empty seed via the branch above.
+      if (hydrationSourceRef.current === EMPTY_HYDRATION_TOKEN) return;
       const empty = createEmptyPromptDraft();
       replaceState(empty);
       setBaseline(empty);
+      hydrationSourceRef.current = EMPTY_HYDRATION_TOKEN;
     }
   }, [data.prompt, data.promptTemplate, mode, replaceState]);
 
