@@ -1,4 +1,0 @@
-interface:
-  display_name: "Spring Boot Test Authoring"
-  short_description: "Write high-quality Spring Boot tests with strict patterns"
-  default_prompt: "Use this skill to design, scaffold, lint, and verify Spring Boot tests with the narrowest valid scope and strong assertions."
