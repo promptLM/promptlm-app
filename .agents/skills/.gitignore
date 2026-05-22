@@ -1,7 +1,0 @@
-.idea
-.env
-.DS_Store
-.vscode/
-.agents/
-*-report*
-node_modules/
