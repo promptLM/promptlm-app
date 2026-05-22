@@ -48,6 +48,11 @@ jobs:
               - '**/pom.xml'
               - 'acceptance-tests/**'
               - 'components/repository-template/**'
+              # Frontend sources are baked into the webapp bundle that the
+              # acceptance suite drives via Playwright. Any change here can
+              # alter UI behavior end-to-end and must trigger the suite.
+              - 'components/promptlm-web-ui/**'
+              - 'components/ui/**'
               - '.github/workflows/acceptance.yml'
               - '.github/workflows/CI.yml'
 

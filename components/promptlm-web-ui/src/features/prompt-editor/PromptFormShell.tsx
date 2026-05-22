@@ -201,6 +201,11 @@ const applyFormDraft = (
 // Issue #185 — popstate sentinel marker.
 const POPSTATE_SENTINEL_KEY = '__promptlmDirtyGuard';
 
+// Issue #241 — sentinel value used by the hydration ref to denote "we
+// already hydrated an empty draft". Distinct from `null` (no hydration yet
+// at all) so the once-only guard can tell them apart.
+const EMPTY_HYDRATION_TOKEN: unique symbol = Symbol('emptyHydration');
+
 export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
   const navigate = useNavigate();
   const data = usePromptEditorData({ mode, promptId });
@@ -229,26 +234,50 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const pendingNavigationRef = useRef<(() => void) | null>(null);
 
+  // Issue #241 — guard against re-hydration clobbering user input. The
+  // hydration effect below depends on `data.prompt` / `data.promptTemplate`;
+  // a late re-delivery of either (React-Query refetch, provider re-mount,
+  // context churn from `useGeneratedApiClient` if the config reference
+  // shifts) would otherwise call `replaceState(template)` again and wipe
+  // anything the user has typed since the first hydration. We track the
+  // identity of what we hydrated *from* so re-runs with the same source
+  // are no-ops; switching mode or prompt id resets the guard so the next
+  // route genuinely re-hydrates.
+  const hydrationSourceRef = useRef<unknown>(null);
+  useEffect(() => {
+    hydrationSourceRef.current = null;
+  }, [mode, promptId]);
+
   // Hydrate draft on load. Depend only on the replaceState callback (stable
   // reference from the useReducer dispatch) — depending on `editor` triggers
   // an infinite loop because the memoised actions object changes per render.
   useEffect(() => {
     if (mode === 'edit' && data.prompt) {
+      if (hydrationSourceRef.current === data.prompt) return;
       const next = createPromptDraftFromPrompt(data.prompt);
       replaceState(next);
       setBaseline(next);
+      hydrationSourceRef.current = data.prompt;
       return;
     }
     if (mode === 'create') {
       if (data.promptTemplate) {
+        if (hydrationSourceRef.current === data.promptTemplate) return;
         const next = createPromptDraftFromPrompt(data.promptTemplate);
         replaceState(next);
         setBaseline(next);
+        hydrationSourceRef.current = data.promptTemplate;
         return;
       }
+      // No template yet — render an empty draft. Only hydrate empty once
+      // (sentinel value `EMPTY_HYDRATION_TOKEN`) so flickering template
+      // loading states don't churn the draft. Once a real template arrives
+      // it replaces the empty seed via the branch above.
+      if (hydrationSourceRef.current === EMPTY_HYDRATION_TOKEN) return;
       const empty = createEmptyPromptDraft();
       replaceState(empty);
       setBaseline(empty);
+      hydrationSourceRef.current = EMPTY_HYDRATION_TOKEN;
     }
   }, [data.prompt, data.promptTemplate, mode, replaceState]);
 
@@ -560,9 +589,23 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
   // the back navigation, route the user through the dialog, and re-issue
   // `history.back()` if they confirm. If they cancel, the sentinel stays
   // in place so the next back press is still intercepted.
+  //
+  // Race avoidance (#241): the push is idempotent, and the cleanup does NOT
+  // auto-`history.back()` to pop the sentinel. Auto-popping fires a
+  // `popstate` event asynchronously; when `isDirty` flickers (e.g., the
+  // default-template hydration arrives while the user is typing), this
+  // effect tears down + re-mounts, and the deferred popstate from the
+  // teardown's `history.back()` is caught by the *re-registered* listener,
+  // spuriously opening `UnsavedChangesDialog` mid-edit. The sentinel is
+  // explicitly popped via `pendingNavigationRef` on Save / Discard /
+  // intentional back; the worst case otherwise is a single residual history
+  // entry, which is harmless.
   useEffect(() => {
     if (!isDirty) return;
-    window.history.pushState({ [POPSTATE_SENTINEL_KEY]: true }, '');
+    const currentState = window.history.state as Record<string, unknown> | null;
+    if (!currentState || currentState[POPSTATE_SENTINEL_KEY] !== true) {
+      window.history.pushState({ [POPSTATE_SENTINEL_KEY]: true }, '');
+    }
     const handler = () => {
       pendingNavigationRef.current = () => {
         // Step out of the form route. The sentinel entry was already
@@ -574,13 +617,6 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
     window.addEventListener('popstate', handler);
     return () => {
       window.removeEventListener('popstate', handler);
-      // Best-effort cleanup: if the sentinel is still the current entry,
-      // pop it so we don't leak history entries when the form unmounts
-      // through a non-back navigation.
-      const state = window.history.state as Record<string, unknown> | null;
-      if (state && state[POPSTATE_SENTINEL_KEY] === true) {
-        window.history.back();
-      }
     };
   }, [isDirty]);
 
