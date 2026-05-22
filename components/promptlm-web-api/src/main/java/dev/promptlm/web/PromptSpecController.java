@@ -719,12 +719,20 @@ public class PromptSpecController {
             if (requestPromptSpec.getId() != null && !promptSpecId.equals(requestPromptSpec.getId())) {
                 return ResponseEntity.badRequest().build();
             }
-            // Execute the draft from the request body (issue #183). The path id is
+            // Execute the spec from the request body (issue #183). The path id is
             // authoritative — force it onto the spec so any downstream code that
-            // reads the id sees the canonical one. We do not persist the draft;
-            // it lives only for this single execution (see D-183-5).
+            // reads the id sees the canonical one.
+            //
+            // Issue #140 / #183 reconciliation: only treat the run as ephemeral
+            // when the body actually diverges semantically from the stored spec.
+            // A clean editor Run on a saved prompt — frontend always sends a
+            // body (PromptFormShell#handleEditorRun) but the user hasn't edited
+            // anything — has zero semantic delta and must still record a MANUAL
+            // execution (issue #140). A run on an in-progress edit keeps the
+            // D-183-5 ephemerality so the user can experiment without polluting
+            // the dev branch.
             promptSpecToExecute = requestPromptSpec.withId(promptSpecId);
-            isDraftExecution = true;
+            isDraftExecution = promptSpecToExecute.hasSemanticChangesComparedTo(storedSpec);
         }
 
         if (promptSpecToExecute.getId() == null || promptSpecToExecute.getId().isBlank()) {

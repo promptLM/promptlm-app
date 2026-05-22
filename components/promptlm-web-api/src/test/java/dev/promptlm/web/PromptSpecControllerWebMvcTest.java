@@ -24,6 +24,7 @@ import dev.promptlm.domain.projectspec.ProjectSpec;
 import dev.promptlm.domain.promptspec.ChatCompletionRequest;
 import dev.promptlm.domain.promptspec.ChatCompletionResponse;
 import dev.promptlm.domain.promptspec.Execution;
+import dev.promptlm.domain.promptspec.ExecutionKind;
 import dev.promptlm.domain.promptspec.PromptEvaluationDefinition;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import dev.promptlm.domain.promptspec.ReleaseMetadata;
@@ -776,6 +777,78 @@ class PromptSpecControllerWebMvcTest {
         verify(promptExecutor).runPromptAndAttachResponse(executedCaptor.capture());
         assertThat(executedCaptor.getValue().getDescription()).isEqualTo("stored");
         assertThat(executedCaptor.getValue().getId()).isEqualTo(promptId);
+    }
+
+    @Test
+    void executeStoredPromptRecordsHistoryWhenBodySpecMatchesStoredSemanticHash() throws Exception {
+        // Issue #140 / #183 reconciliation: the editor's Run action always sends
+        // the current form state as the request body
+        // (PromptFormShell#handleEditorRun), but when the user hasn't actually
+        // edited anything the body is semantically identical to the stored
+        // YAML. A clean editor Run MUST still record a MANUAL execution to the
+        // dev branch — anything else breaks HappyPath
+        // `runPromptPersistsManualExecution`. The discriminator is
+        // PromptSpec#hasSemanticChangesComparedTo, not body-presence.
+        String promptId = "prompt-clean-run";
+
+        ChatCompletionRequest payload = ChatCompletionRequest.builder()
+                .withVendor("openai")
+                .withModel("gpt-4o")
+                .withMessages(List.of(
+                        ChatCompletionRequest.Message.builder()
+                                .withRole("user")
+                                .withContent("Identical content")
+                                .build()
+                ))
+                .withParameters(Map.of())
+                .build();
+
+        PromptSpec storedPrompt = PromptSpec.builder()
+                .withGroup("support")
+                .withName("prompt-clean-run")
+                .withVersion("1.0.0")
+                .withRevision(4)
+                .withDescription("stored")
+                .withRequest(payload)
+                .build()
+                .withId(promptId);
+
+        // Identical request, placeholders, extensions → semanticHash matches.
+        // Description differs, but description isn't part of the semantic hash
+        // (see PromptSpecHash.serialize), so the run still counts as clean.
+        PromptSpec cleanDraft = PromptSpec.builder()
+                .withGroup("support")
+                .withName("prompt-clean-run")
+                .withVersion("1.0.0")
+                .withRevision(4)
+                .withDescription("stored")
+                .withRequest(payload)
+                .build()
+                .withId(promptId);
+
+        ChatCompletionResponse response = new ChatCompletionResponse(7L, null, "Pong");
+        PromptSpec executed = cleanDraft.withResponse(response);
+        PromptSpec persisted = storedPrompt.withResponse(response);
+
+        when(promptExecutor.runPromptAndAttachResponse(any(PromptSpec.class))).thenReturn(executed);
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(storedPrompt));
+        when(promptLifecycleFacade.recordExecution(eq(promptId), any(Execution.class)))
+                .thenReturn(persisted);
+
+        ExecutePromptRequest executeRequest = new ExecutePromptRequest(cleanDraft);
+
+        mockMvc.perform(post("/api/prompts/{promptSpecId}/execute", promptId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(executeRequest)))
+                .andExpect(status().isOk());
+
+        // The execution MUST be recorded — this is the bit that
+        // `runPromptPersistsManualExecution` depends on.
+        ArgumentCaptor<Execution> executionCaptor = ArgumentCaptor.forClass(Execution.class);
+        verify(promptLifecycleFacade).recordExecution(eq(promptId), executionCaptor.capture());
+        assertThat(executionCaptor.getValue().kindOrManual())
+                .as("clean editor Run records a MANUAL execution")
+                .isEqualTo(ExecutionKind.MANUAL);
     }
 
     @Test
