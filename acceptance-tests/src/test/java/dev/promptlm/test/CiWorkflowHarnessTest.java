@@ -17,6 +17,7 @@
 package dev.promptlm.test;
 
 import com.microsoft.playwright.Page;
+import dev.promptlm.test.support.DockerAvailableExtension;
 import dev.promptlm.test.support.ReleaseArtifactContractDelegate;
 import dev.promptlm.testutils.artifactory.Artifactory;
 import dev.promptlm.testutils.artifactory.ArtifactoryContainer;
@@ -38,6 +39,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
@@ -61,6 +63,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@ExtendWith(DockerAvailableExtension.class)
 @WithGitea(actionsEnabled = true, createTestRepos = true, testRepoNames = {CiWorkflowHarnessTest.REPO_NAME})
 @WithArtifactory
 @IntegrationTest

@@ -16,6 +16,7 @@
 
 package dev.promptlm.test;
 
+import dev.promptlm.test.support.DockerAvailableExtension;
 import dev.promptlm.test.support.NativeBinaryLauncher;
 import dev.promptlm.testutils.gitea.Gitea;
 import dev.promptlm.testutils.gitea.GiteaContainer;
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
@@ -47,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+@ExtendWith(DockerAvailableExtension.class)
 @WithGitea(actionsEnabled = true)
 @NativeSmokeTest
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)

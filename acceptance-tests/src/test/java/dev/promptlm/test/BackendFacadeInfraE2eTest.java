@@ -22,6 +22,7 @@ import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 import dev.promptlm.domain.ObjectMapperFactory;
 import dev.promptlm.domain.promptspec.PromptSpec;
+import dev.promptlm.test.support.DockerAvailableExtension;
 import dev.promptlm.test.support.GiteaRepositoryHelper;
 import dev.promptlm.testutils.gitea.Gitea;
 import dev.promptlm.testutils.gitea.GiteaContainer;
@@ -31,6 +32,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
@@ -47,6 +49,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+@ExtendWith(DockerAvailableExtension.class)
 @WithGitea(actionsEnabled = false)
 @IntegrationTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)

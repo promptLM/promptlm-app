@@ -29,6 +29,7 @@ import dev.promptlm.domain.promptspec.Execution;
 import dev.promptlm.domain.promptspec.ExecutionKind;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import dev.promptlm.test.support.ArtifactoryStorageHelper;
+import dev.promptlm.test.support.DockerAvailableExtension;
 import dev.promptlm.test.support.GiteaRepositoryHelper;
 import dev.promptlm.test.support.PlaywrightNavigationHelper;
 import dev.promptlm.test.support.ProjectSetupHelper;
@@ -71,6 +72,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Tests the complete flow through frontend and backend
  * <p>
  */
+@ExtendWith(DockerAvailableExtension.class)
 @WithGitea(createTestRepos = true, actionsEnabled = true)
 @WithArtifactory
 @IntegrationTest

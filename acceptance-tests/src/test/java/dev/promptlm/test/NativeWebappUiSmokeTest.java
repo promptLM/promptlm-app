@@ -17,6 +17,7 @@
 package dev.promptlm.test;
 
 import com.microsoft.playwright.Page;
+import dev.promptlm.test.support.DockerAvailableExtension;
 import dev.promptlm.test.support.GiteaRepositoryHelper;
 import dev.promptlm.test.support.NativeBinaryLauncher;
 import dev.promptlm.test.support.PlaywrightNavigationHelper;
@@ -33,6 +34,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
@@ -62,6 +64,7 @@ import static org.awaitility.Awaitility.await;
  * gate and Artifactory dependencies, so it can run as a fast native-binary gate
  * without needing an LLM API key or an Artifactory container.
  */
+@ExtendWith(DockerAvailableExtension.class)
 @NativeSmokeTest
 @WithGitea(createTestRepos = true)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
