@@ -3,19 +3,23 @@
 # This file is the canonical entry point for promptLM behaviour in this
 # repository. The most important setting is `release.enabled`:
 #
-#   release.enabled: false  (default) — Mode 1, "Prompt management"
+#   release.enabled: true   (current default) — Mode 2, "Prompt releases"
+#     The repository ships GitHub Actions workflows, build scripts under
+#     `tools/`, `.promptlm/artifacts.toml`, and a `pom.xml` for building,
+#     validating, and publishing versioned prompt artifacts.
+#
+#   release.enabled: false                    — Mode 1, "Prompt management"
 #     The repository is a plain git store for prompts under `prompts/`.
 #     No CI/CD workflows, no Maven/Artifactory tooling, no `artifacts.toml`,
 #     and no `pom.xml` are generated.
 #
-#   release.enabled: true                — Mode 2, "Prompt releases"
-#     The repository additionally ships GitHub Actions workflows, build
-#     scripts under `tools/`, `.promptlm/artifacts.toml`, and a `pom.xml`
-#     for building, validating, and publishing versioned prompt artifacts.
+# Note: the Mode-2 default is a stopgap (see issue #276) until the
+# progressive-disclosure UX in #275 ships, at which point the default
+# reverts to Mode 1 with an opt-in "Enable releases" action.
 #
 # Flip `release.enabled` and regenerate the repository to switch modes.
 release:
-  enabled: false
+  enabled: true
   provider: github-actions
   trigger:
     type: tag
