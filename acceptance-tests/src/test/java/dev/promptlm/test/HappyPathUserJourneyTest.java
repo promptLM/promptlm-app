@@ -51,12 +51,23 @@ import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.async.ResultCallback;
+import com.github.dockerjava.api.model.Container;
+import com.github.dockerjava.api.model.Frame;
+import org.testcontainers.DockerClientFactory;
+
 import java.io.IOException;
 import java.net.http.HttpClient;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -667,6 +678,136 @@ public class HappyPathUserJourneyTest {
         }
         captureFailureScreenshot(displayName);
         captureFailureTrace(displayName);
+        captureRunnerLogs(displayName);
+    }
+
+    /**
+     * On test failure, dump stdout/stderr of the Gitea Actions runner container and
+     * any per-task containers (named {@code gitea-actions-task-*}) it spawned to
+     * {@code target/runner-logs/}.
+     *
+     * <p>Why: when {@code releaseProject} hangs, the runner container's own stdout
+     * is the single best diagnostic — {@code logActionsRunnerDiagnostics} only
+     * surfaces Gitea-API-level state. The task containers' logs hold the actual
+     * workflow step output (mvn release:prepare, etc.).
+     *
+     * <p>This intentionally goes through the Docker API directly (not via
+     * {@link GiteaContainer}) because the runner reference inside the harness is
+     * private and exposing it would couple test-only failure capture to public
+     * harness API.
+     */
+    private void captureRunnerLogs(String testDisplayName) {
+        Path runnerLogsDir = Paths.get("target/runner-logs");
+        try {
+            Files.createDirectories(runnerLogsDir);
+        } catch (IOException e) {
+            log.warn("Failed to create runner-logs dir {}: {}", runnerLogsDir, e.getMessage());
+            return;
+        }
+
+        String sanitizedName = SCREENSHOT_FILE_SANITIZER.matcher(testDisplayName).replaceAll("_");
+        long ts = System.currentTimeMillis();
+        int captured = 0;
+
+        DockerClient dockerClient;
+        try {
+            dockerClient = DockerClientFactory.instance().client();
+        } catch (Exception e) {
+            log.warn("Docker client not available; skipping runner log capture for '{}': {}",
+                    testDisplayName, e.getMessage());
+            return;
+        }
+
+        List<Container> containers;
+        try {
+            containers = dockerClient.listContainersCmd().withShowAll(true).exec();
+        } catch (Exception e) {
+            log.warn("Failed to list Docker containers for runner log capture: {}", e.getMessage());
+            return;
+        }
+
+        for (Container dockerContainer : containers) {
+            String[] names = dockerContainer.getNames();
+            String joinedNames = (names == null || names.length == 0)
+                    ? ""
+                    : String.join(",", names).toLowerCase(Locale.ROOT);
+            String image = dockerContainer.getImage() == null
+                    ? ""
+                    : dockerContainer.getImage().toLowerCase(Locale.ROOT);
+
+            // Match either the runner container (image gitea/act_runner) or a per-task
+            // container (Gitea names task containers gitea-actions-task-<n>).
+            boolean isRunner = image.contains("act_runner") || joinedNames.contains("gitea-runner");
+            boolean isActionsTask = joinedNames.contains("gitea-actions-task-");
+
+            if (!isRunner && !isActionsTask) {
+                continue;
+            }
+
+            String role = isRunner ? "runner" : "task";
+            String containerLabel = (names != null && names.length > 0)
+                    ? names[0].replaceFirst("^/", "")
+                    : dockerContainer.getId().substring(0, Math.min(12, dockerContainer.getId().length()));
+            String safeLabel = SCREENSHOT_FILE_SANITIZER.matcher(containerLabel).replaceAll("_");
+            String fileName = String.format("%s-%s-%s-%d.log", role, sanitizedName, safeLabel, ts);
+            Path target = runnerLogsDir.resolve(fileName);
+
+            try {
+                writeContainerLogsTo(dockerClient, dockerContainer.getId(), target, names, image);
+                captured++;
+                log.info("Stored {} container log for '{}' at target/runner-logs/{}",
+                        role, testDisplayName, fileName);
+            } catch (Exception e) {
+                log.warn("Failed to capture {} logs for container id={} names={}: {}",
+                        role, dockerContainer.getId(), Arrays.toString(names), e.getMessage());
+            }
+        }
+
+        if (captured == 0) {
+            log.warn("No Gitea runner or actions-task containers found while capturing logs for '{}'",
+                    testDisplayName);
+        }
+    }
+
+    private static void writeContainerLogsTo(DockerClient dockerClient,
+                                             String containerId,
+                                             Path target,
+                                             String[] names,
+                                             String image) throws Exception {
+        String header = String.format(
+                "# container id=%s names=%s image=%s captured=%d%n",
+                containerId,
+                Arrays.toString(names),
+                image,
+                System.currentTimeMillis());
+        Files.writeString(target, header, StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+
+        ResultCallback.Adapter<Frame> callback = new ResultCallback.Adapter<>() {
+            @Override
+            public void onNext(Frame frame) {
+                if (frame == null || frame.getPayload() == null) {
+                    return;
+                }
+                try {
+                    Files.write(target, frame.getPayload(), StandardOpenOption.APPEND);
+                } catch (IOException ioe) {
+                    log.warn("Failed appending log frame for container {}: {}",
+                            containerId, ioe.getMessage());
+                }
+            }
+        };
+
+        try (ResultCallback.Adapter<Frame> cb = callback) {
+            dockerClient.logContainerCmd(containerId)
+                    .withStdOut(true)
+                    .withStdErr(true)
+                    .withTailAll()
+                    .withTimestamps(true)
+                    .exec(cb);
+            // Logs are bounded (already-emitted output). Wait briefly for completion.
+            cb.awaitCompletion(30, TimeUnit.SECONDS);
+        }
     }
 
     private static final Pattern SCREENSHOT_FILE_SANITIZER = Pattern.compile("[^a-zA-Z0-9-_]+");
