@@ -116,6 +116,26 @@ public class HappyPathUserJourneyTest {
         page = playwrightSession.getPage();
     }
 
+    /**
+     * Reap stale Gitea Actions runner task containers from prior runs before every test.
+     * Otherwise stale containers from a failed prior test class can leak into earlier-ordered
+     * tests of the next run, where the mid-test cleanup never executes.
+     */
+    @BeforeEach
+    void cleanupStaleActionsRunnerContainers() {
+        if (gitea == null) {
+            // @BeforeAll has not run yet (or failed); nothing to clean.
+            return;
+        }
+        try {
+            int removed = gitea.cleanupActionsTaskContainers("workflow-prompt-repository-ci");
+            log.info("Removed {} stale CI Actions task container(s) before test.", removed);
+        } catch (RuntimeException exception) {
+            // Cleanup is best-effort; never fail a test because diagnostics housekeeping failed.
+            log.warn("Failed to clean stale CI Actions task containers before test: {}", exception.getMessage());
+        }
+    }
+
 
     @AfterAll
     void afterAll() {
@@ -493,10 +513,7 @@ public class HappyPathUserJourneyTest {
     private void waitUntilBuildSucceeded() {
         String workflowFile = System.getProperty("promptlm.gitea.actions.workflow.file", "deploy-artifactory.yml");
         try {
-            int removedCiTasks = gitea.cleanupActionsTaskContainers("workflow-prompt-repository-ci");
-            if (removedCiTasks > 0) {
-                log.info("Removed {} stale CI Actions task container(s) before deploy wait.", removedCiTasks);
-            }
+            // Stale runner-task container cleanup runs in @BeforeEach now (see cleanupStaleActionsRunnerContainers).
             gitea.logRepositoryActionsDiagnostics(repositoryOwner, REPO_NAME);
 
             Duration timeout = Duration.ofMinutes(12);
