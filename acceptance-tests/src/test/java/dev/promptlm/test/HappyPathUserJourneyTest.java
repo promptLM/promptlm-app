@@ -373,47 +373,55 @@ public class HappyPathUserJourneyTest {
     private JsonNode waitForArtifactoryDeployments() {
         Duration timeout = Duration.ofMinutes(12);
         Duration pollInterval = Duration.ofSeconds(5);
-        long deadline = System.nanoTime() + timeout.toNanos();
-        JsonNode lastDeployments = null;
-        JsonNode lastArchiveMetadata = null;
-        RuntimeException lastFetchError = null;
+        AtomicReference<JsonNode> lastDeployments = new AtomicReference<>();
+        AtomicReference<JsonNode> lastArchiveMetadata = new AtomicReference<>();
+        AtomicReference<RuntimeException> lastFetchError = new AtomicReference<>();
 
-        while (System.nanoTime() < deadline) {
-            try {
-                lastDeployments = ArtifactoryStorageHelper.fetchArtifactoryDeployments(HTTP_CLIENT, artifactoryContainer);
-                lastFetchError = null;
-                JsonNode children = lastDeployments.path("children");
-                if (children.isArray() && children.size() > 0) {
-                    lastArchiveMetadata = ArtifactoryStorageHelper.findFirstArtifactArchiveMetadata(HTTP_CLIENT, artifactoryContainer);
-                    if (lastArchiveMetadata != null) {
-                        String archivePath = lastArchiveMetadata.path("path").asText();
-                        log.info("Artifactory archive ready: {}", archivePath);
-                        return lastDeployments;
-                    }
-                    log.info("Artifactory has entries but no archive artifact yet; retrying in {}s",
-                            pollInterval.toSeconds());
-                } else {
-                    log.info("Artifactory has no artifacts yet; retrying in {}s", pollInterval.toSeconds());
+        try {
+            await()
+                    .pollInterval(pollInterval)
+                    .atMost(timeout)
+                    .until(() -> {
+                        try {
+                            JsonNode deployments = ArtifactoryStorageHelper.fetchArtifactoryDeployments(HTTP_CLIENT, artifactoryContainer);
+                            lastDeployments.set(deployments);
+                            lastFetchError.set(null);
+                            JsonNode children = deployments.path("children");
+                            if (children.isArray() && children.size() > 0) {
+                                JsonNode archiveMetadata = ArtifactoryStorageHelper.findFirstArtifactArchiveMetadata(HTTP_CLIENT, artifactoryContainer);
+                                lastArchiveMetadata.set(archiveMetadata);
+                                if (archiveMetadata != null) {
+                                    String archivePath = archiveMetadata.path("path").asText();
+                                    log.info("Artifactory archive ready: {}", archivePath);
+                                    return true;
+                                }
+                                log.info("Artifactory has entries but no archive artifact yet; retrying in {}s",
+                                        pollInterval.toSeconds());
+                            } else {
+                                log.info("Artifactory has no artifacts yet; retrying in {}s", pollInterval.toSeconds());
+                            }
+                            return false;
+                        } catch (RuntimeException fetchError) {
+                            lastFetchError.set(fetchError);
+                            log.warn("Failed to fetch Artifactory deployments (will retry in {}s): {}",
+                                    pollInterval.toSeconds(),
+                                    fetchError.getMessage());
+                            return false;
+                        }
+                    });
+            return lastDeployments.get();
+        } catch (ConditionTimeoutException conditionTimeout) {
+            if (lastDeployments.get() != null) {
+                if (lastArchiveMetadata.get() == null) {
+                    throw new IllegalStateException("Timed out waiting for an archive artifact (.jar/.zip) in Artifactory");
                 }
-            } catch (RuntimeException fetchError) {
-                lastFetchError = fetchError;
-                log.warn("Failed to fetch Artifactory deployments (will retry in {}s): {}",
-                        pollInterval.toSeconds(),
-                        fetchError.getMessage());
+                return lastDeployments.get();
             }
-            page.waitForTimeout(pollInterval.toMillis());
-        }
-
-        if (lastDeployments != null) {
-            if (lastArchiveMetadata == null) {
-                throw new IllegalStateException("Timed out waiting for an archive artifact (.jar/.zip) in Artifactory");
+            if (lastFetchError.get() != null) {
+                throw lastFetchError.get();
             }
-            return lastDeployments;
+            throw new IllegalStateException("Timed out waiting for Artifactory deployments to become available");
         }
-        if (lastFetchError != null) {
-            throw lastFetchError;
-        }
-        throw new IllegalStateException("Timed out waiting for Artifactory deployments to become available");
     }
 
     @Test
