@@ -31,6 +31,7 @@ import dev.promptlm.domain.promptspec.PromptSpec;
 import dev.promptlm.test.support.ArtifactoryStorageHelper;
 import dev.promptlm.test.support.GiteaRepositoryHelper;
 import dev.promptlm.test.support.PlaywrightNavigationHelper;
+import dev.promptlm.test.support.PollingHelper;
 import dev.promptlm.test.support.ProjectSetupHelper;
 import dev.promptlm.test.support.PromptWorkflowHelper;
 import dev.promptlm.test.support.ReleaseArtifactContractDelegate;
@@ -40,7 +41,6 @@ import dev.promptlm.testutils.artifactory.WithArtifactory;
 import dev.promptlm.testutils.gitea.Gitea;
 import dev.promptlm.testutils.gitea.GiteaContainer;
 import dev.promptlm.testutils.gitea.WithGitea;
-import org.awaitility.core.ConditionTimeoutException;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.Timeout;
@@ -63,7 +63,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static org.awaitility.Awaitility.await;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -353,45 +352,53 @@ public class HappyPathUserJourneyTest {
     private JsonNode waitForArtifactoryDeployments() {
         Duration timeout = Duration.ofMinutes(12);
         Duration pollInterval = Duration.ofSeconds(5);
-        long deadline = System.nanoTime() + timeout.toNanos();
-        JsonNode lastDeployments = null;
-        JsonNode lastArchiveMetadata = null;
-        RuntimeException lastFetchError = null;
+        AtomicReference<JsonNode> lastDeployments = new AtomicReference<>();
+        AtomicReference<JsonNode> lastArchiveMetadata = new AtomicReference<>();
+        AtomicReference<RuntimeException> lastFetchError = new AtomicReference<>();
 
-        while (System.nanoTime() < deadline) {
-            try {
-                lastDeployments = ArtifactoryStorageHelper.fetchArtifactoryDeployments(HTTP_CLIENT, artifactoryContainer);
-                lastFetchError = null;
-                JsonNode children = lastDeployments.path("children");
-                if (children.isArray() && children.size() > 0) {
-                    lastArchiveMetadata = ArtifactoryStorageHelper.findFirstArtifactArchiveMetadata(HTTP_CLIENT, artifactoryContainer);
-                    if (lastArchiveMetadata != null) {
-                        String archivePath = lastArchiveMetadata.path("path").asText();
-                        log.info("Artifactory archive ready: {}", archivePath);
-                        return lastDeployments;
+        PollingHelper.Result<JsonNode> result = PollingHelper.pollUntil(
+                timeout,
+                pollInterval,
+                () -> {
+                    try {
+                        JsonNode deployments = ArtifactoryStorageHelper.fetchArtifactoryDeployments(HTTP_CLIENT, artifactoryContainer);
+                        lastDeployments.set(deployments);
+                        lastFetchError.set(null);
+                        JsonNode children = deployments.path("children");
+                        if (children.isArray() && children.size() > 0) {
+                            JsonNode archiveMetadata = ArtifactoryStorageHelper.findFirstArtifactArchiveMetadata(HTTP_CLIENT, artifactoryContainer);
+                            lastArchiveMetadata.set(archiveMetadata);
+                            if (archiveMetadata != null) {
+                                String archivePath = archiveMetadata.path("path").asText();
+                                log.info("Artifactory archive ready: {}", archivePath);
+                                return Optional.of(deployments);
+                            }
+                            log.info("Artifactory has entries but no archive artifact yet; retrying in {}s",
+                                    pollInterval.toSeconds());
+                        } else {
+                            log.info("Artifactory has no artifacts yet; retrying in {}s", pollInterval.toSeconds());
+                        }
+                        return Optional.empty();
+                    } catch (RuntimeException fetchError) {
+                        lastFetchError.set(fetchError);
+                        log.warn("Failed to fetch Artifactory deployments (will retry in {}s): {}",
+                                pollInterval.toSeconds(),
+                                fetchError.getMessage());
+                        return Optional.empty();
                     }
-                    log.info("Artifactory has entries but no archive artifact yet; retrying in {}s",
-                            pollInterval.toSeconds());
-                } else {
-                    log.info("Artifactory has no artifacts yet; retrying in {}s", pollInterval.toSeconds());
-                }
-            } catch (RuntimeException fetchError) {
-                lastFetchError = fetchError;
-                log.warn("Failed to fetch Artifactory deployments (will retry in {}s): {}",
-                        pollInterval.toSeconds(),
-                        fetchError.getMessage());
-            }
-            page.waitForTimeout(pollInterval.toMillis());
-        }
+                });
 
-        if (lastDeployments != null) {
-            if (lastArchiveMetadata == null) {
+        if (result.value().isPresent()) {
+            return result.value().get();
+        }
+        if (lastDeployments.get() != null) {
+            if (lastArchiveMetadata.get() == null) {
                 throw new IllegalStateException("Timed out waiting for an archive artifact (.jar/.zip) in Artifactory");
             }
-            return lastDeployments;
+            return lastDeployments.get();
         }
-        if (lastFetchError != null) {
-            throw lastFetchError;
+        if (lastFetchError.get() != null) {
+            throw lastFetchError.get();
         }
         throw new IllegalStateException("Timed out waiting for Artifactory deployments to become available");
     }
@@ -549,57 +556,45 @@ public class HappyPathUserJourneyTest {
     }
 
     private PromptSpec waitForPromptSpec(String branch, String expectedVersion, Duration timeout) {
-        AtomicReference<PromptSpec> foundPrompt = new AtomicReference<>();
-        AtomicReference<Exception> lastError = new AtomicReference<>();
         AtomicReference<String> lastSeenVersion = new AtomicReference<>();
 
-        try {
-            await()
-                    .pollInterval(Duration.ofSeconds(1))
-                    .atMost(timeout)
-                    .until(() -> {
-                        try {
-                            Optional<String> yaml = GiteaRepositoryHelper.fetchRawFile(
-                                    HTTP_CLIENT,
-                                    getGiteaRepoUrl(),
-                                    branch,
-                                    "prompts/" + GROUP + "/" + PROMPT_NAME + "/promptlm.yml",
-                                    gitea.getAdminToken());
-                            if (yaml.isEmpty()) {
-                                return false;
-                            }
+        PollingHelper.Result<PromptSpec> result = PollingHelper.pollUntil(
+                timeout,
+                Duration.ofSeconds(1),
+                () -> {
+                    Optional<String> yaml = GiteaRepositoryHelper.fetchRawFile(
+                            HTTP_CLIENT,
+                            getGiteaRepoUrl(),
+                            branch,
+                            "prompts/" + GROUP + "/" + PROMPT_NAME + "/promptlm.yml",
+                            gitea.getAdminToken());
+                    if (yaml.isEmpty()) {
+                        return Optional.empty();
+                    }
 
-                            PromptSpec promptSpec = getPromptSpec(yaml.get());
-                            lastSeenVersion.set(promptSpec.getVersion());
-                            if (expectedVersion == null || expectedVersion.equals(promptSpec.getVersion())) {
-                                foundPrompt.set(promptSpec);
-                                return true;
-                            }
-                            log.debug("Prompt spec on branch '{}' currently at version '{}', waiting for '{}'", branch, promptSpec.getVersion(), expectedVersion);
-                            return false;
-                        } catch (Exception exception) {
-                            lastError.set(exception);
-                            return false;
-                        }
-                    });
-        } catch (ConditionTimeoutException conditionTimeout) {
-            String message = "Timed out waiting for prompt spec on branch '" + branch + "'";
-            if (expectedVersion != null) {
-                message = message + " with version '" + expectedVersion + "'";
-            }
-            if (lastSeenVersion.get() != null) {
-                message = message + " (last seen version '" + lastSeenVersion.get() + "')";
-            }
-            IllegalStateException timeoutException = new IllegalStateException(message);
-            if (lastError.get() != null) {
-                timeoutException.initCause(lastError.get());
-            } else {
-                timeoutException.initCause(conditionTimeout);
-            }
-            throw timeoutException;
+                    PromptSpec promptSpec = getPromptSpec(yaml.get());
+                    lastSeenVersion.set(promptSpec.getVersion());
+                    if (expectedVersion == null || expectedVersion.equals(promptSpec.getVersion())) {
+                        return Optional.of(promptSpec);
+                    }
+                    log.debug("Prompt spec on branch '{}' currently at version '{}', waiting for '{}'", branch, promptSpec.getVersion(), expectedVersion);
+                    return Optional.empty();
+                });
+
+        if (result.value().isPresent()) {
+            return result.value().get();
         }
 
-        return foundPrompt.get();
+        String message = "Timed out waiting for prompt spec on branch '" + branch + "'";
+        if (expectedVersion != null) {
+            message = message + " with version '" + expectedVersion + "'";
+        }
+        if (lastSeenVersion.get() != null) {
+            message = message + " (last seen version '" + lastSeenVersion.get() + "')";
+        }
+        IllegalStateException timeoutException = new IllegalStateException(message);
+        result.lastError().ifPresent(timeoutException::initCause);
+        throw timeoutException;
     }
 
     private static PromptSpec getPromptSpec(String rawYaml) {
