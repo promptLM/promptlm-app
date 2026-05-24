@@ -54,6 +54,18 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: 'maven'
+          server-id: github
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - name: Install promptlm-platform parent POM
+        # The root pom.xml references `<relativePath>../promptlm-platform/pom.xml</relativePath>`
+        # which only resolves locally. CI must clone the sibling repo and
+        # `mvn install` its parent POM into the local Maven cache, otherwise
+        # `dev.promptlm:promptlm-parent:<version>` is unresolvable and every
+        # Maven step fails before producing the OpenAPI spec. See acceptance.yml
+        # for the same pattern.
+        uses: ./.github/actions/install-platform-parent
 
       - name: Build webapp (produces OpenAPI spec)
         # The mock generator reads
