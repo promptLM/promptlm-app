@@ -139,8 +139,17 @@ export default function PromptDiff() {
   const detailTo = id ? `/prompts/${id}` : '/prompts';
 
   if (!A || !B) {
+    // Empty-state placeholder: keep the `prompt-diff-page` testid so the
+    // route is uniformly identifiable from automation regardless of
+    // whether the stub-corpus selection produced a comparable pair
+    // (the SPA's useState/initialSelection memo path races the first
+    // `usePrompts` payload — issue #252 / A4 flagged this; a real fix
+    // belongs with revision-history work — issue #76).
     return (
-      <div style={{ padding: 32, color: 'var(--pl-ink-700)' }}>
+      <div
+        style={{ padding: 32, color: 'var(--pl-ink-700)' }}
+        data-testid="prompt-diff-page"
+      >
         No prompt revisions to diff yet.
       </div>
     );
