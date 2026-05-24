@@ -132,13 +132,28 @@ function buildMockBackendFixture(mock: MockBackend): BackendFixture {
     /* ---- assertions --------------------------------------------------- */
 
     async expectCalled(opId: string, opts: ExpectCalledOptions = {}) {
-      const expectedTimes = opts.times ?? 1;
       const matcher = opts.withBodyMatching;
       const matches = state.callLog.filter((entry) => {
         if (entry.opId !== opId) return false;
         if (matcher == null) return true;
         return matcher(entry.body);
       });
+      if (opts.atLeast != null && opts.times != null) {
+        throw new Error(
+          "expectCalled: 'times' and 'atLeast' are mutually exclusive — pick one",
+        );
+      }
+      if (opts.atLeast != null) {
+        const min = opts.atLeast;
+        expect(
+          matches.length,
+          `expected ${opId} to have been called at least ${min} time(s) ` +
+            (matcher ? 'with matching body ' : '') +
+            `but observed ${matches.length}`,
+        ).toBeGreaterThanOrEqual(min);
+        return;
+      }
+      const expectedTimes = opts.times ?? 1;
       expect(
         matches.length,
         `expected ${opId} to have been called ${expectedTimes} time(s) ` +
@@ -158,6 +173,16 @@ function buildMockBackendFixture(mock: MockBackend): BackendFixture {
 
     setModelCatalog(catalog: ModelCatalogResponse) {
       state.modelCatalog = catalog;
+    },
+
+    /* ---- schema-contract validation ---------------------------------- */
+
+    validateResponse(opId: string, status: number, body: unknown) {
+      // Proxy straight through to the mock's ajv-driven validator. Throws
+      // `MockContractViolation` on a body-vs-schema mismatch; returns
+      // void on a pass. See `BackendFixture.validateResponse` for the
+      // rationale on why this lives on the fixture surface.
+      mock.validateResponse(opId, status, body);
     },
   };
 }
