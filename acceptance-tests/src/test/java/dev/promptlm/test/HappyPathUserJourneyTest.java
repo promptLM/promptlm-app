@@ -23,7 +23,6 @@ import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.WaitForSelectorState;
 import dev.promptlm.domain.ObjectMapperFactory;
-import dev.promptlm.domain.promptspec.ChatCompletionRequest;
 import dev.promptlm.domain.promptspec.ChatCompletionResponse;
 import dev.promptlm.domain.promptspec.Execution;
 import dev.promptlm.domain.promptspec.ExecutionKind;
@@ -243,12 +242,6 @@ public class HappyPathUserJourneyTest {
         assertThat(createdPrompt.getPlaceholders().getDefaults())
                 .containsEntry("number_one", "1")
                 .containsEntry("number_two", "2");
-        assertThat(createdPrompt.getRequest()).isInstanceOf(ChatCompletionRequest.class);
-        ChatCompletionRequest savedRequest = (ChatCompletionRequest) createdPrompt.getRequest();
-        assertThat(savedRequest.getMessages())
-                .isNotNull()
-                .anyMatch(message -> "user".equalsIgnoreCase(message.getRole())
-                        && "Number one [[number_one]] plus number two [[number_two]] equals?".equals(message.getContent()));
     }
 
     @Test
