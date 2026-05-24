@@ -7,22 +7,26 @@
     "src"
   ],
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./mock": "./src/mock/index.ts"
   },
   "types": "./src/index.ts",
   "scripts": {
     "validate:asyncapi": "node ./scripts/validate-asyncapi.mjs",
-    "generate": "npm run validate:asyncapi && npm run generate:asyncapi && npm run normalize:openapi && npm run generate:openapi && npm run generate:client",
+    "generate": "npm run validate:asyncapi && npm run generate:asyncapi && npm run normalize:openapi && npm run generate:openapi && npm run generate:client && npm run generate:mock",
     "generate:asyncapi": "node ./scripts/generate-asyncapi.mjs",
     "normalize:openapi": "node ./scripts/normalize-openapi.mjs",
     "generate:openapi": "openapi-typescript ../../apps/promptlm-webapp/target/generated/openapi/promptlm-webapp-openapi.json --output ./src/generated/openapi.ts",
     "generate:client": "openapi -i ../../apps/promptlm-webapp/target/generated/openapi/promptlm-webapp-openapi.json -o ./src/generated/client --client fetch",
+    "generate:mock": "node ./scripts/generate-mock.mjs",
     "test": "node --test scripts/*.test.mjs",
     "build": "tsc -p tsconfig.json"
   },
-  "devDependencies": {
+  "dependencies": {
     "ajv": "^8.18.0",
-    "ajv-formats": "^3.0.1",
+    "ajv-formats": "^3.0.1"
+  },
+  "devDependencies": {
     "@asyncapi/specs": "^6.11.1",
     "json-schema-to-typescript": "^15.0.4",
     "openapi-typescript": "^7.4.1",
