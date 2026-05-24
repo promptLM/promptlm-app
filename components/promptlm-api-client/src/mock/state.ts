@@ -149,6 +149,39 @@ export class MockBackendState {
     const name = field<string>(req, 'name') ?? '';
     const reqId = field<string>(req, 'id');
     const id = reqId && reqId.length > 0 ? reqId : `${group}/${name}`;
+
+    // The creation request flattens placeholders across three top-level fields
+    // (`placeholderStartPattern`, `placeholderEndPattern`, `placeholder` map);
+    // the PromptSpec response nests them under `placeholders.{startPattern,
+    // endPattern, defaults}`. The real backend performs this projection
+    // server-side — we mirror it here so round-trip assertions against the
+    // mock match the wire-format the Java HappyPath test exercises (issue
+    // #253, B1).
+    const startPattern = field<string>(req, 'placeholderStartPattern');
+    const endPattern = field<string>(req, 'placeholderEndPattern');
+    const defaultsRaw = field<Record<string, unknown>>(req, 'placeholder');
+    const defaults =
+      defaultsRaw != null && typeof defaultsRaw === 'object'
+        ? Object.fromEntries(
+            Object.entries(defaultsRaw).map(([k, v]) => [k, v == null ? '' : String(v)]),
+          )
+        : undefined;
+    const placeholders =
+      startPattern != null || endPattern != null || defaults != null
+        ? {
+            ...(startPattern != null ? { startPattern } : {}),
+            ...(endPattern != null ? { endPattern } : {}),
+            ...(defaults != null ? { defaults } : {}),
+          }
+        : undefined;
+
+    // The creation request carries the LLM-request configuration on its own
+    // top-level `request` field (a `PromptSpecRequest` discriminated union).
+    // PromptSpec re-exposes it under the same key, so we just pass it
+    // through opaquely — B3 (#255) will add a richer discriminator round-trip
+    // assertion.
+    const requestPayload = field<unknown>(req, 'request');
+
     return {
       id,
       name,
@@ -156,6 +189,10 @@ export class MockBackendState {
       description: field<string>(req, 'description'),
       version: field<string>(req, 'version'),
       repositoryUrl: field<string>(req, 'repositoryUrl'),
+      ...(placeholders != null ? { placeholders } : {}),
+      ...(requestPayload != null
+        ? { request: requestPayload as PromptSpec['request'] }
+        : {}),
     };
   }
 
