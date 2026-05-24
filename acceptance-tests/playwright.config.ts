@@ -27,6 +27,15 @@ import { defineConfig, devices } from '@playwright/test';
  */
 const includeRealProject = process.env.PLAYWRIGHT_PROFILE === 'real';
 
+/**
+ * Mock-mode targets the Vite dev server (`vite.config.ts` pins it to port
+ * 8080). Real mode targets the Java webapp; the URL here is unused at the
+ * SPA level because the real-mode `BackendFixture` is still a stub
+ * (issue #251 is mock-only) — overridden in a follow-up issue.
+ */
+const MOCK_BASE_URL = process.env.PLAYWRIGHT_MOCK_BASE_URL ?? 'http://localhost:8080';
+const REAL_BASE_URL = process.env.PLAYWRIGHT_REAL_BASE_URL ?? 'http://localhost:8085';
+
 export default defineConfig({
   testDir: './tests/specs',
   outputDir: './test-results',
@@ -39,12 +48,37 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
+  /**
+   * Launch a Vite-served SPA before running mock-mode specs. We use
+   * `build` + `preview` rather than `dev` so the browser sees a
+   * pre-bundled SPA (no on-demand dep optimisation, no HMR-triggered
+   * reload mid-test) — that was the cause of the empty `#root` div we
+   * saw with `vite dev`: the first page load aborted itself when Vite
+   * finished optimising deps and reloaded.
+   *
+   * `cwd` is the repo root so npm can resolve the `@promptlm/web-ui`
+   * workspace. Real-mode runs override `PLAYWRIGHT_SKIP_WEB_SERVER` to
+   * skip this step — the SPA there points at the Java webapp directly.
+   */
+  webServer: process.env.PLAYWRIGHT_SKIP_WEB_SERVER
+    ? undefined
+    : {
+        command:
+          'npm --workspace @promptlm/web-ui run build:dev && ' +
+          'npm --workspace @promptlm/web-ui run preview -- --port 8080 --strictPort',
+        cwd: '..',
+        url: MOCK_BASE_URL,
+        reuseExistingServer: !process.env.CI,
+        timeout: 240_000,
+        stdout: 'pipe',
+        stderr: 'pipe',
+      },
   projects: [
     {
       name: 'chromium-mock',
       use: {
         ...devices['Desktop Chrome'],
-        baseURL: 'http://localhost:0',
+        baseURL: MOCK_BASE_URL,
       },
     },
     ...(includeRealProject
@@ -53,7 +87,7 @@ export default defineConfig({
             name: 'chromium-real',
             use: {
               ...devices['Desktop Chrome'],
-              baseURL: 'http://localhost:0',
+              baseURL: REAL_BASE_URL,
             },
           },
         ]
