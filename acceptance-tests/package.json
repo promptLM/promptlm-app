@@ -6,6 +6,9 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },
+  "dependencies": {
+    "@promptlm/api-client": "file:../components/promptlm-api-client"
+  },
   "devDependencies": {
     "@playwright/test": "1.49.0",
     "@types/node": "^20.0.0",
