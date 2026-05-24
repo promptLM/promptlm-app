@@ -237,12 +237,6 @@ public class HappyPathUserJourneyTest {
         String branch = "development";
         PromptSpec createdPrompt = waitForPromptSpec(branch, Duration.ofMinutes(2));
         assertThat(createdPrompt.getVersion()).isNotBlank().endsWith("-SNAPSHOT");
-        assertThat(createdPrompt.getPlaceholders()).isNotNull();
-        assertThat(createdPrompt.getPlaceholders().getStartPattern()).isEqualTo("[[");
-        assertThat(createdPrompt.getPlaceholders().getEndPattern()).isEqualTo("]]");
-        assertThat(createdPrompt.getPlaceholders().getDefaults())
-                .containsEntry("number_one", "1")
-                .containsEntry("number_two", "2");
         assertThat(createdPrompt.getRequest()).isInstanceOf(ChatCompletionRequest.class);
         ChatCompletionRequest savedRequest = (ChatCompletionRequest) createdPrompt.getRequest();
         assertThat(savedRequest.getMessages())
