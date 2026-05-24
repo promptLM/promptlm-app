@@ -143,12 +143,37 @@ export class MockBackendState {
    * and openapi-typescript-codegen flavours of `PromptSpecCreationRequest`
    * are nominally distinct types — the spec-side caller hands us the
    * former; we read the fields we care about by name.
+   *
+   * The `request` field is preserved verbatim (including its `type`
+   * discriminator and any kind-specific fields) so a downstream
+   * `getPromptById` round-trip retains the polymorphic payload — required
+   * by issue #255 (B3) which proves the wire format preserves
+   * `chat/completion` / `images/generations` / `audio/speech` across
+   * save → read. `messages` is copied through for the same reason.
    */
   materialisePromptFromCreationRequest(req: unknown): PromptSpec {
     const group = field<string>(req, 'group') ?? '';
     const name = field<string>(req, 'name') ?? '';
     const reqId = field<string>(req, 'id');
     const id = reqId && reqId.length > 0 ? reqId : `${group}/${name}`;
+    const requestPayload = field<PromptSpec['request']>(req, 'request');
+    const messagesField = field<unknown>(req, 'messages');
+    // The SPA mirrors `messages` both onto `request.messages` (per
+    // `ChatCompletionRequest`) and as a top-level convenience field. The
+    // generated `PromptSpec` type only carries them nested under
+    // `request`, so fold the top-level array into the request if the
+    // request omitted them.
+    let finalRequest: PromptSpec['request'] | undefined = requestPayload;
+    if (
+      finalRequest != null &&
+      Array.isArray(messagesField) &&
+      (finalRequest as { messages?: unknown }).messages == null
+    ) {
+      finalRequest = {
+        ...(finalRequest as object),
+        messages: messagesField,
+      } as PromptSpec['request'];
+    }
     return {
       id,
       name,
@@ -156,6 +181,7 @@ export class MockBackendState {
       description: field<string>(req, 'description'),
       version: field<string>(req, 'version'),
       repositoryUrl: field<string>(req, 'repositoryUrl'),
+      request: finalRequest,
     };
   }
 
