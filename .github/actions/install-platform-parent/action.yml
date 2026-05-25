@@ -46,4 +46,4 @@ runs:
             "https://x-access-token:${{ inputs.token }}@github.com/promptLM/promptlm-platform.git" \
             "$SIBLING"
         fi
-        mvn -B -N -f "$SIBLING/pom.xml" install -DskipTests
+        mvn -B -f "$SIBLING/pom.xml" install -DskipTests
