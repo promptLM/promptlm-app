@@ -28,8 +28,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
- * Verifies the bundled {@code promptlm.yml} template defaults to Mode 1
- * (release disabled) and ships the full schema required by issue #161.
+ * Verifies the bundled {@code promptlm.yml} template defaults to Mode 2
+ * (release enabled) per issue #276 and ships the full schema required by
+ * issue #161. The Mode-2 default is a stopgap until the progressive-disclosure
+ * UX in #275 ships — revert to Mode 1 when that work lands.
  */
 class RepositoryTemplatePromptlmYmlTest {
 
@@ -42,13 +44,15 @@ class RepositoryTemplatePromptlmYmlTest {
     }
 
     @Test
-    void promptlmYmlDefaultsReleaseEnabledToFalse() throws Exception {
+    void promptlmYmlDefaultsReleaseEnabledToTrue() throws Exception {
         String content = readPromptlmYmlFromTemplateZip();
-        // The default must be Mode 1 (prompt management) so private users do
-        // not unexpectedly receive a full CI/CD pipeline.
+        // Stopgap per #276: the template defaults to Mode 2 (release enabled)
+        // so newly created repositories ship with the full release pipeline.
+        // The durable Mode-1-default + opt-in promotion UX is tracked in #275;
+        // when that ships, revert this expectation back to `enabled: false`.
         assertThat(content)
-                .as("Default promptlm.yml must set release.enabled to false (issue #161, F-007/F-010)")
-                .containsPattern("(?m)^\\s+enabled:\\s*false\\b");
+                .as("Default promptlm.yml must set release.enabled to true (issue #276 stopgap; reverts when #275 ships)")
+                .containsPattern("(?m)^\\s+enabled:\\s*true\\b");
     }
 
     @Test

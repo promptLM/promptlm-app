@@ -305,4 +305,70 @@ describe('buildPromptDraftInputFromPrompt', () => {
     expect(draft.placeholders.defaults).toEqual({ customer: 'Alice' });
     expect(draft.extensions).toEqual({ 'x-custom': { foo: 'bar' } });
   });
+
+  it('does not inject a system message when the source prompt has none', () => {
+    const prompt: PromptSpec = {
+      id: 'prompt-2',
+      name: 'No-System Prompt',
+      group: 'support',
+      request: {
+        type: 'chat/completion',
+        vendor: 'openai',
+        model: 'gpt-4o',
+        messages: [{ role: 'USER', content: 'hello' }],
+      },
+    };
+
+    const draft = buildPromptDraftInputFromPrompt(prompt);
+
+    expect(draft.request.messages).toEqual([{ role: 'user', content: 'hello' }]);
+  });
+
+  it('preserves an existing system message from the source prompt', () => {
+    const prompt: PromptSpec = {
+      id: 'prompt-3',
+      name: 'With System',
+      group: 'support',
+      request: {
+        type: 'chat/completion',
+        vendor: 'openai',
+        model: 'gpt-4o',
+        messages: [
+          { role: 'SYSTEM', content: 'you are helpful' },
+          { role: 'USER', content: 'hi' },
+        ],
+      },
+    };
+
+    const draft = buildPromptDraftInputFromPrompt(prompt);
+
+    expect(draft.request.messages).toEqual([
+      { role: 'system', content: 'you are helpful' },
+      { role: 'user', content: 'hi' },
+    ]);
+  });
+
+  it('preserves a user-authored empty system message', () => {
+    const prompt: PromptSpec = {
+      id: 'prompt-4',
+      name: 'Empty System Authored',
+      group: 'support',
+      request: {
+        type: 'chat/completion',
+        vendor: 'openai',
+        model: 'gpt-4o',
+        messages: [
+          { role: 'SYSTEM', content: '' },
+          { role: 'USER', content: 'hi' },
+        ],
+      },
+    };
+
+    const draft = buildPromptDraftInputFromPrompt(prompt);
+
+    expect(draft.request.messages).toEqual([
+      { role: 'system', content: '' },
+      { role: 'user', content: 'hi' },
+    ]);
+  });
 });
