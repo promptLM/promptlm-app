@@ -23,6 +23,7 @@ import dev.promptlm.repository.template.RepositoryTemplateExtractor;
 import dev.promptlm.repository.template.TemplateContext;
 import dev.promptlm.repository.template.TemplateSubstitutionEngine;
 import dev.promptlm.store.api.ProjectService;
+import dev.promptlm.store.api.ReleaseProvider;
 import dev.promptlm.store.api.RemoteRepositoryAlreadyExistsException;
 import dev.promptlm.store.api.RepositoryGenerationConfig;
 import dev.promptlm.store.api.RepositoryOwner;
@@ -225,10 +226,19 @@ public class GitProjectService implements ProjectService {
                     ownerAndRepo.repo()
             );
         }
-        // TODO(#161): drive description / defaultBranch / release config from promptlm.yml.
-        RepositoryGenerationConfig config = RepositoryGenerationConfig.defaults(
+        // TODO(#275): drive description / defaultBranch / release config from
+        // promptlm.yml once the progressive-disclosure (Mode 1 default + opt-in
+        // promotion) UX ships. Until then, #276 has us default new repositories
+        // to release-enabled (Mode 2) so the full release pipeline is reachable
+        // without a user-facing "Enable releases" toggle. Revert this branch
+        // back to RepositoryGenerationConfig.defaults(...) when #275 lands.
+        RepositoryGenerationConfig config = new RepositoryGenerationConfig(
+                ownerAndRepo.repo(),
                 ownerAndRepo.owner(),
-                ownerAndRepo.repo()
+                RepositoryGenerationConfig.DEFAULT_DESCRIPTION,
+                RepositoryGenerationConfig.DEFAULT_BRANCH,
+                true,
+                ReleaseProvider.GITHUB_ACTIONS
         );
         return remoteGitRepositoryProvisioner.createRemoteRepository(config);
     }
