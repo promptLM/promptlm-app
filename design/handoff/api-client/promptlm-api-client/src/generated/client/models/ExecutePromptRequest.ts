@@ -22,5 +22,10 @@ import type { PromptSpec } from './PromptSpec';
  */
 export type ExecutePromptRequest = {
     promptSpec?: PromptSpec;
+    /**
+     * Marks this run as a draft (unsaved edits). When true, the body is
+     * executed but no MANUAL Execution is recorded. Default false.
+     */
+    draft?: boolean;
 };
 

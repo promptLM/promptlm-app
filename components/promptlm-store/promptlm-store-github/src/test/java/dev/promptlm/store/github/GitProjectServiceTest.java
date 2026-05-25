@@ -30,6 +30,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.io.IOException;
@@ -41,8 +42,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Stream;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class GitProjectServiceTest {
@@ -122,13 +122,13 @@ class GitProjectServiceTest {
         verify(git).addAllAndCommit(repoDir.toFile(), "initial commit");
         verify(git).checkoutOrCreateBranch(GitProjectService.DEVELOPMENT_BRANCH, repoDir.toFile());
         verify(git, times(2)).pushAll(repoDir.toFile());
-        verify(remoteRepositoryProvisioner).createRemoteRepository(argThat((RepositoryGenerationConfig config) ->
-                config != null
-                        && owner.equals(config.ownerName())
-                        && projectName.equals(config.repositoryName())
-                        && RepositoryGenerationConfig.DEFAULT_DESCRIPTION.equals(config.description())
-                        && RepositoryGenerationConfig.DEFAULT_BRANCH.equals(config.defaultBranch())
-                        && !config.releaseEnabled()));
+        var config = ArgumentCaptor.forClass(RepositoryGenerationConfig.class);
+        verify(remoteRepositoryProvisioner).createRemoteRepository(config.capture());
+        assertThat(config.getValue().ownerName()).isEqualTo(owner);
+        assertThat(config.getValue().repositoryName()).isEqualTo(projectName);
+        assertThat(config.getValue().description()).isEqualTo(RepositoryGenerationConfig.DEFAULT_DESCRIPTION);
+        assertThat(config.getValue().defaultBranch()).isEqualTo(RepositoryGenerationConfig.DEFAULT_BRANCH);
+        assertThat(config.getValue().releaseEnabled()).isTrue();
         assertThat(appContext.getActiveProject()).isSameAs(projectSpec);
         verify(eventPublisher).publishEvent((Object) argThat( event -> {
             if (!(event instanceof ProjectCreatedEvent)) {
