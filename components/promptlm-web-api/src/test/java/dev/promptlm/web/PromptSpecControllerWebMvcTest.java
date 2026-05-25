@@ -24,6 +24,7 @@ import dev.promptlm.domain.projectspec.ProjectSpec;
 import dev.promptlm.domain.promptspec.ChatCompletionRequest;
 import dev.promptlm.domain.promptspec.ChatCompletionResponse;
 import dev.promptlm.domain.promptspec.Execution;
+import dev.promptlm.domain.promptspec.ExecutionKind;
 import dev.promptlm.domain.promptspec.PromptEvaluationDefinition;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import dev.promptlm.domain.promptspec.ReleaseMetadata;
@@ -574,11 +575,21 @@ class PromptSpecControllerWebMvcTest {
     @Test
     void executeStoredPromptExecutesRequestBodyDraftWhenProvidedButDoesNotRecordHistory() throws Exception {
         // Issue #183 / D-183-5: when the request body carries a PromptSpec
-        // (e.g. the editor's current form state), the controller must execute
-        // *that* spec rather than the stored YAML — and return the executed
-        // result to the UI so it can render the response — but the execution
-        // is NOT recorded in history. Draft executions are ephemeral: history
-        // only ever contains runs of actually-stored content.
+        // (e.g. the editor's current form state) AND the editor flags the
+        // payload as a draft (the user has unsaved edits), the controller
+        // must execute *that* spec rather than the stored YAML — and return
+        // the executed result to the UI so it can render the response — but
+        // the execution is NOT recorded in history. Draft executions are
+        // ephemeral: history only ever contains runs of actually-stored
+        // content.
+        //
+        // Note: the draft-ness is signalled explicitly via the request's
+        // `draft` flag (see ExecutePromptRequest). The earlier implementation
+        // inferred it from body-vs-stored semantic-hash divergence; that
+        // proved fragile in practice and is the bug this test originally
+        // covered with the wrong half of the contract — see
+        // executeStoredPromptRecordsHistoryWhenDraftFlagIsFalseEvenIfBodyDiverges
+        // for the regression pin (issue #140).
         String promptId = "prompt-a";
 
         ChatCompletionRequest storedRequestPayload = ChatCompletionRequest.builder()
@@ -636,7 +647,9 @@ class PromptSpecControllerWebMvcTest {
         when(promptExecutor.runPromptAndAttachResponse(any(PromptSpec.class))).thenReturn(executedDraft);
         when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(storedPrompt));
 
-        ExecutePromptRequest executePromptRequest = new ExecutePromptRequest(draftPrompt);
+        // draft=true: the editor is flagging this as an unsaved-edit run, so
+        // it must execute the body but skip recording history.
+        ExecutePromptRequest executePromptRequest = new ExecutePromptRequest(draftPrompt, true);
 
         mockMvc.perform(post("/api/prompts/{promptSpecId}/execute", promptId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -776,6 +789,168 @@ class PromptSpecControllerWebMvcTest {
         verify(promptExecutor).runPromptAndAttachResponse(executedCaptor.capture());
         assertThat(executedCaptor.getValue().getDescription()).isEqualTo("stored");
         assertThat(executedCaptor.getValue().getId()).isEqualTo(promptId);
+    }
+
+    @Test
+    void executeStoredPromptRecordsHistoryWhenDraftFlagIsFalseEvenIfBodyDiverges() throws Exception {
+        // Issue #140 / #183 reconciliation — REGRESSION PIN for the bug that
+        // blocked HappyPath#runPromptPersistsManualExecution on every PR for
+        // ~two weeks.
+        //
+        // The editor's Run action always sends the current form state as the
+        // request body (PromptFormShell#handleEditorRun). That body is *never*
+        // byte-identical to the stored YAML: TS-side normalisation upper-cases
+        // roles, drops/synthesises optional fields, reshapes placeholders, etc.
+        //
+        // The earlier implementation inferred draft-vs-clean by comparing
+        // `PromptSpec#computeSemanticHash` of body vs stored. Any one of the
+        // normalisation differences was enough to flip that hash, so every
+        // clean Run was misclassified as a draft and the MANUAL Execution was
+        // silently dropped. (#246 + #277 chased two of those normalisation
+        // gaps but never closed the design.)
+        //
+        // New contract: the editor sends `draft: false` (the default) for a
+        // clean Run and `draft: true` only when it knows the user has unsaved
+        // edits (PromptFormShell tracks `isDirty`). The controller trusts the
+        // flag and ignores body-vs-stored shape divergence.
+        //
+        // This test pins the new contract: body diverges semantically from
+        // stored, draft flag is false → the MANUAL Execution MUST be recorded.
+        String promptId = "prompt-clean-run";
+
+        ChatCompletionRequest storedRequest = ChatCompletionRequest.builder()
+                .withVendor("openai")
+                .withModel("gpt-4o")
+                .withMessages(List.of(
+                        // Stored YAML happens to have lower-case role.
+                        ChatCompletionRequest.Message.builder()
+                                .withRole("user")
+                                .withContent("Identical content")
+                                .build()
+                ))
+                .withParameters(Map.of())
+                .build();
+
+        // Body from the editor: same content, different role casing (UPPER).
+        // Under the old hash heuristic this would be misclassified as a draft
+        // and the execution silently dropped — exactly the production bug.
+        ChatCompletionRequest editorRequest = ChatCompletionRequest.builder()
+                .withVendor("openai")
+                .withModel("gpt-4o")
+                .withMessages(List.of(
+                        ChatCompletionRequest.Message.builder()
+                                .withRole("USER")
+                                .withContent("Identical content")
+                                .build()
+                ))
+                .withParameters(Map.of())
+                .build();
+
+        PromptSpec storedPrompt = PromptSpec.builder()
+                .withGroup("support")
+                .withName("prompt-clean-run")
+                .withVersion("1.0.0")
+                .withRevision(4)
+                .withDescription("stored")
+                .withRequest(storedRequest)
+                .build()
+                .withId(promptId);
+
+        PromptSpec cleanDraft = PromptSpec.builder()
+                .withGroup("support")
+                .withName("prompt-clean-run")
+                .withVersion("1.0.0")
+                .withRevision(4)
+                .withDescription("stored")
+                .withRequest(editorRequest)
+                .build()
+                .withId(promptId);
+
+        // Sanity check the regression scenario: the hashes really do diverge,
+        // so this test would have FAILED under the old controller logic.
+        assertThat(cleanDraft.hasSemanticChangesComparedTo(storedPrompt))
+                .as("editor body diverges from stored YAML by case alone — the old "
+                        + "hash heuristic would have misclassified this as a draft")
+                .isTrue();
+
+        ChatCompletionResponse response = new ChatCompletionResponse(7L, null, "Pong");
+        PromptSpec executed = cleanDraft.withResponse(response);
+        PromptSpec persisted = storedPrompt.withResponse(response);
+
+        when(promptExecutor.runPromptAndAttachResponse(any(PromptSpec.class))).thenReturn(executed);
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(storedPrompt));
+        when(promptLifecycleFacade.recordExecution(eq(promptId), any(Execution.class)))
+                .thenReturn(persisted);
+
+        // draft flag explicitly false (also the default).
+        ExecutePromptRequest executeRequest = new ExecutePromptRequest(cleanDraft, false);
+
+        mockMvc.perform(post("/api/prompts/{promptSpecId}/execute", promptId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(executeRequest)))
+                .andExpect(status().isOk());
+
+        // The execution MUST be recorded — this is what
+        // HappyPathUserJourneyTest#runPromptPersistsManualExecution observes.
+        ArgumentCaptor<Execution> executionCaptor = ArgumentCaptor.forClass(Execution.class);
+        verify(promptLifecycleFacade).recordExecution(eq(promptId), executionCaptor.capture());
+        assertThat(executionCaptor.getValue().kindOrManual())
+                .as("clean editor Run records a MANUAL execution")
+                .isEqualTo(ExecutionKind.MANUAL);
+    }
+
+    @Test
+    void executeStoredPromptOmittedDraftFieldDefaultsToRecordingHistory() throws Exception {
+        // Backwards-compat / safety net: a request whose JSON body omits the
+        // `draft` field entirely (older client, hand-crafted call) must
+        // default to draft=false → recording history. This pins the default
+        // so a future Jackson-config change can't silently flip semantics.
+        String promptId = "prompt-default-draft";
+
+        ChatCompletionRequest payload = ChatCompletionRequest.builder()
+                .withVendor("openai")
+                .withModel("gpt-4o")
+                .withMessages(List.of(
+                        ChatCompletionRequest.Message.builder()
+                                .withRole("user")
+                                .withContent("hello")
+                                .build()
+                ))
+                .withParameters(Map.of())
+                .build();
+
+        PromptSpec storedPrompt = PromptSpec.builder()
+                .withGroup("support")
+                .withName("prompt-default-draft")
+                .withVersion("1.0.0")
+                .withRevision(1)
+                .withDescription("stored")
+                .withRequest(payload)
+                .build()
+                .withId(promptId);
+
+        ChatCompletionResponse response = new ChatCompletionResponse(3L, null, "Pong");
+        PromptSpec executed = storedPrompt.withResponse(response);
+        PromptSpec persisted = storedPrompt.withResponse(response);
+
+        when(promptExecutor.runPromptAndAttachResponse(any(PromptSpec.class))).thenReturn(executed);
+        when(promptStore.getLatestVersion(promptId)).thenReturn(Optional.of(storedPrompt));
+        when(promptLifecycleFacade.recordExecution(eq(promptId), any(Execution.class)))
+                .thenReturn(persisted);
+
+        // Hand-crafted body that omits the `draft` field. Note we still send
+        // a `promptSpec` so the body branch in the controller is taken.
+        String bodyJson = "{\"promptSpec\":"
+                + objectMapper.writeValueAsString(storedPrompt)
+                + "}";
+
+        mockMvc.perform(post("/api/prompts/{promptSpecId}/execute", promptId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(bodyJson))
+                .andExpect(status().isOk());
+
+        verify(promptLifecycleFacade)
+                .recordExecution(eq(promptId), any(Execution.class));
     }
 
     @Test
