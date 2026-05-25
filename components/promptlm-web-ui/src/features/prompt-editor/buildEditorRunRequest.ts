@@ -20,6 +20,14 @@
  * same way the Save path does, then maps it to the
  * `ExecutePromptRequest` shape the backend expects.
  *
+ * Issue #140 reconciliation: the editor knows whether the user has unsaved
+ * edits via `usePromptFormDirty` and passes it here as `isDirty`. We
+ * propagate that into `request.draft`, which the backend uses as the
+ * authoritative discriminator between a clean Run (records a MANUAL
+ * Execution) and a draft Run (ephemeral). An earlier design inferred this
+ * from body-vs-stored semantic-hash divergence and chronically misclassified
+ * clean Runs as drafts — see PromptSpecController#executeStoredPrompt.
+ *
  * The companion backend change in `PromptSpecController.executeStoredPrompt`
  * makes the body authoritative when supplied. The path id remains the source
  * of truth for which prompt's history the execution is recorded under.
@@ -33,13 +41,26 @@ export type BuildEditorRunRequestInput = {
   draft: PromptDraftInput;
   evaluationEnabled: boolean;
   repositoryUrl?: string | null;
+  /**
+   * Whether the editor form has unsaved edits relative to the stored prompt.
+   * Sourced from `usePromptFormDirty` in PromptFormShell.
+   *
+   * - `false` (default) → clean Run: backend records a MANUAL Execution
+   *   against the stored prompt (issue #140, HappyPath
+   *   `runPromptPersistsManualExecution`).
+   * - `true` → unsaved-edit Run: backend executes the body but skips
+   *   recording — the user is experimenting (issue #183).
+   */
+  isDirty?: boolean;
 };
 
 export const buildEditorRunRequest = ({
   draft,
   evaluationEnabled,
   repositoryUrl,
+  isDirty = false,
 }: BuildEditorRunRequestInput): ExecutePromptRequest => {
   const sanitized = sanitizePromptDraft(draft, evaluationEnabled, repositoryUrl);
-  return buildExecutePromptRequest(sanitized);
+  const body = buildExecutePromptRequest(sanitized);
+  return { ...body, draft: isDirty };
 };
