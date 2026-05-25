@@ -712,7 +712,6 @@ public class PromptSpecController {
 
         PromptSpec storedSpec = latestStoredSpec.get();
         PromptSpec promptSpecToExecute = storedSpec;
-        boolean isDraftExecution = false;
 
         if (request != null && request.getPromptSpec() != null) {
             PromptSpec requestPromptSpec = request.getPromptSpec();
@@ -722,18 +721,23 @@ public class PromptSpecController {
             // Execute the spec from the request body (issue #183). The path id is
             // authoritative — force it onto the spec so any downstream code that
             // reads the id sees the canonical one.
-            //
-            // Issue #140 / #183 reconciliation: only treat the run as ephemeral
-            // when the body actually diverges semantically from the stored spec.
-            // A clean editor Run on a saved prompt — frontend always sends a
-            // body (PromptFormShell#handleEditorRun) but the user hasn't edited
-            // anything — has zero semantic delta and must still record a MANUAL
-            // execution (issue #140). A run on an in-progress edit keeps the
-            // D-183-5 ephemerality so the user can experiment without polluting
-            // the dev branch.
             promptSpecToExecute = requestPromptSpec.withId(promptSpecId);
-            isDraftExecution = promptSpecToExecute.hasSemanticChangesComparedTo(storedSpec);
         }
+
+        // Issue #140 / #183 reconciliation: the editor knows whether the user
+        // has unsaved edits — it tells us via the `draft` flag. A clean Run
+        // (draft=false, the default) records a MANUAL Execution against the
+        // stored prompt; a run with unsaved edits (draft=true) is ephemeral so
+        // the user can experiment without polluting the dev branch.
+        //
+        // Earlier code inferred draft-ness from
+        // `PromptSpec#hasSemanticChangesComparedTo`, but that proved fragile:
+        // the TS payload differs from the stored YAML in a hundred small ways
+        // (role casing, normalisation, synthesised system messages, ...), so
+        // a clean Run was constantly misclassified and the MANUAL Execution
+        // silently dropped. See HappyPathUserJourneyTest
+        // #runPromptPersistsManualExecution.
+        boolean isDraftExecution = request != null && request.isDraft();
 
         if (promptSpecToExecute.getId() == null || promptSpecToExecute.getId().isBlank()) {
             promptSpecToExecute = promptSpecToExecute.withId(promptSpecId);
