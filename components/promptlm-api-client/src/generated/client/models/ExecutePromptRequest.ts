@@ -19,5 +19,15 @@
 import type { PromptSpec } from './PromptSpec';
 export type ExecutePromptRequest = {
     promptSpec?: PromptSpec;
+    /**
+     * Marks this run as a draft (unsaved edits). When true, the body is
+     * executed but no MANUAL Execution is recorded against the stored
+     * prompt — the run is ephemeral. Default false: a clean editor Run
+     * (no unsaved edits) records a MANUAL Execution.
+     *
+     * Manually added ahead of the next OpenAPI regeneration — keep in
+     * sync with the Java DTO `dev.promptlm.web.ExecutePromptRequest`.
+     */
+    draft?: boolean;
 };
 

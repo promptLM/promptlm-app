@@ -70,6 +70,7 @@ describe('buildEditorRunRequest (issue #183)', () => {
       draft,
       evaluationEnabled: false,
       repositoryUrl: 'https://example.test/repo.git',
+      isDirty: true,
     });
 
     expect(payload.promptSpec).toBeDefined();
@@ -104,6 +105,7 @@ describe('buildEditorRunRequest (issue #183)', () => {
       draft,
       evaluationEnabled: false,
       repositoryUrl: 'https://example.test/repo.git',
+      isDirty: true,
     });
 
     const placeholders = payload.promptSpec?.placeholders;
@@ -135,5 +137,50 @@ describe('buildEditorRunRequest (issue #183)', () => {
 
     expect(payload.promptSpec).toBeDefined();
     expect(payload.promptSpec?.id).toBeUndefined();
+  });
+});
+
+describe('buildEditorRunRequest — draft flag (issue #140)', () => {
+  // The draft flag is the backend's authoritative discriminator between a
+  // clean Run (records a MANUAL Execution) and a draft Run (ephemeral).
+  // See PromptSpecController#executeStoredPrompt and
+  // ExecutePromptRequest.java. Earlier code inferred this from semantic-hash
+  // divergence, which silently dropped MANUAL Executions and blocked
+  // HappyPathUserJourneyTest#runPromptPersistsManualExecution on every PR.
+
+  it('sets draft=false when isDirty is false (clean Run → backend records history)', () => {
+    const payload = buildEditorRunRequest({
+      draft: baseDraft(),
+      evaluationEnabled: false,
+      repositoryUrl: 'https://example.test/repo.git',
+      isDirty: false,
+    });
+
+    expect(payload.draft).toBe(false);
+  });
+
+  it('sets draft=true when isDirty is true (unsaved edits → backend skips recording)', () => {
+    const payload = buildEditorRunRequest({
+      draft: baseDraft(),
+      evaluationEnabled: false,
+      repositoryUrl: 'https://example.test/repo.git',
+      isDirty: true,
+    });
+
+    expect(payload.draft).toBe(true);
+  });
+
+  it('defaults draft to false when isDirty is omitted (safe default = record history)', () => {
+    // The default matches the backend default and matches HappyPath's
+    // expectation: a Run with no explicit dirty signal is treated as clean
+    // so the MANUAL Execution is recorded. Anything else would silently
+    // regress issue #140.
+    const payload = buildEditorRunRequest({
+      draft: baseDraft(),
+      evaluationEnabled: false,
+      repositoryUrl: 'https://example.test/repo.git',
+    });
+
+    expect(payload.draft).toBe(false);
   });
 });
