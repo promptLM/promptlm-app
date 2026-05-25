@@ -516,10 +516,16 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
       // the backend executes what the user sees in the editor, not the stored
       // YAML. The path id remains authoritative — the controller forces it
       // onto the spec and records the execution under the stored prompt id.
+      //
+      // Issue #140: forward the form's dirty flag as `draft`. The backend
+      // uses this as the authoritative discriminator: a clean Run
+      // (isDirty=false) records a MANUAL Execution; an unsaved-edit Run
+      // (isDirty=true) is ephemeral. See PromptSpecController#executeStoredPrompt.
       const executeRequest = buildEditorRunRequest({
         draft: editor.state.draft,
         evaluationEnabled: evaluationEnabledForPayload,
         repositoryUrl: data.activeProject?.repositoryUrl,
+        isDirty,
       });
       const result = await promptSpecs.executeStoredPrompt(effectivePromptId, executeRequest);
       const exec = result?.executions?.[0];
@@ -569,6 +575,7 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
     editor.state.draft,
     evaluationEnabledForPayload,
     data.activeProject?.repositoryUrl,
+    isDirty,
   ]);
 
   // Issue #185 — `beforeunload`: prompt on tab close / reload while dirty.
