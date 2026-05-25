@@ -262,14 +262,23 @@ export const buildPromptDraftInputFromPrompt = (
   const request = prompt.request as PromptSpecRequest | undefined;
   const existingMessages = readPromptMessages(prompt);
   const preservedMessages = existingMessages.filter((message) => message.role !== 'system' && message.role !== 'user');
-  const systemMessage =
-    overrides?.systemMessage ??
-    existingMessages.find((message) => message.role === 'system')?.content ??
-    '';
+  const existingSystem = existingMessages.find((message) => message.role === 'system');
+  // Only synthesise a system message when the caller supplied one or the stored
+  // prompt already had one. Injecting an empty system message into prompts that
+  // never declared one makes the editor's draft diverge from the stored spec,
+  // which causes executeStoredPrompt to misclassify the run as a draft (#248).
+  const systemMessage = overrides?.systemMessage ?? existingSystem?.content;
   const userMessage =
     overrides?.userMessage ??
     existingMessages.find((message) => message.role === 'user')?.content ??
     '';
+
+  const messages: EditablePromptMessage[] = [];
+  if (systemMessage !== undefined) {
+    messages.push({ role: 'system', content: systemMessage });
+  }
+  messages.push({ role: 'user', content: userMessage });
+  messages.push(...preservedMessages);
 
   return {
     id: prompt.id,
@@ -297,11 +306,7 @@ export const buildPromptDraftInputFromPrompt = (
       url: request?.url,
       modelSnapshot: request?.model_snapshot,
       parameters: request?.parameters,
-      messages: [
-        { role: 'system', content: systemMessage },
-        { role: 'user', content: userMessage },
-        ...preservedMessages,
-      ],
+      messages,
     },
     extensions: prompt.extensions as Record<string, unknown> | undefined,
   };
