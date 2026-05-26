@@ -1,0 +1,123 @@
+# Copyright 2025 promptLM
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: e2e-mock
+
+# Fast (sub-2-min target), hermetic TypeScript Playwright suite that drives
+# the SPA against an OpenAPI-generated in-process mock. See epic #248.
+#
+# This is the every-PR gate. The full-system Java acceptance suite
+# (Gitea + Artifactory Testcontainers) continues to run in `acceptance.yml`
+# on a slower cadence.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e-mock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+          server-id: github
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - name: Install promptlm-platform parent POM
+        # The root pom.xml references `<relativePath>../promptlm-platform/pom.xml</relativePath>`
+        # which only resolves locally. CI must clone the sibling repo and
+        # `mvn install` its parent POM into the local Maven cache, otherwise
+        # `dev.promptlm:promptlm-parent:<version>` is unresolvable and every
+        # Maven step fails before producing the OpenAPI spec. See acceptance.yml
+        # for the same pattern.
+        uses: ./.github/actions/install-platform-parent
+
+      - name: Build webapp (produces OpenAPI spec)
+        # The mock generator reads
+        # apps/promptlm-webapp/target/generated/openapi/promptlm-webapp-openapi.json.
+        # Building the webapp module (with `-am`) produces it.
+        run: ./mvnw -B -pl apps/promptlm-webapp -am install -DskipTests
+
+      - name: Install npm workspaces
+        run: npm ci
+
+      - name: Install acceptance-tests deps
+        # acceptance-tests/ is not in the root npm `workspaces` array (it
+        # depends on `@promptlm/api-client` via a file: reference and is
+        # otherwise standalone), so the previous `npm ci` does not install
+        # its devDeps — including `@playwright/test`. Install them
+        # explicitly here so `npx playwright test` below can resolve.
+        working-directory: acceptance-tests
+        run: npm install --no-audit --no-fund
+
+      - name: Regenerate API client mock and check for drift
+        # Scope-limited to src/generated/mock/ — the existing
+        # generate:client step has pre-existing drift on main that is
+        # tracked separately (see PR #274 deviations note). Broadening
+        # this check is a follow-up once that drift is sorted.
+        working-directory: components/promptlm-api-client
+        run: |
+          npm run generate:mock
+          if ! git diff --exit-code -- src/generated/mock; then
+            echo "::error::Mock generator output is stale. Run 'npm --workspace @promptlm/api-client run generate:mock' locally and commit the result."
+            exit 1
+          fi
+
+      - name: Install Playwright browsers
+        working-directory: acceptance-tests
+        run: npx playwright install --with-deps chromium
+
+      - name: Run e2e-mock suite
+        working-directory: acceptance-tests
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: acceptance-tests/playwright-report/
+          retention-days: 7
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: acceptance-tests/test-results/
+          retention-days: 7
