@@ -143,6 +143,13 @@ export class MockBackendState {
    * and openapi-typescript-codegen flavours of `PromptSpecCreationRequest`
    * are nominally distinct types — the spec-side caller hands us the
    * former; we read the fields we care about by name.
+   *
+   * The `request` field is preserved verbatim (including its `type`
+   * discriminator and any kind-specific fields) so a downstream
+   * `getPromptById` round-trip retains the polymorphic payload — required
+   * by issue #255 (B3) which proves the wire format preserves
+   * `chat/completion` / `images/generations` / `audio/speech` across
+   * save → read. `messages` is copied through for the same reason.
    */
   materialisePromptFromCreationRequest(req: unknown): PromptSpec {
     const group = field<string>(req, 'group') ?? '';
@@ -150,13 +157,13 @@ export class MockBackendState {
     const reqId = field<string>(req, 'id');
     const id = reqId && reqId.length > 0 ? reqId : `${group}/${name}`;
 
-    // The creation request flattens placeholders across three top-level fields
-    // (`placeholderStartPattern`, `placeholderEndPattern`, `placeholder` map);
-    // the PromptSpec response nests them under `placeholders.{startPattern,
-    // endPattern, defaults}`. The real backend performs this projection
-    // server-side — we mirror it here so round-trip assertions against the
-    // mock match the wire-format the Java HappyPath test exercises (issue
-    // #253, B1).
+    // [B1 #253] The creation request flattens placeholders across three
+    // top-level fields (`placeholderStartPattern`, `placeholderEndPattern`,
+    // `placeholder` map); the PromptSpec response nests them under
+    // `placeholders.{startPattern, endPattern, defaults}`. The real backend
+    // performs this projection server-side — we mirror it here so
+    // round-trip assertions against the mock match the wire-format the
+    // Java HappyPath test exercises.
     const startPattern = field<string>(req, 'placeholderStartPattern');
     const endPattern = field<string>(req, 'placeholderEndPattern');
     const defaultsRaw = field<Record<string, unknown>>(req, 'placeholder');
@@ -175,12 +182,26 @@ export class MockBackendState {
           }
         : undefined;
 
-    // The creation request carries the LLM-request configuration on its own
-    // top-level `request` field (a `PromptSpecRequest` discriminated union).
-    // PromptSpec re-exposes it under the same key, so we just pass it
-    // through opaquely — B3 (#255) will add a richer discriminator round-trip
-    // assertion.
-    const requestPayload = field<unknown>(req, 'request');
+    // [B3 #255] The SPA mirrors `messages` both onto `request.messages` (per
+    // `ChatCompletionRequest`) and as a top-level convenience field. The
+    // generated `PromptSpec` type only carries them nested under `request`,
+    // so fold the top-level array into the request if the request omitted
+    // them. This preserves the `type` discriminator and any kind-specific
+    // fields across a save → read round-trip — the wire-format guarantee
+    // B3 proves for chat / image / audio variants.
+    const requestPayload = field<PromptSpec['request']>(req, 'request');
+    const messagesField = field<unknown>(req, 'messages');
+    let finalRequest: PromptSpec['request'] | undefined = requestPayload;
+    if (
+      finalRequest != null &&
+      Array.isArray(messagesField) &&
+      (finalRequest as { messages?: unknown }).messages == null
+    ) {
+      finalRequest = {
+        ...(finalRequest as object),
+        messages: messagesField,
+      } as PromptSpec['request'];
+    }
 
     return {
       id,
@@ -190,9 +211,7 @@ export class MockBackendState {
       version: field<string>(req, 'version'),
       repositoryUrl: field<string>(req, 'repositoryUrl'),
       ...(placeholders != null ? { placeholders } : {}),
-      ...(requestPayload != null
-        ? { request: requestPayload as PromptSpec['request'] }
-        : {}),
+      ...(finalRequest != null ? { request: finalRequest } : {}),
     };
   }
 
