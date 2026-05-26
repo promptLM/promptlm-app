@@ -46,4 +46,8 @@ runs:
             "https://x-access-token:${{ inputs.token }}@github.com/promptLM/promptlm-platform.git" \
             "$SIBLING"
         fi
+        # Recursive install (no -N): the aggregator's child modules
+        # (`promptlm-dependencies`, `promptlm-parent`) must end up in the
+        # local Maven cache too, otherwise consumers cannot resolve
+        # `dev.promptlm:promptlm-parent`.
         mvn -B -f "$SIBLING/pom.xml" install -DskipTests
