@@ -54,7 +54,17 @@ export type BackendMode = 'mock' | 'real';
  * the `times` / `atLeast` constraint.
  */
 export interface ExpectCalledOptions {
+  /**
+   * Exact number of matching calls expected. Defaults to `1` when neither
+   * `times` nor `atLeast` is supplied. Mutually exclusive with `atLeast`.
+   */
   readonly times?: number;
+  /**
+   * Lower bound on matching calls. Useful when the SPA's React lifecycle
+   * issues a request from multiple places (e.g. an initial render plus
+   * an effect rebind) and we only care that the wire shape was exercised
+   * at least once. Mutually exclusive with `times`.
+   */
   readonly atLeast?: number;
   readonly withBodyMatching?: (body: unknown) => boolean;
 }
