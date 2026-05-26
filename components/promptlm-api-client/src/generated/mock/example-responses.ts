@@ -20,7 +20,6 @@ export const exampleResponses = {
     "200": ""
   },
   "completeReleasePrompt": {
-<<<<<<< HEAD
     "200": {
       "id": "support_welcome",
       "name": "support_welcome",
@@ -56,53 +55,26 @@ export const exampleResponses = {
       "name": "support_welcome",
       "group": "support"
     },
-=======
-    "200": null,
-    "404": null
-  },
-  "connectRepository": {
-    "200": null
-  },
-  "createPromptSpec": {
-    "200": null,
-    "404": null
-  },
-  "createStore": {
-    "200": null
-  },
-  "executePrompt": {
-    "200": null,
->>>>>>> origin/main
     "400": {},
     "500": {}
   },
   "executeStoredPrompt": {
-<<<<<<< HEAD
     "200": {
       "id": "support_welcome",
       "name": "support_welcome",
       "group": "support"
     },
-=======
-    "200": null,
->>>>>>> origin/main
     "404": {},
     "500": {}
   },
   "getActiveProject": {
-<<<<<<< HEAD
     "200": {},
     "404": {}
-=======
-    "200": null,
-    "404": null
->>>>>>> origin/main
   },
   "getAllProjects": {
     "200": []
   },
   "getById": {
-<<<<<<< HEAD
     "200": {
       "id": "support_welcome",
       "name": "support_welcome",
@@ -126,19 +98,6 @@ export const exampleResponses = {
       "name": "support_welcome",
       "group": "support"
     }
-=======
-    "200": null,
-    "404": null
-  },
-  "getCapabilities": {
-    "200": null
-  },
-  "getCatalog": {
-    "200": null
-  },
-  "getDefaultTemplate": {
-    "200": null
->>>>>>> origin/main
   },
   "getPromptGroups": {
     "200": ""
@@ -147,15 +106,9 @@ export const exampleResponses = {
     "200": {}
   },
   "getRepoHistory": {
-<<<<<<< HEAD
     "200": {},
     "400": {},
     "404": {}
-=======
-    "200": null,
-    "400": null,
-    "404": null
->>>>>>> origin/main
   },
   "getRevisionsByGroupAndName": {
     "200": [],
@@ -170,7 +123,6 @@ export const exampleResponses = {
     "200": []
   },
   "releasePrompt": {
-<<<<<<< HEAD
     "200": {
       "id": "support_welcome",
       "name": "support_welcome",
@@ -203,23 +155,12 @@ export const exampleResponses = {
       "name": "support_welcome",
       "group": "support"
     }
-=======
-    "200": null,
-    "404": null,
-    "422": null,
-    "503": null
-  },
-  "retirePrompt": {
-    "200": null,
-    "404": null
->>>>>>> origin/main
   },
   "switchProject": {
     "200": undefined,
     "500": undefined
   },
   "updatePromptSpec": {
-<<<<<<< HEAD
     "200": {
       "id": "support_welcome",
       "name": "support_welcome",
@@ -230,10 +171,6 @@ export const exampleResponses = {
       "name": "support_welcome",
       "group": "support"
     }
-=======
-    "200": null,
-    "404": null
->>>>>>> origin/main
   },
 } as const;
 
