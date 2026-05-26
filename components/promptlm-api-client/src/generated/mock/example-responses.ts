@@ -20,84 +20,48 @@ export const exampleResponses = {
     "200": ""
   },
   "completeReleasePrompt": {
-    "200": {
-      "id": "support_welcome",
-      "name": "support_welcome",
-      "group": "support"
-    },
-    "404": {
-      "id": "support_welcome",
-      "name": "support_welcome",
-      "group": "support"
-    }
+    "200": null,
+    "404": null
   },
   "connectRepository": {
-    "200": {}
+    "200": null
   },
   "createPromptSpec": {
-    "200": {
-      "id": "support_welcome",
-      "name": "support_welcome",
-      "group": "support"
-    },
-    "404": {
-      "id": "support_welcome",
-      "name": "support_welcome",
-      "group": "support"
-    }
+    "200": null,
+    "404": null
   },
   "createStore": {
-    "200": {}
+    "200": null
   },
   "executePrompt": {
-    "200": {
-      "id": "support_welcome",
-      "name": "support_welcome",
-      "group": "support"
-    },
+    "200": null,
     "400": {},
     "500": {}
   },
   "executeStoredPrompt": {
-    "200": {
-      "id": "support_welcome",
-      "name": "support_welcome",
-      "group": "support"
-    },
+    "200": null,
     "404": {},
     "500": {}
   },
   "getActiveProject": {
-    "200": {},
-    "404": {}
+    "200": null,
+    "404": null
   },
   "getAllProjects": {
     "200": []
   },
   "getById": {
-    "200": {
-      "id": "support_welcome",
-      "name": "support_welcome",
-      "group": "support"
-    },
-    "404": {
-      "id": "support_welcome",
-      "name": "support_welcome",
-      "group": "support"
-    }
+    "200": null,
+    "404": null
   },
   "getCapabilities": {
-    "200": {}
+    "200": null
   },
   "getCatalog": {
-    "200": {}
+    "200": null
   },
   "getDefaultTemplate": {
-    "200": {
-      "id": "support_welcome",
-      "name": "support_welcome",
-      "group": "support"
-    }
+    "200": null
   },
   "getPromptGroups": {
     "200": ""
@@ -106,9 +70,9 @@ export const exampleResponses = {
     "200": {}
   },
   "getRepoHistory": {
-    "200": {},
-    "400": {},
-    "404": {}
+    "200": null,
+    "400": null,
+    "404": null
   },
   "getRevisionsByGroupAndName": {
     "200": [],
@@ -123,54 +87,22 @@ export const exampleResponses = {
     "200": []
   },
   "releasePrompt": {
-    "200": {
-      "id": "support_welcome",
-      "name": "support_welcome",
-      "group": "support"
-    },
-    "404": {
-      "id": "support_welcome",
-      "name": "support_welcome",
-      "group": "support"
-    },
-    "422": {
-      "id": "support_welcome",
-      "name": "support_welcome",
-      "group": "support"
-    },
-    "503": {
-      "id": "support_welcome",
-      "name": "support_welcome",
-      "group": "support"
-    }
+    "200": null,
+    "404": null,
+    "422": null,
+    "503": null
   },
   "retirePrompt": {
-    "200": {
-      "id": "support_welcome",
-      "name": "support_welcome",
-      "group": "support"
-    },
-    "404": {
-      "id": "support_welcome",
-      "name": "support_welcome",
-      "group": "support"
-    }
+    "200": null,
+    "404": null
   },
   "switchProject": {
     "200": undefined,
     "500": undefined
   },
   "updatePromptSpec": {
-    "200": {
-      "id": "support_welcome",
-      "name": "support_welcome",
-      "group": "support"
-    },
-    "404": {
-      "id": "support_welcome",
-      "name": "support_welcome",
-      "group": "support"
-    }
+    "200": null,
+    "404": null
   },
 } as const;
 
