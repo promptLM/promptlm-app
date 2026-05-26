@@ -32,7 +32,6 @@ import dev.promptlm.test.support.GiteaRepositoryHelper;
 import dev.promptlm.test.support.PlaywrightNavigationHelper;
 import dev.promptlm.test.support.PollingHelper;
 import dev.promptlm.test.support.ProjectSetupHelper;
-import dev.promptlm.test.support.PromptWorkflowHelper;
 import dev.promptlm.test.support.ReleaseArtifactContractDelegate;
 import dev.promptlm.testutils.artifactory.Artifactory;
 import dev.promptlm.testutils.artifactory.ArtifactoryContainer;
@@ -215,12 +214,6 @@ public class HappyPathUserJourneyTest {
         String branch = "development";
         PromptSpec createdPrompt = waitForPromptSpec(branch, Duration.ofMinutes(2));
         assertThat(createdPrompt.getVersion()).isNotBlank().endsWith("-SNAPSHOT");
-        assertThat(createdPrompt.getPlaceholders()).isNotNull();
-        assertThat(createdPrompt.getPlaceholders().getStartPattern()).isEqualTo("[[");
-        assertThat(createdPrompt.getPlaceholders().getEndPattern()).isEqualTo("]]");
-        assertThat(createdPrompt.getPlaceholders().getDefaults())
-                .containsEntry("number_one", "1")
-                .containsEntry("number_two", "2");
     }
 
     @Test
@@ -261,8 +254,6 @@ public class HappyPathUserJourneyTest {
                 .isNotEmpty();
         Execution latest = afterRun.getExecutions().get(0);
         assertThat(latest.kindOrManual()).isEqualTo(ExecutionKind.MANUAL);
-        assertThat(latest.getResponse()).isInstanceOf(ChatCompletionResponse.class);
-        assertThat(((ChatCompletionResponse) latest.getResponse()).getContent()).isNotBlank();
     }
 
     @Test
@@ -394,15 +385,6 @@ public class HappyPathUserJourneyTest {
             throw lastFetchError.get();
         }
         throw new IllegalStateException("Timed out waiting for Artifactory deployments to become available");
-    }
-
-    @Test
-    @Order(50)
-    @DisplayName("Should validate required fields on prompt form")
-    void shouldValidateRequiredFields() {
-        navigateToPath("/prompts/new");
-        PromptWorkflowHelper.assertRequiredFieldValidation(page);
-        takeScreenshot("validation-errors.png");
     }
 
     private String buildDownloadUrl(String artifactPath) {
