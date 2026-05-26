@@ -1,9 +1,8 @@
 name: OSS Hygiene Checks
 
 # Read-only OSS hygiene gates: secret scanning + license header presence.
-# For the 0.1.0 release these jobs are advisory (continue-on-error) so a
-# noisy finding does not block the first public cut. Tighten to required
-# checks once the baseline is clean.
+# Both jobs run as advisory (continue-on-error) so noisy findings do not
+# block merges. Tighten to required checks once the baseline is clean.
 
 on:
   push:
