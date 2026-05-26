@@ -1,0 +1,59 @@
+= Introduction
+:page-slug: index
+:page-section: GET STARTED
+:page-description: What promptLM is, and the moving parts you'll encounter as a user.
+:page-next-label: Install the CLI
+:page-next-href: install-cli.html
+
+promptLM is an open-source framework for managing, versioning, and
+releasing LLM prompts as code.
+// source: README.adoc:10-12
+
+Prompts live in a Git-backed repository as structured `PromptSpec`
+files. promptLM gives you a CLI, a local web Studio, a REST API, and
+client SDKs to author, release, and consume those prompts from your
+applications.
+
+[NOTE]
+====
+promptLM is in active development. The `main` branch may be
+force-pushed, so pin a published release tag when you embed the CLI or
+SDKs into your own workflow.
+// source: README.adoc:14-19
+====
+
+== The moving parts
+
+* *promptLM CLI* (`promptlm-cli`) — a Spring-Shell command-line tool
+  for creating, releasing, and inspecting prompts.
+  See xref:cli.html[CLI reference].
+  // source: apps/promptlm-cli/README.adoc
+
+* *promptLM Studio* — a local web UI launched via the CLI; defaults to
+  http://127.0.0.1:8085/.
+  See xref:studio.html[Studio].
+  // source: apps/promptlm-cli/src/main/java/dev/promptlm/cli/StudioCommands.java:35-44
+
+* *REST API* — Spring MVC endpoints under `/api/prompts`, `/api/store`,
+  `/api/llm`, `/api/capabilities` — used by the Studio and available
+  for integrations.
+  // source: components/promptlm-web-api/src/main/java/dev/promptlm/web/*Controller.java
+
+* *Client SDKs* — Java, TypeScript, and Python libraries that load
+  released prompt JSON bundles in your application. Maintained in the
+  separate https://github.com/promptLM/promptlm-client-sdk[promptLM/promptlm-client-sdk]
+  repository.
+  // source: README.adoc:168-192
+
+* *macOS menubar client* — native Swift app that pastes rendered
+  prompts at the cursor via a global hotkey. Maintained in
+  https://github.com/promptLM/promptlm-macos[promptLM/promptlm-macos].
+  // source: promptLM/promptlm-macos README
+
+== Where prompts run
+
+promptLM routes execution through https://docs.spring.io/spring-ai/[Spring AI]
+by default (OpenAI and Anthropic). An optional LiteLLM gateway can be
+enabled when you need an OpenAI-compatible proxy in front of additional
+providers.
+// source: README.adoc:194-239

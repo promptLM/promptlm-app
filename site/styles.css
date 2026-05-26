@@ -301,6 +301,32 @@ img, svg { display: block; }
 .install-copy:hover { color: var(--pl-ink-800); }
 .install-copy.is-copied { color: var(--pl-ok); }
 
+.install-os-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+.install-os-tab {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-family: var(--pl-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pl-ink-500);
+  padding: 3px 7px;
+  border-radius: 4px;
+  transition: color .15s, background .15s;
+}
+.install-os-tab:hover { color: var(--pl-ink-800); }
+.install-os-tab.is-active {
+  color: var(--pl-ink-900);
+  background: var(--pl-ink-100, rgba(0, 0, 0, 0.05));
+}
+
 .hero-mock { margin-top: 80px; }
 
 /* ─── DiffMock — static replica of site.jsx DiffMock ─── */
@@ -371,6 +397,13 @@ img, svg { display: block; }
   grid-template-columns: 1fr 1fr;
   gap: 40px;
 }
+/* Grid items default to min-width:auto and expand to the natural
+   min-content of their contents (1500px screenshot intrinsic widths,
+   long code lines, etc.). Force them to honor the grid track so the
+   page never grows wider than the viewport. */
+.pillars-grid > article,
+.use-in-app > *,
+.mocking > * { min-width: 0; }
 .pillar-eyebrow {
   color: var(--pl-signal-deep);
   margin-bottom: 12px;
@@ -473,6 +506,46 @@ img, svg { display: block; }
   margin-top: 3px;
 }
 
+/* ─── studio screenshots (catalog / detail) ─── */
+.studio-shot {
+  margin: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--pl-ink-200);
+  background: var(--pl-paper);
+  box-shadow: var(--pl-shadow-md);
+}
+.studio-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ─── beat 2: "use in your app" — intro spans both columns,
+       then screenshot + SDK snippet side by side ─── */
+.use-in-app {
+  margin-top: 80px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px 64px;
+  align-items: start;
+}
+.use-in-app-intro { grid-column: 1 / -1; max-width: 760px; }
+.use-in-app .studio-shot,
+.use-in-app .code-snippet { margin: 0; }
+
+/* ─── beat 4: MCP record/replay — pure-text "coming soon" callout ─── */
+.coming-soon {
+  margin-top: 80px;
+  padding: 32px 40px;
+  border: 1px dashed var(--pl-ink-300);
+  border-radius: 12px;
+  background: var(--pl-ink-50, transparent);
+  max-width: 760px;
+}
+.coming-soon .pillar-title { font-size: 24px; }
+.coming-soon .pillar-copy { max-width: none; }
+
 .code-snippet {
   font-family: var(--pl-mono);
   background: var(--pl-ink-900);
@@ -494,6 +567,57 @@ img, svg { display: block; }
 .code-str  { color: var(--pl-warn); }
 .code-key  { color: var(--pl-ink-400); }
 .code-num  { color: var(--pl-ok); }
+
+.code-tabs {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 100%;
+}
+.code-tabs-bar {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--pl-ink-900);
+  border-radius: 12px 12px 0 0;
+  border-bottom: 1px solid color-mix(in oklch, var(--pl-paper) 8%, transparent);
+  /* Tabs fall back to horizontal scroll at very narrow widths
+     (sub-360px) rather than overflowing the viewport. */
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.code-tabs-bar::-webkit-scrollbar { display: none; }
+.code-tab { white-space: nowrap; flex: 0 0 auto; }
+.code-tab {
+  font-family: var(--pl-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pl-ink-400);
+  background: transparent;
+  border: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 120ms, background 120ms;
+}
+.code-tab:hover { color: var(--pl-paper); }
+.code-tab:focus-visible {
+  outline: 1px solid var(--pl-signal-bright);
+  outline-offset: 1px;
+}
+.code-tab.is-active {
+  color: var(--pl-paper);
+  background: color-mix(in oklch, var(--pl-paper) 6%, transparent);
+}
+.code-tabs .code-snippet {
+  border-radius: 0 0 12px 12px;
+  box-shadow: none;
+  min-width: 0;
+  max-width: 100%;
+}
+.code-tabs { box-shadow: var(--pl-shadow-md); border-radius: 12px; }
+.code-tab-panel[hidden] { display: none; }
 
 /* ─── CTA ─── */
 .cta {
@@ -592,7 +716,9 @@ img, svg { display: block; }
   .pillars { padding: 80px 24px; }
   .pillars-headline { font-size: 36px; }
   .pillars-grid { grid-template-columns: 1fr; gap: 56px; }
+  .use-in-app { grid-template-columns: 1fr; gap: 24px; margin-top: 56px; }
   .mocking { grid-template-columns: 1fr; gap: 32px; margin-top: 56px; }
+  .coming-soon { margin-top: 56px; padding: 24px; }
   .mocking-title { font-size: 28px; }
   .cta { padding: 64px 24px; }
   .cta-headline { font-size: 44px; }
@@ -602,5 +728,21 @@ img, svg { display: block; }
 @media (max-width: 560px) {
   .hero-title { font-size: 40px; letter-spacing: -0.03em; }
   .hero-actions .pl-btn { width: 100%; justify-content: center; }
-  .install-line { width: 100%; }
+  .install-line {
+    display: flex;
+    width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
+  }
+  /* The curl URL is one unbreakable token — let it scroll horizontally
+     inside the install pill instead of pushing the page wider. */
+  .install-line-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: none;
+  }
+  .install-line-text::-webkit-scrollbar { display: none; }
+  .install-line-divider, .install-copy { flex: 0 0 auto; }
 }

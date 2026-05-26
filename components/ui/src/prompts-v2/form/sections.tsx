@@ -142,6 +142,11 @@ export interface MessagesEditorProps {
   onContentSelectionChange?: (
     selection: { messageIndex: number; selectionStart: number; selectionEnd: number } | null,
   ) => void;
+  /**
+   * Optional estimated input-token label rendered next to the message count
+   * (e.g. `~1,200 tokens`). When omitted the chip is hidden. Issue #182.
+   */
+  estimateLabel?: string | null;
 }
 
 const MESSAGE_ROLE_OPTIONS = [
@@ -158,6 +163,7 @@ export const MessagesEditor: React.FC<MessagesEditorProps> = ({
   itemErrors,
   onChange,
   onContentSelectionChange,
+  estimateLabel,
 }) => {
   const update = (i: number, patch: Partial<FormMessage>) => {
     const next = [...messages];
@@ -208,6 +214,16 @@ export const MessagesEditor: React.FC<MessagesEditorProps> = ({
         <FormMono size={10.5} color="var(--pl-ink-500)">
           {messages.length} {messages.length === 1 ? 'message' : 'messages'}
         </FormMono>
+        {estimateLabel ? (
+          <FormMono
+            size={10.5}
+            color="var(--pl-ink-500)"
+            data-testid="prompt-editor-token-estimate"
+            style={{ fontVariantNumeric: 'tabular-nums' }}
+          >
+            · {estimateLabel}
+          </FormMono>
+        ) : null}
         {errors.general ? (
           <FormMono size={10.5} color="oklch(0.50 0.15 25)">
             ! {errors.general}
@@ -543,6 +559,12 @@ export interface RailPlaceholdersProps {
   itemErrors: PromptFormErrors['placeholderItems'];
   defaultOpen: boolean;
   onChange: (patch: Partial<FormPlaceholdersConfig>) => void;
+  /**
+   * Issue #187: clicking the per-row Insert affordance asks the host to insert
+   * the placeholder token at the editor caret. Optional — when absent, the
+   * row renders without an Insert button (back-compat with v1 callers).
+   */
+  onInsertPlaceholder?: (name: string) => void;
 }
 
 export const RailPlaceholders: React.FC<RailPlaceholdersProps> = ({
@@ -551,6 +573,7 @@ export const RailPlaceholders: React.FC<RailPlaceholdersProps> = ({
   itemErrors,
   defaultOpen,
   onChange,
+  onInsertPlaceholder,
 }) => {
   const list = placeholders.list;
   const errCount =
@@ -668,6 +691,25 @@ export const RailPlaceholders: React.FC<RailPlaceholdersProps> = ({
                     onChange={(checked) => update(i, { required: checked })}
                     label="req"
                   />
+                  {onInsertPlaceholder ? (
+                    <GhostButton
+                      mini
+                      // Preserve the focused message textarea's caret across
+                      // the click — without preventDefault on mousedown the
+                      // textarea blurs first, which clears the selection ref
+                      // that the insert handler relies on. See #217.
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => onInsertPlaceholder(ph.name)}
+                      disabled={!ph.name}
+                      testId={
+                        ph.name
+                          ? `placeholder-insert-button-${ph.name}`
+                          : `placeholder-insert-button-index-${i}`
+                      }
+                    >
+                      Insert
+                    </GhostButton>
+                  ) : null}
                   <GhostButton mini danger onClick={() => remove(i)}>
                     ×
                   </GhostButton>

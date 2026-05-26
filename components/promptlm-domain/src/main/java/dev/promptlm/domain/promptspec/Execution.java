@@ -35,6 +35,15 @@ import io.swagger.v3.oas.annotations.media.Schema;
  * transmitted off-box; they exist so the UI can render meaningful per-run rows. Older serialized
  * executions that pre-date these fields read back as {@code latencyMs == 0}, {@code tokensIn == 0},
  * {@code tokensOut == 0}, {@code ok == true}, and {@code null} for the optional fields.
+ *
+ * <p>Note: USD cost is intentionally NOT persisted here and the class carries no
+ * {@code costUsd} concept at all. Cost depends on the operator-managed per-model price
+ * table (see {@code dev.promptlm.pricing.ModelPricingProperties}), which is mutable
+ * external state — an edit to {@code application.yml} would silently invalidate every
+ * historically persisted cost. Tokens are vendor-reported and immutable post-call, so
+ * they stay. The web layer projects each execution into
+ * {@code dev.promptlm.web.ExecutionResponseDto} on read; the DTO is where the derived
+ * {@code costUsd} field lives.
  */
 @Schema(description = "Single recorded execution of a PromptSpec")
 public class Execution {

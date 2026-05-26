@@ -367,6 +367,7 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
         if (releaseMetadata.isRequested()) {
             eventPublisher.publishEvent(new PromptReleaseRequestedEvent(released));
         } else if (releaseMetadata.isReleased()) {
+            released = stampReleasedSemanticHash(released);
             eventPublisher.publishEvent(new PromptReleasedEvent(released));
         } else {
             throw new PromptReleaseException("Unsupported release state '%s' for prompt %s"
@@ -499,8 +500,37 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
                     .formatted(promptSpecId));
         }
 
+        released = stampReleasedSemanticHash(released);
         eventPublisher.publishEvent(new PromptReleasedEvent(released));
         return released;
+    }
+
+    /**
+     * Stamps the prompt's current semantic hash onto the existing
+     * {@link ReleaseMetadata} so the UI can compare future revisions against
+     * the released baseline (see issue #186). The store-level
+     * {@code requestRelease} / {@code completeRelease} implementations don't
+     * know about semantic hashing, so we stamp it here at the lifecycle
+     * boundary where {@link PromptSpec#computeSemanticHash()} is available.
+     *
+     * <p>No-op when there is no release metadata, the hash cannot be computed,
+     * or the metadata already carries a {@code releasedSemanticHash} — we
+     * never overwrite an existing baseline because release re-stamping should
+     * not silently change what "no changes since last release" compares to.
+     */
+    private PromptSpec stampReleasedSemanticHash(PromptSpec released) {
+        ReleaseMetadata metadata = released.getReleaseMetadata();
+        if (metadata == null) {
+            return released;
+        }
+        if (metadata.releasedSemanticHash() != null) {
+            return released;
+        }
+        String hash = released.computeSemanticHash();
+        if (hash == null) {
+            return released;
+        }
+        return released.withReleaseMetadata(metadata.withReleasedSemanticHash(hash));
     }
 
     @Override

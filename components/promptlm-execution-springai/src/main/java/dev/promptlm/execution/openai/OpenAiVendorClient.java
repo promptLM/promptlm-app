@@ -24,6 +24,7 @@ import dev.promptlm.domain.promptspec.ChatCompletionResponse;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import com.openai.models.ChatModel;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.metadata.ChatResponseMetadata;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.openai.OpenAiChatOptions;
@@ -148,7 +149,31 @@ public class OpenAiVendorClient implements SpringAiVendorClient {
         String content = chatResponse.getResult().getOutput().getText();
         ChatCompletionResponse response = new ChatCompletionResponse();
         response.setContent(content);
+        // Issue #182: surface token usage on the response so the controller / store
+        // can persist tokensIn/tokensOut and the UI can derive a USD cost. Spring AI
+        // normalizes vendor-specific usage shapes to the metadata Usage interface.
+        ChatCompletionResponse.Usage usage = extractUsage(chatResponse);
+        if (usage != null) {
+            response.setUsage(usage);
+        }
         return GatewayResponse.of(response);
+    }
+
+    private static ChatCompletionResponse.Usage extractUsage(ChatResponse chatResponse) {
+        ChatResponseMetadata metadata = chatResponse.getMetadata();
+        if (metadata == null) {
+            return null;
+        }
+        org.springframework.ai.chat.metadata.Usage providerUsage = metadata.getUsage();
+        if (providerUsage == null) {
+            return null;
+        }
+        Integer prompt = providerUsage.getPromptTokens();
+        Integer completion = providerUsage.getCompletionTokens();
+        if (prompt == null && completion == null) {
+            return null;
+        }
+        return new ChatCompletionResponse.Usage(prompt, completion, null);
     }
 
     private static String normalizeModel(String model) {

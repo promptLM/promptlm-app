@@ -1,0 +1,65 @@
+= Install the CLI
+:page-slug: install-cli
+:page-section: GET STARTED
+:page-description: Install the promptlm-cli binary on macOS, Linux, or Windows.
+:page-prev-label: Introduction
+:page-prev-href: index.html
+:page-next-label: Your first prompt
+:page-next-href: first-prompt.html
+
+The promptLM CLI ships as a native binary published to GitHub Releases.
+
+== macOS and Linux
+
+[source,bash]
+----
+curl -fsSL https://raw.githubusercontent.com/promptLM/promptlm-app/main/scripts/install.sh | bash
+----
+// source: scripts/install.sh:18
+
+The installer fetches the latest release for your OS and architecture
+from `promptLM/promptlm-app`, verifies the SHA-256 checksum, and places
+`promptlm-cli` in `$PROMPTLM_INSTALL_DIR` (default `~/.local/bin`).
+// source: scripts/install.sh:20,29-32
+
+To pin a specific version or override the destination:
+
+[source,bash]
+----
+curl -fsSL https://raw.githubusercontent.com/promptLM/promptlm-app/main/scripts/install.sh \
+  | bash -s -- --version v0.1.0 --install-dir "$HOME/bin"
+----
+// source: scripts/install.sh:25-31
+
+== Windows (PowerShell)
+
+[source,powershell]
+----
+irm https://raw.githubusercontent.com/promptLM/promptlm-app/main/scripts/install.ps1 | iex
+----
+// source: scripts/install.ps1
+
+The installer fetches the latest release for your architecture, verifies
+the SHA-256 checksum, and places `promptlm-cli.exe` in `$env:PROMPTLM_INSTALL_DIR`
+(default `$HOME\.local\bin`).
+// source: scripts/install.ps1:20,40-46
+
+To pin a specific version or override the destination, download the
+script first and pass parameters:
+
+[source,powershell]
+----
+iwr https://raw.githubusercontent.com/promptLM/promptlm-app/main/scripts/install.ps1 -OutFile install.ps1
+.\install.ps1 -Version v0.2.0 -InstallDir "$HOME\bin"
+----
+// source: scripts/install.ps1:17-22
+
+== Verify
+
+[source,bash]
+----
+promptlm-cli --version
+----
+
+If the command is not found, ensure your install directory is on
+`PATH`.

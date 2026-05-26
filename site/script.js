@@ -10,9 +10,33 @@
 (function () {
   'use strict';
 
+  // ── install-line OS toggle (macOS·Linux / Windows) ────────────────
+  const osGroup = document.querySelector('[data-install-os-group]');
+  const cmdNode = document.querySelector('[data-install-cmd]');
+  const promptNode = document.querySelector('[data-install-prompt]');
+
+  if (osGroup && cmdNode) {
+    const osTabs = Array.from(osGroup.querySelectorAll('[data-install-os]'));
+    const activateOs = (key) => {
+      osTabs.forEach((tab) => {
+        const isActive = tab.dataset.installOs === key;
+        tab.classList.toggle('is-active', isActive);
+        tab.setAttribute('aria-selected', String(isActive));
+      });
+      const nextCmd = cmdNode.dataset['cmd' + key.charAt(0).toUpperCase() + key.slice(1)];
+      if (nextCmd) cmdNode.textContent = nextCmd;
+      if (promptNode) {
+        const nextPrompt = cmdNode.dataset['prompt' + key.charAt(0).toUpperCase() + key.slice(1)];
+        if (nextPrompt) promptNode.textContent = nextPrompt;
+      }
+    };
+    osTabs.forEach((tab) => {
+      tab.addEventListener('click', () => activateOs(tab.dataset.installOs));
+    });
+  }
+
   // ── install-line copy-to-clipboard ────────────────────────────────
   const copyButton = document.querySelector('[data-install-copy]');
-  const cmdNode = document.querySelector('[data-install-cmd]');
 
   if (copyButton && cmdNode && navigator.clipboard) {
     copyButton.addEventListener('click', async () => {
@@ -31,4 +55,36 @@
       }
     });
   }
+
+  // ── code-tabs (Java / Python / TypeScript test-harness examples) ──
+  document.querySelectorAll('[data-code-tabs]').forEach((group) => {
+    const tabs = Array.from(group.querySelectorAll('[data-code-tab]'));
+    const panels = Array.from(group.querySelectorAll('[data-code-panel]'));
+    const activate = (key) => {
+      tabs.forEach((tab) => {
+        const isActive = tab.dataset.codeTab === key;
+        tab.classList.toggle('is-active', isActive);
+        tab.setAttribute('aria-selected', String(isActive));
+        tab.tabIndex = isActive ? 0 : -1;
+      });
+      panels.forEach((panel) => {
+        const isActive = panel.dataset.codePanel === key;
+        panel.classList.toggle('is-active', isActive);
+        panel.hidden = !isActive;
+      });
+    };
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => activate(tab.dataset.codeTab));
+      tab.addEventListener('keydown', (event) => {
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+        event.preventDefault();
+        const idx = tabs.indexOf(tab);
+        const next = event.key === 'ArrowRight'
+          ? (idx + 1) % tabs.length
+          : (idx - 1 + tabs.length) % tabs.length;
+        activate(tabs[next].dataset.codeTab);
+        tabs[next].focus();
+      });
+    });
+  });
 })();

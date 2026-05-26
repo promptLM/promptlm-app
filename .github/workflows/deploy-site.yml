@@ -1,0 +1,80 @@
+name: Deploy site to Pages
+
+# Runs only on pushes to main (i.e. after a PR is merged) and manual
+# dispatch. Pull requests do NOT trigger this workflow — broken builds
+# surface here when main rebuilds, so run `npm run docs:build` locally
+# before opening a PR to catch them sooner.
+#
+# Path filter keeps unrelated main pushes (backend code, tests, …) from
+# spinning up a Pages deploy:
+#   - site/**                 the website itself
+#   - docs/**                 AsciiDoc source for the user docs
+#   - scripts/build-docs.mjs  the docs renderer
+#   - package.json / lock     devDeps for the renderer
+# The docs are rebuilt from source on every deploy, so the published
+# site is always in sync with `docs/` regardless of whether the
+# committed `site/docs/*.html` snapshots have been refreshed locally.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'docs/**'
+      - 'scripts/build-docs.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/deploy-site.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build docs (AsciiDoc → site/docs/)
+        run: npm run docs:build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: ./site
+          retention-days: 1
+
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: ./site
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

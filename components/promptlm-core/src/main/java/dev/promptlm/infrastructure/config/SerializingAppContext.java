@@ -16,8 +16,8 @@
 
 package dev.promptlm.infrastructure.config;
 
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.DeserializationFeature;
 import dev.promptlm.domain.AppContext;
 import dev.promptlm.domain.BasicAppContext;
 import dev.promptlm.domain.projectspec.ProjectHealthStatus;
@@ -37,7 +37,9 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -121,7 +123,7 @@ public class SerializingAppContext implements AppContext, InitializingBean, Disp
             Path contextFile = getUserConfigPath().resolve(CONTEXT_FILE);
             try (Writer writer = Files.newBufferedWriter(contextFile)) {
                 ensureIdentifiers();
-                objectMapper.writeValue(writer, this.configData);
+                objectMapper.writeValue(writer, toWireFormat(this.configData));
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -144,10 +146,7 @@ public class SerializingAppContext implements AppContext, InitializingBean, Disp
             if (Files.notExists(appDataFile) || Files.readString(appDataFile).isBlank()) {
                 createDefaultConfig(appDataFile);
             } else {
-                this.configData = objectMapper
-                        .readerFor(BasicAppContext.class)
-                        .without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-                        .readValue(appDataFile.toFile());
+                this.configData = readFromTree(appDataFile);
                 validateLoadedProjects();
             }
             ensureIdentifiers();
@@ -155,6 +154,77 @@ public class SerializingAppContext implements AppContext, InitializingBean, Disp
         } catch (IOException e) {
             throw  new RuntimeException("Could not deserialize app context from %s".formatted(appDataFile), e);
         }
+    }
+
+    /**
+     * Builds the wire-format document written to {@code context.json}: the full project list is kept,
+     * but {@code activeProject} is reduced to a reference object containing only the {@code id}.
+     */
+    private static Map<String, Object> toWireFormat(AppContext source) {
+        Map<String, Object> document = new LinkedHashMap<>();
+        document.put("projects", source.getProjects());
+        ProjectSpec activeProject = source.getActiveProject();
+        if (activeProject == null || activeProject.getId() == null) {
+            document.put("activeProject", null);
+        } else {
+            document.put("activeProject", Map.of("id", activeProject.getId()));
+        }
+        return document;
+    }
+
+    /**
+     * Reads {@code context.json} via the Jackson tree API. The {@code activeProject} field is
+     * expected as an id-only reference object ({@code {"id": "<uuid>"}}) that points at an entry
+     * in {@code projects[]}. The resulting {@link BasicAppContext} has an {@code activeProject}
+     * that is identity-equal to the matching entry in its projects list.
+     */
+    private BasicAppContext readFromTree(Path appDataFile) throws IOException {
+        JsonNode root = objectMapper.readTree(appDataFile.toFile());
+        BasicAppContext loaded = new BasicAppContext();
+
+        JsonNode projectsNode = root.get("projects");
+        if (projectsNode != null && !projectsNode.isNull()) {
+            List<ProjectSpec> projects = new ArrayList<>();
+            for (JsonNode projectNode : projectsNode) {
+                ProjectSpec project = objectMapper.treeToValue(projectNode, ProjectSpec.class);
+                if (project != null) {
+                    projects.add(project);
+                }
+            }
+            loaded.setProjects(projects);
+        }
+
+        JsonNode activeNode = root.get("activeProject");
+        if (activeNode == null || activeNode.isNull()) {
+            return loaded;
+        }
+
+        UUID activeId = parseActiveId(activeNode);
+        ProjectSpec resolved = resolveProjectById(activeId, loaded.getProjects());
+        if (resolved != null) {
+            loaded.setActiveProject(resolved);
+        }
+        return loaded;
+    }
+
+    private static UUID parseActiveId(JsonNode activeNode) {
+        JsonNode idNode = activeNode.get("id");
+        if (idNode == null || idNode.isNull()) {
+            return null;
+        }
+        return UUID.fromString(idNode.asText());
+    }
+
+    private static ProjectSpec resolveProjectById(UUID id, List<ProjectSpec> projects) {
+        if (id == null || projects == null) {
+            return null;
+        }
+        for (ProjectSpec project : projects) {
+            if (project != null && id.equals(project.getId())) {
+                return project;
+            }
+        }
+        return null;
     }
 
     private static void createDefaultConfig(Path appDataFile) {

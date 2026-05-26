@@ -15,7 +15,7 @@
     <title>promptLM</title>
     <meta
       name="description"
-      content="promptLM is a developer tool for testing LLM clients, mocking model behavior, and inspecting MCP traffic. Run, replay, regress."
+      content="Open-source, Git-native prompt lifecycle management for engineering teams. Version LLM prompts in Git, ship signed releases, replay them in JUnit, pytest, or Vitest. No new SaaS, no new auth — lives in the Git you already trust."
     />
     <meta name="author" content="promptLM" />
 
@@ -29,34 +29,27 @@
     <meta property="og:title" content="promptLM" />
     <meta
       property="og:description"
-      content="promptLM is a developer tool for testing LLM clients, mocking model behavior, and inspecting MCP traffic. Run, replay, regress."
+      content="Open-source, Git-native prompt lifecycle management for engineering teams. Version LLM prompts in Git, ship signed releases, replay them in JUnit, pytest, or Vitest. No new SaaS, no new auth — lives in the Git you already trust."
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://promptlm.dev/" />
     <meta property="og:image" content="https://promptlm.dev/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="promptLM — the prompt lifecycle, under instrument." />
+    <meta property="og:image:alt" content="promptLM — your prompt lifecycle, under version control." />
 
     <!-- Twitter / X -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@promptlm" />
     <meta name="twitter:title" content="promptLM" />
     <meta
       name="twitter:description"
-      content="promptLM is a developer tool for testing LLM clients, mocking model behavior, and inspecting MCP traffic. Run, replay, regress."
+      content="Open-source, Git-native prompt lifecycle management for engineering teams. Version LLM prompts in Git, ship signed releases, replay them in JUnit, pytest, or Vitest. No new SaaS, no new auth — lives in the Git you already trust."
     />
     <meta name="twitter:image" content="https://promptlm.dev/og-image.png" />
-    <meta name="twitter:image:alt" content="promptLM — the prompt lifecycle, under instrument." />
+    <meta name="twitter:image:alt" content="promptLM — your prompt lifecycle, under version control." />
 
-    <!-- Geist + JetBrains Mono (mirror of components/ui/.storybook/preview-head.html) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-    />
-
+    <!-- Self-hosted Geist + JetBrains Mono (no external font CDN; see fonts.css) -->
+    <link rel="stylesheet" href="fonts.css" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body class="pl">
@@ -79,20 +72,18 @@
         </a>
 
         <nav class="nav-links" aria-label="Primary">
-          <a class="nav-link" href="#">Product</a>
           <a class="nav-link" href="docs.html">Docs</a>
-          <a class="nav-link" href="#">Changelog</a>
+          <a class="nav-link" href="https://github.com/promptLM/promptlm-app/releases">Changelog</a>
           <a class="nav-link" href="https://github.com/promptLM/promptlm-app">GitHub</a>
         </nav>
 
         <div class="nav-actions">
-          <button type="button" class="pl-btn pl-btn-ghost">Sign in</button>
-          <button type="button" class="pl-btn pl-btn-primary">
-            Start free
+          <a class="pl-btn pl-btn-primary" href="docs.html#get-started">
+            Get started
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
               <path d="M2 6 H10 M7 3 L10 6 L7 9" stroke="currentColor" stroke-width="1.4" />
             </svg>
-          </button>
+          </a>
         </div>
       </header>
 
@@ -102,38 +93,61 @@
           <div class="hero-inner">
             <p class="pl-eyebrow hero-eyebrow">
               <span class="hero-eyebrow-dot pl-pulse" aria-hidden="true"></span>
-              v0.4 · MCP recording is live
+              v0.2 · early alpha · MCP record/replay in dev
             </p>
             <h1 id="hero-title" class="hero-title">
-              The prompt lifecycle,<br />
-              under instrument.
+              Your prompt lifecycle,<br />
+              under version control.
             </h1>
             <p class="hero-sub">
-              promptLM is a developer tool for testing LLM clients, mocking model behavior,
-              and inspecting MCP traffic. Run, replay, regress.
+              Specs in Git. Signed releases. Test harnesses for JUnit, pytest,
+              and Vitest. No new SaaS, no new auth — promptLM lives in the Git
+              infra your team already trusts.
             </p>
 
             <div class="hero-actions">
-              <button type="button" class="pl-btn pl-btn-primary">
-                Start free
+              <a class="pl-btn pl-btn-primary" href="docs.html#get-started">
+                Get started
                 <svg width="13" height="13" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                   <path d="M2 6 H10 M7 3 L10 6 L7 9" stroke="currentColor" stroke-width="1.4" />
                 </svg>
-              </button>
-              <button type="button" class="pl-btn pl-btn-ghost">
-                <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                  <rect x="1" y="2.5" width="12" height="9" rx="1" stroke="currentColor" stroke-width="1.3" />
-                  <path d="M5 6 L8 7.5 L5 9 Z" fill="currentColor" />
+              </a>
+              <a class="pl-btn pl-btn-ghost" href="https://github.com/promptLM/promptlm-app">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
                 </svg>
-                Watch demo · 2 min
-              </button>
+                View on GitHub
+              </a>
             </div>
 
             <!-- install line -->
-            <div class="install-line">
+            <div class="install-line" data-install-os-group>
+              <span class="install-os-tabs" role="tablist" aria-label="Operating system">
+                <button
+                  type="button"
+                  role="tab"
+                  class="install-os-tab is-active"
+                  data-install-os="unix"
+                  aria-selected="true"
+                >macOS · Linux</button>
+                <button
+                  type="button"
+                  role="tab"
+                  class="install-os-tab"
+                  data-install-os="windows"
+                  aria-selected="false"
+                >Windows</button>
+              </span>
+              <span class="install-line-divider" aria-hidden="true"></span>
               <span class="install-line-text">
-                <span class="install-line-prompt">$</span>
-                <span data-install-cmd>npm i -D @promptlm/cli</span>
+                <span class="install-line-prompt" data-install-prompt>$</span>
+                <span
+                  data-install-cmd
+                  data-cmd-unix="curl -fsSL https://raw.githubusercontent.com/promptLM/promptlm-app/main/scripts/install.sh | bash"
+                  data-cmd-windows="irm https://raw.githubusercontent.com/promptLM/promptlm-app/main/scripts/install.ps1 | iex"
+                  data-prompt-unix="$"
+                  data-prompt-windows="PS&gt;"
+                >curl -fsSL https://raw.githubusercontent.com/promptLM/promptlm-app/main/scripts/install.sh | bash</span>
               </span>
               <span class="install-line-divider" aria-hidden="true"></span>
               <button
@@ -152,188 +166,261 @@
 
           <!-- product shot: DiffMock -->
           <div class="hero-mock">
-            <figure class="diff-mock" aria-label="Prompt diff preview">
+            <figure class="diff-mock" aria-label="promptlm.yaml diff preview">
               <div class="diff-mock-head">
-                <span class="diff-mock-file">booking_v2.prompt</span>
-                <span class="diff-mock-meta">+12 −4 · 2 mins ago</span>
+                <span class="diff-mock-file">promptlm.yaml · v1.0.0 → v1.1.0</span>
+                <span class="diff-mock-meta">+2 −2 · just now</span>
               </div>
               <div class="diff-mock-body">
                 <div class="diff-row">
                   <span class="diff-row-num">1</span>
                   <span class="diff-row-op"> </span>
-                  <span class="diff-row-text is-muted">You are a booking assistant.</span>
+                  <span class="diff-row-text is-muted">id: customer_support</span>
                 </div>
-                <div class="diff-row">
+                <div class="diff-row diff-row-del">
                   <span class="diff-row-num">2</span>
-                  <span class="diff-row-op"> </span>
-                  <span class="diff-row-text is-muted">Use available tools to check</span>
+                  <span class="diff-row-op">-</span>
+                  <span class="diff-row-text">version: 1.0.0</span>
+                </div>
+                <div class="diff-row diff-row-add">
+                  <span class="diff-row-num">2</span>
+                  <span class="diff-row-op">+</span>
+                  <span class="diff-row-text">version: 1.1.0</span>
                 </div>
                 <div class="diff-row">
                   <span class="diff-row-num">3</span>
                   <span class="diff-row-op"> </span>
-                  <span class="diff-row-text is-muted">calendar availability.</span>
+                  <span class="diff-row-text is-muted">request:</span>
+                </div>
+                <div class="diff-row">
+                  <span class="diff-row-num">4</span>
+                  <span class="diff-row-op"> </span>
+                  <span class="diff-row-text is-muted">  parameters:</span>
                 </div>
                 <div class="diff-row diff-row-del">
-                  <span class="diff-row-num">4</span>
+                  <span class="diff-row-num">5</span>
                   <span class="diff-row-op">-</span>
-                  <span class="diff-row-text">Always confirm before booking.</span>
+                  <span class="diff-row-text">    temperature: 0.6</span>
                 </div>
                 <div class="diff-row diff-row-add">
                   <span class="diff-row-num">5</span>
                   <span class="diff-row-op">+</span>
-                  <span class="diff-row-text">Confirm only when ambiguous.</span>
-                </div>
-                <div class="diff-row diff-row-add">
-                  <span class="diff-row-num">6</span>
-                  <span class="diff-row-op">+</span>
-                  <span class="diff-row-text">Prefer earliest slot when offered.</span>
-                </div>
-                <div class="diff-row">
-                  <span class="diff-row-num">7</span>
-                  <span class="diff-row-op"> </span>
-                  <span class="diff-row-text is-muted">Return ISO 8601 datetimes.</span>
+                  <span class="diff-row-text">    temperature: 0.3</span>
                 </div>
               </div>
             </figure>
           </div>
         </section>
 
-        <!-- ─── three pillars ─── -->
+        <!-- ─── capabilities ─── -->
         <section class="pillars" aria-labelledby="pillars-title">
           <p class="pl-eyebrow pillars-eyebrow">03 — capabilities</p>
           <h2 id="pillars-title" class="pillars-headline">
-            One tool for the full loop —<br />
-            <span class="pillars-headline-muted">from first prompt to thousandth regression.</span>
+            Spec to release to replay —<br />
+            <span class="pillars-headline-muted">the prompt lifecycle, one tool deep.</span>
           </h2>
 
+          <!-- Beat 1: develop & release — yaml spec + studio catalog -->
           <div class="pillars-grid">
-            <!-- MCP testing -->
             <article>
-              <p class="pl-eyebrow pillar-eyebrow">
-                <span>MCP TESTING</span>
-                <span class="pillar-pill">PLANNED</span>
-              </p>
-              <h3 class="pillar-title">Record real MCP sessions. Replay them deterministically.</h3>
+              <p class="pl-eyebrow pillar-eyebrow"><span>PROMPTS AS SPEC</span></p>
+              <h3 class="pillar-title">Define a prompt. Version it. Release it.</h3>
               <p class="pillar-copy">
-                Capture every tool call, freeze the responses, and run them back in CI.
-                No flaky network. No vendor rate limits. Same bytes, every time.
+                Every prompt is a spec file — vendor, model, parameters, messages.
+                Versioned in Git. Released as a signed JAR your app pins.
               </p>
-              <figure class="mcp-mock" aria-label="MCP inspector preview">
-                <div class="mcp-mock-head">
-                  <span>MCP · TOOLS/CALENDAR</span>
-                  <span>● recording · 00:14</span>
-                </div>
-                <div class="mcp-row"><span class="mcp-dir-out">→</span><span class="mcp-tool">list_events</span><span class="mcp-time">+0.012s</span></div>
-                <div class="mcp-row"><span class="mcp-dir-ok">←</span><span class="mcp-tool">list_events · 200</span><span class="mcp-time">+0.184s</span></div>
-                <div class="mcp-row"><span class="mcp-dir-out">→</span><span class="mcp-tool">create_event</span><span class="mcp-time">+0.224s</span></div>
-                <div class="mcp-row"><span class="mcp-dir-ok">←</span><span class="mcp-tool">create_event · 200</span><span class="mcp-time">+0.412s</span></div>
-                <div class="mcp-row"><span class="mcp-dir-out">→</span><span class="mcp-tool">send_invite</span><span class="mcp-time">+0.430s</span></div>
-                <div class="mcp-row"><span class="mcp-dir-err">←</span><span class="mcp-tool">send_invite · 429</span><span class="mcp-time">+1.124s</span></div>
-              </figure>
+              <pre class="code-snippet" aria-label="promptlm.yaml example"><span class="code-snippet-comment"># promptlm.yaml</span>
+<span class="code-key">id</span>: customer_support
+<span class="code-key">group</span>: support
+<span class="code-key">version</span>: <span class="code-str">1.0.0</span>
+<span class="code-key">request</span>:
+  <span class="code-key">vendor</span>: openai
+  <span class="code-key">model</span>: gpt-4o
+  <span class="code-key">parameters</span>: { <span class="code-key">temperature</span>: <span class="code-num">0.6</span>, <span class="code-key">maxTokens</span>: <span class="code-num">256</span> }
+  <span class="code-key">messages</span>:
+    - <span class="code-key">role</span>: system
+      <span class="code-key">content</span>: <span class="code-str">You are a support assistant.</span>
+    - <span class="code-key">role</span>: user
+      <span class="code-key">content</span>: <span class="code-str">"Summarize: {{ticket}}"</span></pre>
             </article>
 
-            <!-- Prompt regression -->
             <article>
-              <p class="pl-eyebrow pillar-eyebrow"><span>PROMPT REGRESSION</span></p>
-              <h3 class="pillar-title">Diff prompts. Track quality. Catch drift before users do.</h3>
+              <p class="pl-eyebrow pillar-eyebrow"><span>STUDIO CATALOG</span></p>
+              <h3 class="pillar-title">Every prompt. Every release. One catalog.</h3>
               <p class="pillar-copy">
-                Every prompt is versioned. Every change runs the suite.
-                Pass-rate, latency, and tokens land in the PR before review.
+                Browse, search, and filter the inventory. See status, executions,
+                and latency at a glance. Syncs from Git on push.
               </p>
-              <figure class="diff-mock" aria-label="Prompt diff inline preview">
-                <div class="diff-mock-head">
-                  <span class="diff-mock-file">booking_v2.prompt</span>
-                  <span class="diff-mock-meta">+12 −4 · 2 mins ago</span>
-                </div>
-                <div class="diff-mock-body">
-                  <div class="diff-row">
-                    <span class="diff-row-num">1</span>
-                    <span class="diff-row-op"> </span>
-                    <span class="diff-row-text is-muted">You are a booking assistant.</span>
-                  </div>
-                  <div class="diff-row">
-                    <span class="diff-row-num">2</span>
-                    <span class="diff-row-op"> </span>
-                    <span class="diff-row-text is-muted">Use available tools to check</span>
-                  </div>
-                  <div class="diff-row">
-                    <span class="diff-row-num">3</span>
-                    <span class="diff-row-op"> </span>
-                    <span class="diff-row-text is-muted">calendar availability.</span>
-                  </div>
-                  <div class="diff-row diff-row-del">
-                    <span class="diff-row-num">4</span>
-                    <span class="diff-row-op">-</span>
-                    <span class="diff-row-text">Always confirm before booking.</span>
-                  </div>
-                  <div class="diff-row diff-row-add">
-                    <span class="diff-row-num">5</span>
-                    <span class="diff-row-op">+</span>
-                    <span class="diff-row-text">Confirm only when ambiguous.</span>
-                  </div>
-                  <div class="diff-row diff-row-add">
-                    <span class="diff-row-num">6</span>
-                    <span class="diff-row-op">+</span>
-                    <span class="diff-row-text">Prefer earliest slot when offered.</span>
-                  </div>
-                  <div class="diff-row">
-                    <span class="diff-row-num">7</span>
-                    <span class="diff-row-op"> </span>
-                    <span class="diff-row-text is-muted">Return ISO 8601 datetimes.</span>
-                  </div>
-                </div>
+              <figure class="studio-shot" aria-label="promptLM studio catalog screenshot">
+                <img src="media/studio-catalog.png" alt="promptLM studio — prompt catalog with version, model, status, and execution counts" width="1500" height="937" loading="lazy" />
               </figure>
             </article>
           </div>
 
-          <!-- Model mocking -->
+          <!-- Beat 2: use released prompts in your app — detail screenshot + SDK snippet -->
+          <div class="use-in-app">
+            <div class="use-in-app-intro">
+              <p class="pl-eyebrow pillar-eyebrow"><span>IN YOUR APP</span></p>
+              <h3 class="mocking-title">Pin a version. Load it. Ship it.</h3>
+              <p class="mocking-copy">
+                Released prompts ship as a JAR your app depends on. Load by id,
+                fill placeholders, send. Vendor, model, and parameters travel with
+                the spec — your code never drifts from the prompt.
+              </p>
+            </div>
+
+            <figure class="studio-shot" aria-label="promptLM studio prompt detail screenshot">
+              <img src="media/studio-detail.png" alt="promptLM studio — prompt detail showing version 1.8.0, model, parameters, and dev execution metrics" width="1500" height="937" loading="lazy" />
+            </figure>
+
+            <pre class="code-snippet" aria-label="promptLM SDK usage example"><span class="code-snippet-comment">// SupportService.java</span>
+Prompt prompt = PromptLoader.load(<span class="code-str">"customer_support"</span>);  <span class="code-snippet-comment">// pinned v1.0.0 in pom.xml</span>
+String filled = prompt.fill(Map.of(<span class="code-str">"ticket"</span>, ticket));
+
+<span class="code-snippet-comment">// vendor, model, parameters come from the spec — not your code</span>
+String reply = llm.send(filled, prompt.model(), prompt.parameters());</pre>
+          </div>
+
+          <!-- Beat 3: test against recorded responses — existing JUnit/WireMock -->
           <div class="mocking">
             <div>
-              <p class="pl-eyebrow pillar-eyebrow"><span>MODEL MOCKING</span></p>
-              <h3 class="mocking-title">Mock any model.<br />Test the messy edges.</h3>
+              <p class="pl-eyebrow pillar-eyebrow"><span>TEST SUPPORT</span></p>
+              <h3 class="mocking-title">Test against<br />recorded responses.</h3>
               <p class="mocking-copy">
-                Inject malformed JSON. Force a refusal. Drop a tool call halfway through.
-                Build the failure modes that production will eventually serve you — and write the tests
-                that catch them.
+                Each released prompt ships with golden responses captured during
+                dev. Your tests replay them locally via WireMock — no real LLM
+                calls, no tokens billed, deterministic in CI.
               </p>
               <ul class="mocking-list">
                 <li>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                     <path d="M3 8 L7 11 L13 4" stroke="var(--pl-signal-deep)" stroke-width="1.5" stroke-linecap="square" />
                   </svg>
-                  Token streaming with synthetic latency
+                  Golden responses bundled with the prompt JAR
                 </li>
                 <li>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                     <path d="M3 8 L7 11 L13 4" stroke="var(--pl-signal-deep)" stroke-width="1.5" stroke-linecap="square" />
                   </svg>
-                  Tool-call sequences with deterministic seeds
+                  WireMock stubs auto-generated — no manual fixtures
                 </li>
                 <li>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                     <path d="M3 8 L7 11 L13 4" stroke="var(--pl-signal-deep)" stroke-width="1.5" stroke-linecap="square" />
                   </svg>
-                  Refusals, truncation, malformed JSON
+                  <code>@InjectResponse</code> for equality assertions
                 </li>
                 <li>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                     <path d="M3 8 L7 11 L13 4" stroke="var(--pl-signal-deep)" stroke-width="1.5" stroke-linecap="square" />
                   </svg>
-                  Side-by-side: gpt-4o vs claude-3-5 vs gemini
+                  Zero tokens. Zero flake. Same bytes, every run.
                 </li>
               </ul>
             </div>
 
-            <pre class="code-snippet" aria-label="promptlm.config.ts example"><span class="code-snippet-comment">// promptlm.config.ts</span>
-<span class="code-fn">mock</span>(<span class="code-str">'gpt-4o'</span>, {
-  <span class="code-key">latency</span>: <span class="code-str">'p95'</span>,
-  <span class="code-key">seed</span>: <span class="code-num">42</span>,
-  <span class="code-key">scenarios</span>: [
-    <span class="code-str">'tool_refusal'</span>,
-    <span class="code-str">'malformed_json'</span>,
-    <span class="code-str">'partial_stream'</span>,
-  ],
-})</pre>
+            <div class="code-tabs" data-code-tabs aria-label="Test-harness examples">
+              <div class="code-tabs-bar" role="tablist" aria-label="Language">
+                <button
+                  type="button"
+                  role="tab"
+                  class="code-tab is-active"
+                  data-code-tab="java"
+                  aria-selected="true"
+                  aria-controls="snippet-java"
+                  id="tab-java"
+                >Java · JUnit</button>
+                <button
+                  type="button"
+                  role="tab"
+                  class="code-tab"
+                  data-code-tab="python"
+                  aria-selected="false"
+                  aria-controls="snippet-python"
+                  id="tab-python"
+                  tabindex="-1"
+                >Python · pytest</button>
+                <button
+                  type="button"
+                  role="tab"
+                  class="code-tab"
+                  data-code-tab="typescript"
+                  aria-selected="false"
+                  aria-controls="snippet-typescript"
+                  id="tab-typescript"
+                  tabindex="-1"
+                >TypeScript · Vitest</button>
+              </div>
+              <pre
+                class="code-snippet code-tab-panel is-active"
+                id="snippet-java"
+                role="tabpanel"
+                aria-labelledby="tab-java"
+                data-code-panel="java"
+              ><span class="code-snippet-comment">// SupportServiceTest.java</span>
+<span class="code-key">@EnablePromptWireMock</span> <span class="code-snippet-comment">// boots WireMock on a local port,</span>
+<span class="code-fn">class</span> SupportServiceTest {              <span class="code-snippet-comment">// pre-stubbed from your prompt repo</span>
+
+  <span class="code-key">@Test</span>
+  <span class="code-fn">void</span> summarizesTicket(<span class="code-key">@InjectResponse</span>(id = <span class="code-str">"customer_support"</span>) String recorded) {
+    String reply = supportService.summarize(ticket); <span class="code-snippet-comment">// your prod code POSTs to the LLM</span>
+    <span class="code-snippet-comment">// The LLM URL points at WireMock, so the recorded reply is returned.</span>
+    <span class="code-snippet-comment">// No real model call, no tokens billed, deterministic across runs.</span>
+    assertThat(reply).isEqualTo(recorded);
+  }
+}</pre>
+              <pre
+                class="code-snippet code-tab-panel"
+                id="snippet-python"
+                role="tabpanel"
+                aria-labelledby="tab-python"
+                data-code-panel="python"
+                hidden
+              ><span class="code-snippet-comment"># test_support_service.py</span>
+<span class="code-key">from</span> promptlm.testing <span class="code-key">import</span> enable_prompt_mock, inject_response
+
+<span class="code-key">@enable_prompt_mock</span>                                  <span class="code-snippet-comment"># boots a mock LLM on a local port,</span>
+<span class="code-key">@inject_response</span>(<span class="code-str">"customer_support"</span>)                   <span class="code-snippet-comment"># pre-stubbed from your prompt repo</span>
+<span class="code-fn">def</span> test_summarizes_ticket(recorded: str):
+    reply = support_service.summarize(ticket)        <span class="code-snippet-comment"># your prod code POSTs to the LLM</span>
+    <span class="code-snippet-comment"># The LLM URL points at the mock, so the recorded reply is returned.</span>
+    <span class="code-snippet-comment"># No real model call, no tokens billed, deterministic across runs.</span>
+    <span class="code-key">assert</span> reply == recorded</pre>
+              <pre
+                class="code-snippet code-tab-panel"
+                id="snippet-typescript"
+                role="tabpanel"
+                aria-labelledby="tab-typescript"
+                data-code-panel="typescript"
+                hidden
+              ><span class="code-snippet-comment">// supportService.test.ts</span>
+<span class="code-key">import</span> { enablePromptMock, injectResponse } <span class="code-key">from</span> <span class="code-str">'@promptlm/testing'</span>;
+
+enablePromptMock();                                  <span class="code-snippet-comment">// boots a mock LLM on a local port,</span>
+
+test(<span class="code-str">'summarizes ticket'</span>, () =&gt; {                    <span class="code-snippet-comment">// pre-stubbed from your prompt repo</span>
+  <span class="code-key">const</span> recorded = injectResponse(<span class="code-str">'customer_support'</span>);
+  <span class="code-key">const</span> reply    = supportService.summarize(ticket); <span class="code-snippet-comment">// your prod code POSTs to the LLM</span>
+  <span class="code-snippet-comment">// The LLM URL points at the mock, so the recorded reply is returned.</span>
+  <span class="code-snippet-comment">// No real model call, no tokens billed, deterministic across runs.</span>
+  expect(reply).toBe(recorded);
+});</pre>
+            </div>
+          </div>
+
+          <!-- Beat 4: MCP record/replay — coming soon, pure text -->
+          <div class="coming-soon">
+            <p class="pl-eyebrow pillar-eyebrow">
+              <span>COMING SOON</span>
+              <span class="pillar-pill">ROADMAP</span>
+            </p>
+            <h3 class="pillar-title">MCP record/replay test harness.</h3>
+            <p class="pillar-copy">
+              Capture every tool call against your real MCP servers, freeze the
+              bytes, and replay them deterministically in CI. No flaky network,
+              no vendor rate limits, no surprise charges. Same story as
+              prompt replay — extended to the tools your agent actually uses.
+            </p>
           </div>
         </section>
 
@@ -345,14 +432,18 @@
               <h2 id="cta-title" class="cta-headline">Ship prompts<br />like code.</h2>
             </div>
             <div class="cta-actions">
-              <button type="button" class="pl-btn cta-btn-light">Start free</button>
+              <a class="pl-btn cta-btn-light" href="https://github.com/promptLM/promptlm-app">View on GitHub</a>
               <a class="pl-btn cta-btn-outline" href="docs.html">Read the docs</a>
             </div>
           </div>
         </section>
       </main>
 
-      <!-- ─── footer ─── -->
+      <!-- ─── footer ───
+           Generated from docs/templates/partials/footer.html by
+           scripts/build-docs.mjs. Do not hand-edit the block below;
+           edit the partial and run `npm run docs:build`. -->
+      <!-- footer:start -->
       <footer class="site-footer" role="contentinfo">
         <div class="footer-grid">
           <div>
@@ -369,37 +460,30 @@
             </a>
             <p class="footer-tagline">
               prompt lifecycle management<br />
-              © 2026 · promptlm.dev
+              © 2026 · promptlm.dev<br />
+              Made with ❤️ in Frankfurt 🇩🇪
             </p>
           </div>
 
           <div class="footer-cols">
             <div class="footer-col">
               <p class="footer-col-heading">Product</p>
-              <span>Test runner</span>
-              <span>MCP inspector</span>
-              <span>Mock studio</span>
-              <span>Diff &amp; regress</span>
-              <span>CLI</span>
+              <a href="docs.html#get-started">CLI</a>
+              <a href="docs.html#studio">Studio</a>
+              <a href="https://github.com/promptLM/promptlm-client-sdk">Java SDK</a>
+              <a href="https://github.com/promptLM/promptlm-macos">macOS app</a>
+              <a href="https://github.com/promptLM/promptlm-junit-gitea-artifactory">Test support</a>
             </div>
             <div class="footer-col">
               <p class="footer-col-heading">Resources</p>
               <a href="docs.html">Docs</a>
-              <span>Examples</span>
-              <span>Changelog</span>
+              <a href="https://github.com/promptLM/promptlm-app/releases">Changelog</a>
               <a href="https://github.com/promptLM/promptlm-app">GitHub</a>
-              <span>Discord</span>
-            </div>
-            <div class="footer-col">
-              <p class="footer-col-heading">Company</p>
-              <span>About</span>
-              <span>Pricing</span>
-              <span>Contact</span>
-              <span>Security</span>
             </div>
           </div>
         </div>
       </footer>
+      <!-- footer:end -->
     </div>
 
     <script src="script.js" defer></script>

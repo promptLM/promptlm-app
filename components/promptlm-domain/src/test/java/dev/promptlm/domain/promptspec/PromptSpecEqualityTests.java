@@ -73,4 +73,5 @@ class PromptSpecEqualityTests {
         PromptSpec spec2 = createPromptSpec("id", "name", "group1", "1", 2);
         assertNotEquals(spec1, spec2);
     }
+
 }

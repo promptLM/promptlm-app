@@ -62,7 +62,17 @@ docker/data/
 .tmp/
 .claude/worktrees/
 
+### Generated docs ###
+# AsciiDoc source lives under docs/; the rendered HTML is built into
+# site/docs/ by `npm run docs:build` and also by CI before each Pages
+# deploy (see .github/workflows/deploy-site.yml). Don't commit the
+# generated output — it would clutter PR diffs and can drift from source.
+/site/docs/
+
 ### Agent / Claude scratch (temporary — drop when no longer noisy) ###
 .claude/
 .agents/
 .windsurf/
+
+### Local-only working notes ###
+_internal/

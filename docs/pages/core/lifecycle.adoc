@@ -1,0 +1,59 @@
+= Lifecycle states
+:page-slug: lifecycle
+:page-section: CORE
+:page-description: The four states a PromptSpec moves through, from in-flight edit to remote-pushed.
+:page-prev-label: Configuration
+:page-prev-href: configuration.html
+:page-next-label: CLI
+:page-next-href: cli.html
+
+Every `PromptSpec` carries one of four lifecycle states. The state is
+a function of where the spec's content lives along the persistence
+chain — from an in-flight edit in the browser to a commit pushed to
+the remote.
+// source: components/promptlm-domain/src/main/java/dev/promptlm/domain/promptspec/PromptSpecLifecycleState.java:25-41
+
+== The four states
+
+[cols="1,3"]
+|===
+| State | Meaning
+
+| `draft`
+| Form state has unpersisted changes. *Client-only.* Computed by the UI
+  by diffing the editor's form state against the latest `PromptSpec`
+  returned from the API. The API never emits `draft`.
+
+| `saved`
+| Persisted to local storage, but the working-tree YAML differs from
+  the latest commit that touched the spec file (or no commit exists
+  yet for that file).
+
+| `committed`
+| Revisioned in the local Git store: HEAD of the active branch carries
+  the latest content for the spec file, but that commit is not yet on
+  `origin/<branch>`.
+
+| `pushed`
+| The commit that carries the current spec content is reachable on
+  `origin/<active-branch>`.
+|===
+// source: PromptSpecLifecycleState.java enum constants (Javadoc lifted verbatim)
+
+[NOTE]
+====
+The state is *derived* from storage truth (on-disk YAML, HEAD commit,
+origin/branch reachability) at the API boundary. It is never accepted
+as input on writes.
+// source: PromptSpecLifecycleState.java:41-43
+====
+
+== Why `draft` is client-only
+
+The backend has no observation of an in-browser form, so the API will
+never return `draft` from a `GET`. The Studio computes draft by
+diffing the form state against the latest `PromptSpec` it received.
+`draft` is present in the shared enum so the entire stack —
+backend domain, generated API client, frontend — speaks one
+vocabulary.
+// source: PromptSpecLifecycleState.java:30-37

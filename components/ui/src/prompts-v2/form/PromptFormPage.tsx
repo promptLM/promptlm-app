@@ -105,6 +105,31 @@ export interface PromptFormPageProps extends PromptFormReleaseFlowProps {
   editorRunState?: 'idle' | 'running';
   /** Last completed run record for the editor-tab response panel. */
   lastEditorRun?: EditorRunRecord | null;
+  /**
+   * Issue #185 — when `true`, render the "Modified" chip in the sticky
+   * header to signal the form has unsaved changes. The chip sits next to the
+   * existing revision label so issue #184 (topbar revision) can coordinate
+   * with the same signal.
+   */
+  isDirty?: boolean;
+  /**
+   * Optional pre-formatted input-token estimate label (e.g. `~1,200 tokens`).
+   * Surfaced next to the Messages section's message count. Issue #182.
+   */
+  inputTokenEstimateLabel?: string | null;
+  /**
+   * Issue #187: when present, each placeholder row in the rail renders an
+   * Insert button. The callback receives the placeholder name; the host is
+   * responsible for resolving delimiters and updating the draft.
+   */
+  onInsertPlaceholder?: (name: string) => void;
+  /**
+   * Issue #187: transient hint surfaced when the user clicks Insert without
+   * a captured caret in the editor. Rendered as a small status strip above
+   * the messages editor and re-rendered whenever the value changes — the
+   * host typically clears it after a short delay.
+   */
+  placeholderInsertHint?: string | null;
 }
 
 const HEADER_HEIGHT = 56;
@@ -166,6 +191,7 @@ const StickyHeader: React.FC<{
   releaseDisabledReason: string | null;
   onEditorRun?: () => void;
   isEditorRunning?: boolean;
+  isDirty?: boolean;
 }> = ({
   mode,
   draft,
@@ -180,6 +206,7 @@ const StickyHeader: React.FC<{
   releaseDisabledReason,
   onEditorRun,
   isEditorRunning,
+  isDirty = false,
 }) => {
   const isCreate = mode === 'create';
   const totalErrors =
@@ -258,6 +285,20 @@ const StickyHeader: React.FC<{
             v<span style={{ color: 'var(--pl-ink-700)' }}>{context.version}</span> ·{' '}
             <span style={{ color: 'var(--pl-ink-700)' }}>{context.revision}</span>
           </>
+        ) : context.revisionId ? (
+          // Issue #184: when the backend supplies a revision identifier
+          // (release tag or short SHA), surface it as the primary indicator
+          // of which committed revision the user is editing against. Rendered
+          // in its own span so #185's "modified" chip can render adjacent.
+          <>
+            v<span style={{ color: 'var(--pl-ink-700)' }}>{context.version}</span> ·{' '}
+            <span
+              style={{ color: 'var(--pl-ink-700)' }}
+              data-testid="prompt-editor-revision-id"
+            >
+              {context.revisionId}
+            </span>
+          </>
         ) : (
           <>
             v<span style={{ color: 'var(--pl-ink-700)' }}>{context.version}</span> → next will bump · {context.branch}
@@ -265,12 +306,61 @@ const StickyHeader: React.FC<{
         )}
       </FormMono>
 
+      {isDirty && (
+        <span
+          data-testid="prompt-editor-dirty-indicator"
+          aria-label="Form has unsaved changes"
+          title="Form has unsaved changes"
+          style={{
+            padding: '2px 7px',
+            background: 'oklch(0.94 0.05 80)',
+            color: 'oklch(0.42 0.13 70)',
+            fontFamily: 'var(--pl-mono)',
+            fontSize: 10,
+            letterSpacing: '0.10em',
+            textTransform: 'uppercase',
+            borderRadius: 3,
+            fontWeight: 500,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Modified
+        </span>
+      )}
+
       <FormMono
         size={11}
         color={errors.hasErrors ? 'oklch(0.50 0.15 25)' : 'oklch(0.45 0.12 155)'}
       >
         {errors.hasErrors ? <>! {totalErrors} errors</> : '✓ ready to save'}
       </FormMono>
+      {context.viewOnRemoteUrl && (
+        <a
+          href={context.viewOnRemoteUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          data-testid="prompt-editor-view-on-remote"
+          title="Open this prompt on GitHub"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+            height: 28,
+            padding: '0 10px',
+            fontFamily: 'var(--pl-display)',
+            fontSize: 12,
+            color: 'var(--pl-ink-700)',
+            textDecoration: 'none',
+            border: '1px solid var(--pl-ink-200)',
+            borderRadius: 4,
+            background: 'transparent',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <span aria-hidden="true" style={{ fontFamily: 'var(--pl-mono)', fontSize: 11 }}>↗</span>
+          View on GitHub
+        </a>
+      )}
       {onEditorRun && (
         <GhostButton
           onClick={onEditorRun}
@@ -356,6 +446,10 @@ export const PromptFormPage: React.FC<PromptFormPageProps> = ({
   onEditorRun,
   editorRunState = 'idle',
   lastEditorRun = null,
+  isDirty = false,
+  inputTokenEstimateLabel = null,
+  onInsertPlaceholder,
+  placeholderInsertHint = null,
 }) => {
   const errors = React.useMemo(
     () => validateDraft(draft, evalEnabled),
@@ -462,6 +556,7 @@ export const PromptFormPage: React.FC<PromptFormPageProps> = ({
         }
         onEditorRun={onEditorRun}
         isEditorRunning={editorRunState === 'running'}
+        isDirty={isDirty}
       />
 
       {releaseFlowEnabled ? (
@@ -512,6 +607,24 @@ export const PromptFormPage: React.FC<PromptFormPageProps> = ({
             onChange={set}
           />
           <div style={{ paddingTop: 16 }}>
+            {placeholderInsertHint ? (
+              <div
+                role="status"
+                data-testid="placeholder-insert-hint"
+                style={{
+                  marginBottom: 10,
+                  padding: '8px 12px',
+                  borderRadius: 5,
+                  border: '1px solid color-mix(in oklch, var(--pl-warn, oklch(0.78 0.13 80)) 35%, var(--pl-ink-200))',
+                  background: 'color-mix(in oklch, var(--pl-warn, oklch(0.78 0.13 80)) 12%, var(--pl-paper))',
+                  color: 'var(--pl-ink-800)',
+                  fontSize: 12,
+                  fontFamily: 'var(--pl-display)',
+                }}
+              >
+                {placeholderInsertHint}
+              </div>
+            ) : null}
             <MessagesEditor
               messages={draft.request.messages}
               placeholders={draft.placeholders}
@@ -519,6 +632,7 @@ export const PromptFormPage: React.FC<PromptFormPageProps> = ({
               itemErrors={errors.messageItems}
               onChange={setMessages}
               onContentSelectionChange={onContentSelectionChange}
+              estimateLabel={inputTokenEstimateLabel}
             />
             {onEditorRun && (
               <RunResponsePanel
@@ -553,6 +667,7 @@ export const PromptFormPage: React.FC<PromptFormPageProps> = ({
             itemErrors={errors.placeholderItems}
             defaultOpen={phOpen}
             onChange={setPlaceholders}
+            onInsertPlaceholder={onInsertPlaceholder}
           />
           <RailTools
             configs={draft.toolConfigs}

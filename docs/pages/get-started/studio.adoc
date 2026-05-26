@@ -1,0 +1,36 @@
+= Studio
+:page-slug: studio
+:page-section: GET STARTED
+:page-description: Launch the local promptLM Studio web UI from the CLI.
+:page-prev-label: Your first prompt
+:page-prev-href: first-prompt.html
+:page-next-label: Configuration
+:page-next-href: configuration.html
+
+promptLM Studio is a local web UI for the active prompt store. It
+launches as a Spring Boot application and serves the Studio frontend
+from the same process.
+
+[source,bash]
+----
+promptlm-cli studio
+----
+// source: apps/promptlm-cli/src/main/java/dev/promptlm/cli/StudioCommands.java:35-44
+
+The default URL is http://127.0.0.1:8085/.
+
+== Options
+
+[cols="1,1,3"]
+|===
+| Flag | Default | Description
+
+| `--port`        | `8085`  | Port that Studio binds to.
+| `--no-browser`  | `false` | Do not auto-open a browser on startup.
+|===
+// source: StudioCommands.java:40-41
+
+[source,bash]
+----
+promptlm-cli studio --port 8090 --no-browser true
+----

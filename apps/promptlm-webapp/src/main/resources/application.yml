@@ -20,6 +20,89 @@ promptlm:
       token: ${REPO_REMOTE_TOKEN:}
       base-url: ${REPO_REMOTE_URL}
       allow-loopback-host-aliases: ${REPO_REMOTE_ALLOW_LOOPBACK_HOST_ALIASES:true}
+  # Issue #182/#216: per-model USD pricing. Values are per *million* tokens
+  # (consistent with vendor public pricing pages). Unknown models are
+  # deliberately left out so the UI hides the cost chip rather than showing
+  # a misleading $0.00. The set below mirrors the vendor SDKs we ship with
+  # (Spring AI OpenAI / Anthropic), plus aliases for the short canonical
+  # form. Lookup is exact (case-insensitive, vendor-prefix tolerant) — see
+  # ModelPricingService#lookup. Review prices against the current vendor
+  # pricing tables before each release.
+  #
+  # Older entries are intentionally retained so replays of historical
+  # executions still show a cost; they should not be removed even after
+  # the vendor deprecates the model.
+  pricing:
+    models:
+      # --- OpenAI: current generation (gpt-5 family) ---
+      gpt-5:
+        input-per-million: 1.25
+        output-per-million: 10.00
+      gpt-5-mini:
+        input-per-million: 0.25
+        output-per-million: 2.00
+      gpt-5-nano:
+        input-per-million: 0.05
+        output-per-million: 0.40
+      # --- OpenAI: previous generation (kept for historical executions) ---
+      gpt-4.1:
+        input-per-million: 2.00
+        output-per-million: 8.00
+      gpt-4.1-mini:
+        input-per-million: 0.40
+        output-per-million: 1.60
+      gpt-4.1-nano:
+        input-per-million: 0.10
+        output-per-million: 0.40
+      gpt-4o:
+        input-per-million: 2.50
+        output-per-million: 10.00
+      gpt-4o-mini:
+        input-per-million: 0.15
+        output-per-million: 0.60
+      # --- OpenAI: reasoning models ---
+      # The current OpenAI Java SDK exposes o3 only as the dated form, so the
+      # dated id is what gets persisted on PromptSpec.request.model. The bare
+      # `o3` key stays as forward-compat for an SDK bump that adds the alias.
+      o3:
+        input-per-million: 2.00
+        output-per-million: 8.00
+      o3-2025-04-16:
+        input-per-million: 2.00
+        output-per-million: 8.00
+      o3-mini:
+        input-per-million: 1.10
+        output-per-million: 4.40
+      o4-mini:
+        input-per-million: 1.10
+        output-per-million: 4.40
+
+      # --- Anthropic: current generation (Claude 4.x) ---
+      claude-opus-4-5:
+        input-per-million: 15.00
+        output-per-million: 75.00
+      claude-opus-4-7:
+        input-per-million: 15.00
+        output-per-million: 75.00
+      claude-sonnet-4-5:
+        input-per-million: 3.00
+        output-per-million: 15.00
+      claude-sonnet-4-6:
+        input-per-million: 3.00
+        output-per-million: 15.00
+      claude-haiku-4-5:
+        input-per-million: 1.00
+        output-per-million: 5.00
+      # --- Anthropic: previous generation (kept for historical executions) ---
+      claude-3-7-sonnet:
+        input-per-million: 3.00
+        output-per-million: 15.00
+      claude-3-5-sonnet:
+        input-per-million: 3.00
+        output-per-million: 15.00
+      claude-3-5-haiku:
+        input-per-million: 0.80
+        output-per-million: 4.00
 
 spring:
   ai:

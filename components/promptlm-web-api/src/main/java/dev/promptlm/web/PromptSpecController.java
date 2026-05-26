@@ -21,11 +21,13 @@ import dev.promptlm.domain.projectspec.ProjectSpec;
 import dev.promptlm.lifecycle.PromptLifecycleFacade;
 import dev.promptlm.execution.PromptExecutor;
 import dev.promptlm.domain.promptspec.ChatCompletionRequest;
+import dev.promptlm.domain.promptspec.ChatCompletionResponse;
 import dev.promptlm.domain.promptspec.Execution;
 import dev.promptlm.domain.promptspec.ExecutionKind;
 import dev.promptlm.domain.promptspec.PromptSpec;
 import dev.promptlm.domain.promptspec.ReleaseMetadata;
 import dev.promptlm.domain.promptspec.Request;
+import dev.promptlm.pricing.ModelPricingService;
 import dev.promptlm.lifecycle.application.PromptSpecAlreadyExistsException;
 import dev.promptlm.release.OnInfraFailure;
 import dev.promptlm.store.api.PromptStore;
@@ -77,15 +79,21 @@ public class PromptSpecController {
     private final PromptExecutor promptExecutor;
     private final PromptLifecycleFacade promptLifecycleFacade;
     private final AppContext appContext;
+    private final PromptSpecLifecycleDeriver lifecycleDeriver;
+    private final ModelPricingService modelPricingService;
 
     public PromptSpecController(PromptStore promptStore,
                                 PromptExecutor promptExecutor,
                                 PromptLifecycleFacade promptLifecycleFacade,
-                                AppContext appContext) {
+                                AppContext appContext,
+                                PromptSpecLifecycleDeriver lifecycleDeriver,
+                                ModelPricingService modelPricingService) {
         this.promptStore = promptStore;
         this.promptExecutor = promptExecutor;
         this.promptLifecycleFacade = promptLifecycleFacade;
         this.appContext = appContext;
+        this.lifecycleDeriver = lifecycleDeriver;
+        this.modelPricingService = modelPricingService;
     }
 
     /**
@@ -100,11 +108,11 @@ public class PromptSpecController {
         @ApiResponse(responseCode = "404", description = "Prompt specification not found")
     })
     @GetMapping(path = "/{promptSpecId}")
-    public ResponseEntity<PromptSpec> getById(
+    public ResponseEntity<PromptSpecResponseDto> getById(
             @Parameter(description = "Unique identifier of the prompt specification")
             @PathVariable(name = "promptSpecId") String promptSpecId) {
         Optional<PromptSpec> latestVersion = promptStore.getLatestVersion(promptSpecId);
-        return ResponseEntity.of(latestVersion.map(PromptSpecApiView::toApiView));
+        return ResponseEntity.of(latestVersion.map(spec -> PromptSpecApiView.toApiView(spec, lifecycleDeriver, modelPricingService)));
     }
 
     /**
@@ -117,9 +125,9 @@ public class PromptSpecController {
                 content = @Content(mediaType = "application/json",
                         array = @ArraySchema(schema = @Schema(implementation = PromptSpec.class))))
     @GetMapping
-    public ResponseEntity<List<PromptSpec>> listPromptSpecs() {
+    public ResponseEntity<List<PromptSpecResponseDto>> listPromptSpecs() {
         List<PromptSpec> prompts = promptStore.listAllPrompts();
-        return ResponseEntity.ok(PromptSpecApiView.toApiView(prompts));
+        return ResponseEntity.ok(PromptSpecApiView.toApiView(prompts, lifecycleDeriver, modelPricingService));
     }
     
     /**
@@ -134,7 +142,7 @@ public class PromptSpecController {
         @ApiResponse(responseCode = "404", description = "Failed to create prompt specification")
     })
     @PostMapping
-    public ResponseEntity<PromptSpec> createPromptSpec(
+    public ResponseEntity<PromptSpecResponseDto> createPromptSpec(
             @RequestBody(description = "Prompt specification creation request details", required = true,
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = PromptSpecCreationRequest.class)))
@@ -146,7 +154,7 @@ public class PromptSpecController {
 
         try {
             PromptSpec created = promptLifecycleFacade.createPromptSpec(promptSpec);
-            return ResponseEntity.ok(PromptSpecApiView.toApiView(created));
+            return ResponseEntity.ok(PromptSpecApiView.toApiView(created, lifecycleDeriver, modelPricingService));
         } catch (PromptSpecAlreadyExistsException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage(), e);
         }
@@ -164,7 +172,7 @@ public class PromptSpecController {
         @ApiResponse(responseCode = "404", description = "Prompt specification not found")
     })
     @PutMapping("/{promptSpecId}")
-    public ResponseEntity<PromptSpec> updatePromptSpec(
+    public ResponseEntity<PromptSpecResponseDto> updatePromptSpec(
             @Parameter(description = "ID of the prompt specification to update")
             @PathVariable("promptSpecId") String promptSpecId,
             @RequestBody(description = "Updated prompt specification details", required = true,
@@ -182,7 +190,7 @@ public class PromptSpecController {
         }
         
         PromptSpec spec = promptLifecycleFacade.updatePrompt(promptSpecId, promptSpec);
-        return ResponseEntity.ok(PromptSpecApiView.toApiView(spec));
+        return ResponseEntity.ok(PromptSpecApiView.toApiView(spec, lifecycleDeriver, modelPricingService));
     }
 
     @Operation(
@@ -662,7 +670,7 @@ public class PromptSpecController {
         PromptSpec promptSpec = request.getPromptSpec();
         try {
             PromptSpec executedSpec = promptExecutor.runPromptAndAttachResponse(promptSpec);
-            return ResponseEntity.ok(PromptSpecApiView.toApiView(executedSpec));
+            return ResponseEntity.ok(PromptSpecApiView.toApiView(executedSpec, lifecycleDeriver, modelPricingService));
         } catch (RuntimeException exception) {
             throw mapPromptExecutionException(promptSpec.getId(), exception);
         }
@@ -688,7 +696,12 @@ public class PromptSpecController {
     public ResponseEntity<?> executeStoredPrompt(
             @Parameter(description = "ID of the prompt specification to execute", required = true)
             @PathVariable("promptSpecId") String promptSpecId,
-            @RequestBody(description = "Prompt specification to execute", required = false,
+            @RequestBody(description = "Prompt specification to execute. When supplied, the contained "
+                    + "`promptSpec` is executed in place of the stored YAML. This lets the editor run "
+                    + "the current form state without saving (issue #183). The path id is always "
+                    + "authoritative; a body id that mismatches the path id returns 400. Draft "
+                    + "executions are ephemeral and are NOT recorded in the prompt's execution history.",
+                    required = false,
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ExecutePromptRequest.class)))
             @Valid @org.springframework.web.bind.annotation.RequestBody(required = false) ExecutePromptRequest request) {
@@ -697,31 +710,77 @@ public class PromptSpecController {
             return ResponseEntity.notFound().build();
         }
 
+        PromptSpec storedSpec = latestStoredSpec.get();
+        PromptSpec promptSpecToExecute = storedSpec;
+
         if (request != null && request.getPromptSpec() != null) {
             PromptSpec requestPromptSpec = request.getPromptSpec();
             if (requestPromptSpec.getId() != null && !promptSpecId.equals(requestPromptSpec.getId())) {
                 return ResponseEntity.badRequest().build();
             }
+            // Execute the spec from the request body (issue #183). The path id is
+            // authoritative — force it onto the spec so any downstream code that
+            // reads the id sees the canonical one.
+            promptSpecToExecute = requestPromptSpec.withId(promptSpecId);
         }
 
-        PromptSpec promptSpecToExecute = latestStoredSpec.get();
+        // Issue #140 / #183 reconciliation: the editor knows whether the user
+        // has unsaved edits — it tells us via the `draft` flag. A clean Run
+        // (draft=false, the default) records a MANUAL Execution against the
+        // stored prompt; a run with unsaved edits (draft=true) is ephemeral so
+        // the user can experiment without polluting the dev branch.
+        //
+        // Earlier code inferred draft-ness from
+        // `PromptSpec#hasSemanticChangesComparedTo`, but that proved fragile:
+        // the TS payload differs from the stored YAML in a hundred small ways
+        // (role casing, normalisation, synthesised system messages, ...), so
+        // a clean Run was constantly misclassified and the MANUAL Execution
+        // silently dropped. See HappyPathUserJourneyTest
+        // #runPromptPersistsManualExecution.
+        boolean isDraftExecution = request != null && request.isDraft();
+
         if (promptSpecToExecute.getId() == null || promptSpecToExecute.getId().isBlank()) {
             promptSpecToExecute = promptSpecToExecute.withId(promptSpecId);
         }
         Instant runStart = Instant.now();
         try {
             PromptSpec executedSpec = promptExecutor.runPromptAndAttachResponse(promptSpecToExecute);
-            Execution devRun = buildDevExecution(executedSpec, runStart);
+            if (isDraftExecution) {
+                // Draft executions are ephemeral: the response is returned to the
+                // UI so it can be displayed, but nothing is written to history.
+                // History only ever contains runs of actually-stored content
+                // (D-183-5; reverses the consequence note in D-183-3).
+                return ResponseEntity.ok(PromptSpecApiView.toApiView(executedSpec, lifecycleDeriver, modelPricingService));
+            }
+            // No-body fallback (called by PromptDetail.tsx): the stored spec was
+            // executed, so the run is genuine and is recorded against the
+            // stored revision.
+            Execution devRun = buildDevExecution(executedSpec, storedSpec.getRevision(), runStart);
             PromptSpec persisted = promptLifecycleFacade.recordExecution(promptSpecId, devRun);
-            return ResponseEntity.ok(PromptSpecApiView.toApiView(persisted));
+            return ResponseEntity.ok(PromptSpecApiView.toApiView(persisted, lifecycleDeriver, modelPricingService));
         } catch (RuntimeException exception) {
             throw mapPromptExecutionException(promptSpecId, exception);
         }
     }
 
-    private static Execution buildDevExecution(PromptSpec executedSpec, Instant runStart) {
+    private Execution buildDevExecution(PromptSpec executedSpec, int revision, Instant runStart) {
         Instant now = Instant.now();
         long latencyMs = java.time.Duration.between(runStart, now).toMillis();
+        // Issue #182: persist vendor-reported token counts on every recorded
+        // execution. USD cost is intentionally NOT persisted here — it depends
+        // on the operator-managed per-model pricing table which is mutable
+        // external state. Persisting cost would silently invalidate every
+        // historical record the moment application.yml is edited. The web view
+        // layer derives `costUsd` on read instead; see PromptSpecApiView.
+        Integer tokensIn = null;
+        Integer tokensOut = null;
+        if (executedSpec.getResponse() instanceof ChatCompletionResponse chatResponse) {
+            ChatCompletionResponse.Usage usage = chatResponse.getUsage();
+            if (usage != null) {
+                tokensIn = usage.getInputTokens();
+                tokensOut = usage.getOutputTokens();
+            }
+        }
         return new Execution(
                 UUID.randomUUID().toString(),
                 now,
@@ -729,11 +788,11 @@ public class PromptSpecController {
                 null,
                 null,
                 latencyMs,
+                tokensIn,
+                tokensOut,
                 null,
                 null,
-                null,
-                null,
-                Integer.toString(executedSpec.getRevision()),
+                Integer.toString(revision),
                 null,
                 true,
                 null,
