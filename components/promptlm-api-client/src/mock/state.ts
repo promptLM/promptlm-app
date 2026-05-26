@@ -393,11 +393,17 @@ export class MockBackendState {
     const id = args.ctx.pathParams.promptSpecId;
     const existing = id != null ? this.prompts.find((p) => p.id === id) : undefined;
     if (!existing) return { status: 404, body: undefined as unknown as PromptSpec };
+    // `kind: 'MANUAL'` mirrors the real backend: `executeStoredPrompt`
+    // persists an Execution stamped with `ExecutionKind.MANUAL` (see
+    // `PromptSpecController.executeStoredPrompt`). B5 (issue #257)
+    // depends on this so the editor-run spec can assert the wire-level
+    // kind, replacing the Java HappyPath@Order(25) Execution assertion.
     const exec: Execution = {
       id: `exec-${this.history.size + 1}`,
       timestamp: new Date(0).toISOString(),
       response: this.llmCanned,
       ok: true,
+      kind: 'MANUAL' as Execution['kind'],
     };
     this.appendExecution(existing.id, exec);
     const next: PromptSpec = {
