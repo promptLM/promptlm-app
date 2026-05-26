@@ -40,22 +40,13 @@ import type {
 export type BackendMode = 'mock' | 'real';
 
 /**
- * Options accepted by {@link BackendFixture.expectCalled}.
- *
- * `times` defaults to 1 and asserts an *exact* count.
- * `atLeast` (added by A4 — issue #252) asserts the minimum count and is
- * mutually exclusive with `times`; useful for smoke specs that want to
- * prove a wire path is alive without pinning to a specific consumer
- * count (e.g. `getCapabilities` fires once per `App` mount plus once
- * per `PromptFormShell` mount — exact counts change with routing).
- *
- * `withBodyMatching` is an optional predicate run against each captured
- * request body. The fixture asserts that the matching call count meets
- * the `times` / `atLeast` constraint.
+ * Options accepted by {@link BackendFixture.expectCalled}. `times` defaults
+ * to 1; `withBodyMatching` is an optional predicate run against each
+ * captured request body. The fixture asserts that *exactly* `times`
+ * matching calls were observed for `opId`.
  */
 export interface ExpectCalledOptions {
   readonly times?: number;
-  readonly atLeast?: number;
   readonly withBodyMatching?: (body: unknown) => boolean;
 }
 
@@ -157,28 +148,4 @@ export interface BackendFixture {
    * annotation.
    */
   setModelCatalog(catalog: ModelCatalogResponse): void;
-
-  /* ---- schema-contract validation -------------------------------------- */
-
-  /**
-   * Directly invoke the mock's response-schema validator for `(opId,
-   * status, body)`. Throws `MockContractViolation` (re-exported from
-   * `@promptlm/api-client/mock`) when the body violates the response
-   * schema declared in the OpenAPI spec; returns `void` on a pass.
-   *
-   * Intended primarily as the canary for
-   * `tests/specs/schema-contract/skeleton.spec.ts` — production specs
-   * never need to call this directly because the fixture already runs
-   * the validator on every routed response before `route.fulfill`.
-   *
-   * Real mode throws — there is no validator wired in the real adapter
-   * (the live backend is the source of truth). Specs that depend on
-   * this must be tagged `@mock-only`.
-   *
-   * Added by A4 (issue #252) so the "deliberate violation" test case in
-   * the schema-contract canary can assert the validator catches
-   * off-spec bodies without depending on Playwright route-handler
-   * exception plumbing.
-   */
-  validateResponse(opId: string, status: number, body: unknown): void;
 }
