@@ -90,7 +90,6 @@ export function createMockBackend(spec: unknown): MockBackend {
   // Pre-compile path-matcher regexes once. Constructing `RegExp` is
   // negligible per request but matters at scale (every Playwright route
   // hits this code path).
-<<<<<<< HEAD
   //
   // Sort routes by specificity so a literal path always wins over a
   // sibling parameterised template — e.g. `GET /api/prompts/template`
@@ -115,12 +114,6 @@ export function createMockBackend(spec: unknown): MockBackend {
       if (a.paramCount !== b.paramCount) return a.paramCount - b.paramCount;
       return b.literalLen - a.literalLen;
     });
-=======
-  const compiledRoutes = operationIndex.map((op) => ({
-    descriptor: op,
-    matcher: new RegExp(op.pathPattern),
-  }));
->>>>>>> origin/main
 
   return {
     state,

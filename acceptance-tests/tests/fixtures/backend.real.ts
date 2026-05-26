@@ -80,13 +80,10 @@ export function buildRealBackendFixtureStub(): BackendFixture {
     setModelCatalog() {
       unsupported();
     },
-<<<<<<< HEAD
 
     validateResponse() {
       unsupported();
     },
-=======
->>>>>>> origin/main
   };
 }
 
