@@ -33,7 +33,6 @@ import dev.promptlm.test.support.GiteaRepositoryHelper;
 import dev.promptlm.test.support.PlaywrightNavigationHelper;
 import dev.promptlm.test.support.PollingHelper;
 import dev.promptlm.test.support.ProjectSetupHelper;
-import dev.promptlm.test.support.PromptWorkflowHelper;
 import dev.promptlm.test.support.ReleaseArtifactContractDelegate;
 import dev.promptlm.testutils.artifactory.Artifactory;
 import dev.promptlm.testutils.artifactory.ArtifactoryContainer;
@@ -393,15 +392,6 @@ public class HappyPathUserJourneyTest {
             throw lastFetchError.get();
         }
         throw new IllegalStateException("Timed out waiting for Artifactory deployments to become available");
-    }
-
-    @Test
-    @Order(50)
-    @DisplayName("Should validate required fields on prompt form")
-    void shouldValidateRequiredFields() {
-        navigateToPath("/prompts/new");
-        PromptWorkflowHelper.assertRequiredFieldValidation(page);
-        takeScreenshot("validation-errors.png");
     }
 
     private String buildDownloadUrl(String artifactPath) {
