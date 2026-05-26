@@ -90,10 +90,37 @@ export function createMockBackend(spec: unknown): MockBackend {
   // Pre-compile path-matcher regexes once. Constructing `RegExp` is
   // negligible per request but matters at scale (every Playwright route
   // hits this code path).
+<<<<<<< HEAD
+  //
+  // Sort routes by specificity so a literal path always wins over a
+  // sibling parameterised template — e.g. `GET /api/prompts/template`
+  // must match `getDefaultTemplate` rather than `getById` with
+  // `promptSpecId="template"`. Without this, the alphabetical operation
+  // index in `operation-index.ts` (generator output) makes `getById`
+  // shadow every literal `/api/prompts/*` sibling. The fewer path-param
+  // groups a route has, the more specific it is — and ties break on
+  // longer literal prefix length, so `/api/store/owners` wins over
+  // `/api/store/switch/{projectId}`-but-with-trailing-segment cases.
+  //
+  // Fixed during A4 (issue #252) — `getDefaultTemplate` and
+  // `getPromptGroups` were silently unreachable before this sort.
+  const compiledRoutes = operationIndex
+    .map((op) => ({
+      descriptor: op,
+      matcher: new RegExp(op.pathPattern),
+      paramCount: op.pathParamNames.length,
+      literalLen: op.pathTemplate.replace(/\{[^}]+\}/g, '').length,
+    }))
+    .sort((a, b) => {
+      if (a.paramCount !== b.paramCount) return a.paramCount - b.paramCount;
+      return b.literalLen - a.literalLen;
+    });
+=======
   const compiledRoutes = operationIndex.map((op) => ({
     descriptor: op,
     matcher: new RegExp(op.pathPattern),
   }));
+>>>>>>> origin/main
 
   return {
     state,

@@ -72,6 +72,17 @@ export default defineConfig({
         timeout: 240_000,
         stdout: 'pipe',
         stderr: 'pipe',
+<<<<<<< HEAD
+        // Enable feature-flagged routes so the navigation smoke spec
+        // (issue #252) can deep-link to them. Each VITE_FEATURE_* maps
+        // to a flag in `components/promptlm-web-ui/src/lib/featureFlags.ts`;
+        // Vite folds the env into the build, so flags flip in the
+        // bundled SPA used by `preview`.
+        env: {
+          VITE_FEATURE_DIFF: 'true',
+        },
+=======
+>>>>>>> origin/main
       },
   projects: [
     {
