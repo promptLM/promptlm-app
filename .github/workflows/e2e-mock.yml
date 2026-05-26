@@ -54,6 +54,21 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: 'maven'
+<<<<<<< HEAD
+=======
+          server-id: github
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - name: Install promptlm-platform parent POM
+        # The root pom.xml references `<relativePath>../promptlm-platform/pom.xml</relativePath>`
+        # which only resolves locally. CI must clone the sibling repo and
+        # `mvn install` its parent POM into the local Maven cache, otherwise
+        # `dev.promptlm:promptlm-parent:<version>` is unresolvable and every
+        # Maven step fails before producing the OpenAPI spec. See acceptance.yml
+        # for the same pattern.
+        uses: ./.github/actions/install-platform-parent
+>>>>>>> origin/main
 
       - name: Build webapp (produces OpenAPI spec)
         # The mock generator reads
@@ -64,6 +79,18 @@ jobs:
       - name: Install npm workspaces
         run: npm ci
 
+<<<<<<< HEAD
+=======
+      - name: Install acceptance-tests deps
+        # acceptance-tests/ is not in the root npm `workspaces` array (it
+        # depends on `@promptlm/api-client` via a file: reference and is
+        # otherwise standalone), so the previous `npm ci` does not install
+        # its devDeps — including `@playwright/test`. Install them
+        # explicitly here so `npx playwright test` below can resolve.
+        working-directory: acceptance-tests
+        run: npm install --no-audit --no-fund
+
+>>>>>>> origin/main
       - name: Regenerate API client mock and check for drift
         # Scope-limited to src/generated/mock/ — the existing
         # generate:client step has pre-existing drift on main that is

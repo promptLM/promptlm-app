@@ -40,6 +40,7 @@ import type {
 export type BackendMode = 'mock' | 'real';
 
 /**
+<<<<<<< HEAD
  * Options accepted by {@link BackendFixture.expectCalled}.
  *
  * `times` defaults to 1 and asserts an *exact* count.
@@ -56,6 +57,15 @@ export type BackendMode = 'mock' | 'real';
 export interface ExpectCalledOptions {
   readonly times?: number;
   readonly atLeast?: number;
+=======
+ * Options accepted by {@link BackendFixture.expectCalled}. `times` defaults
+ * to 1; `withBodyMatching` is an optional predicate run against each
+ * captured request body. The fixture asserts that *exactly* `times`
+ * matching calls were observed for `opId`.
+ */
+export interface ExpectCalledOptions {
+  readonly times?: number;
+>>>>>>> origin/main
   readonly withBodyMatching?: (body: unknown) => boolean;
 }
 
@@ -157,6 +167,7 @@ export interface BackendFixture {
    * annotation.
    */
   setModelCatalog(catalog: ModelCatalogResponse): void;
+<<<<<<< HEAD
 
   /* ---- schema-contract validation -------------------------------------- */
 
@@ -181,4 +192,6 @@ export interface BackendFixture {
    * exception plumbing.
    */
   validateResponse(opId: string, status: number, body: unknown): void;
+=======
+>>>>>>> origin/main
 }

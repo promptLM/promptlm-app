@@ -132,12 +132,17 @@ function buildMockBackendFixture(mock: MockBackend): BackendFixture {
     /* ---- assertions --------------------------------------------------- */
 
     async expectCalled(opId: string, opts: ExpectCalledOptions = {}) {
+<<<<<<< HEAD
+=======
+      const expectedTimes = opts.times ?? 1;
+>>>>>>> origin/main
       const matcher = opts.withBodyMatching;
       const matches = state.callLog.filter((entry) => {
         if (entry.opId !== opId) return false;
         if (matcher == null) return true;
         return matcher(entry.body);
       });
+<<<<<<< HEAD
       if (opts.atLeast != null && opts.times != null) {
         throw new Error(
           "expectCalled: 'times' and 'atLeast' are mutually exclusive — pick one",
@@ -154,6 +159,8 @@ function buildMockBackendFixture(mock: MockBackend): BackendFixture {
         return;
       }
       const expectedTimes = opts.times ?? 1;
+=======
+>>>>>>> origin/main
       expect(
         matches.length,
         `expected ${opId} to have been called ${expectedTimes} time(s) ` +
@@ -174,6 +181,7 @@ function buildMockBackendFixture(mock: MockBackend): BackendFixture {
     setModelCatalog(catalog: ModelCatalogResponse) {
       state.modelCatalog = catalog;
     },
+<<<<<<< HEAD
 
     /* ---- schema-contract validation ---------------------------------- */
 
@@ -184,6 +192,8 @@ function buildMockBackendFixture(mock: MockBackend): BackendFixture {
       // rationale on why this lives on the fixture surface.
       mock.validateResponse(opId, status, body);
     },
+=======
+>>>>>>> origin/main
   };
 }
 
