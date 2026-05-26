@@ -144,12 +144,13 @@ function buildMockBackendFixture(mock: MockBackend): BackendFixture {
         );
       }
       if (opts.atLeast != null) {
+        const min = opts.atLeast;
         expect(
           matches.length,
-          `expected ${opId} to have been called at least ${opts.atLeast} time(s) ` +
+          `expected ${opId} to have been called at least ${min} time(s) ` +
             (matcher ? 'with matching body ' : '') +
             `but observed ${matches.length}`,
-        ).toBeGreaterThanOrEqual(opts.atLeast);
+        ).toBeGreaterThanOrEqual(min);
         return;
       }
       const expectedTimes = opts.times ?? 1;
@@ -176,10 +177,11 @@ function buildMockBackendFixture(mock: MockBackend): BackendFixture {
 
     /* ---- schema-contract validation ---------------------------------- */
 
-    validateResponse(opId, status, body) {
-      // Delegates to the same MockBackend factory used by the route
-      // bridge — keeps the mock and the explicit fixture surface in
-      // lockstep. Throws MockContractViolation on schema mismatch.
+    validateResponse(opId: string, status: number, body: unknown) {
+      // Proxy straight through to the mock's ajv-driven validator. Throws
+      // `MockContractViolation` on a body-vs-schema mismatch; returns
+      // void on a pass. See `BackendFixture.validateResponse` for the
+      // rationale on why this lives on the fixture surface.
       mock.validateResponse(opId, status, body);
     },
   };

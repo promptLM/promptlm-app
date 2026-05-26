@@ -77,6 +77,11 @@ export default defineConfig({
           // mock-mode suite drives feature-gated routes (e.g. `/prompts/:id/diff`
           // under `promptDiff`) so we enable them here. Real-mode runs use
           // PLAYWRIGHT_SKIP_WEB_SERVER and inherit the Java webapp's flags.
+          // Each VITE_FEATURE_* maps to a flag in
+          // `components/promptlm-web-ui/src/lib/featureFlags.ts`; Vite folds
+          // the env into the build, so flags flip in the bundled SPA used
+          // by `preview`. See A4 (#252) for the original feature-flag
+          // wiring.
           VITE_FEATURE_DIFF: 'true',
         },
       },
