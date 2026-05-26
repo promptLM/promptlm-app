@@ -132,13 +132,27 @@ function buildMockBackendFixture(mock: MockBackend): BackendFixture {
     /* ---- assertions --------------------------------------------------- */
 
     async expectCalled(opId: string, opts: ExpectCalledOptions = {}) {
-      const expectedTimes = opts.times ?? 1;
       const matcher = opts.withBodyMatching;
       const matches = state.callLog.filter((entry) => {
         if (entry.opId !== opId) return false;
         if (matcher == null) return true;
         return matcher(entry.body);
       });
+      if (opts.atLeast != null && opts.times != null) {
+        throw new Error(
+          "expectCalled: 'times' and 'atLeast' are mutually exclusive — pick one",
+        );
+      }
+      if (opts.atLeast != null) {
+        expect(
+          matches.length,
+          `expected ${opId} to have been called at least ${opts.atLeast} time(s) ` +
+            (matcher ? 'with matching body ' : '') +
+            `but observed ${matches.length}`,
+        ).toBeGreaterThanOrEqual(opts.atLeast);
+        return;
+      }
+      const expectedTimes = opts.times ?? 1;
       expect(
         matches.length,
         `expected ${opId} to have been called ${expectedTimes} time(s) ` +
@@ -158,6 +172,15 @@ function buildMockBackendFixture(mock: MockBackend): BackendFixture {
 
     setModelCatalog(catalog: ModelCatalogResponse) {
       state.modelCatalog = catalog;
+    },
+
+    /* ---- schema-contract validation ---------------------------------- */
+
+    validateResponse(opId, status, body) {
+      // Delegates to the same MockBackend factory used by the route
+      // bridge — keeps the mock and the explicit fixture surface in
+      // lockstep. Throws MockContractViolation on schema mismatch.
+      mock.validateResponse(opId, status, body);
     },
   };
 }

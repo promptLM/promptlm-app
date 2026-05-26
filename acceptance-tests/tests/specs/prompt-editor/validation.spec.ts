@@ -83,11 +83,14 @@ async function openNewPromptForm(
 ): Promise<void> {
   await backend.seedProject({ id: PROJECT_ID, name: 'C1 validation project' });
   await page.goto('/prompts/new');
-  // Wait for `getDefaultTemplate` to land — the input value transitions
-  // from '' to the spec's `name` example value. Awaiting non-empty value
-  // is the load-complete signal that doesn't depend on the exact
-  // example.
-  await expect(page.getByTestId('prompt-name-input')).not.toHaveValue('');
+  // Load-complete signal: the editor heading is rendered once the route
+  // has mounted. The earlier "wait for prompt-name-input to be non-empty"
+  // signal assumed `getDefaultTemplate` prefills the name field, but the
+  // SPA arrives at /prompts/new with empty inputs in current main — so
+  // that wait would hang forever. The heading mounts as soon as the
+  // route resolves, before any template-fetch round-trip, which is what
+  // we actually need to gate field interactions on.
+  await expect(page.getByTestId('prompt-editor-heading')).toBeVisible();
 }
 
 test('(a) clearing name and group on /prompts/new shows both errors and disables save', async ({
@@ -192,9 +195,18 @@ test('(c) filling all required fields enables save; submit fires createPromptSpe
   // sections.tsx line 482. We fill rather than selectOption.
   await page.getByTestId('request-model-select').fill('gpt-4o-mini');
 
-  // The `prompt-text` testid is attached to the *last* user message
-  // textarea (`sections.tsx` line 372). Filling content satisfies the
-  // 'at least one user message' invariant.
+  // The fresh /prompts/new form arrives with two empty messages already
+  // inserted (a `system` slot + a `user` slot — see PromptFormShell's
+  // initial draft). Filling the existing empty user slot satisfies the
+  // "at least one user message with content" invariant. We also need
+  // to fill the system slot — the form shows "! Empty." next to it and
+  // counts it as an error until non-empty. There is no testid on the
+  // system message textarea, so reach for it via the messages container
+  // (`prompt-messages` testid wraps both rows; the first textarea is
+  // the system slot, the last is the user slot — `prompt-text` already
+  // targets the last/user one).
+  const messages = page.getByTestId('prompt-messages');
+  await messages.locator('textarea').first().fill('you are a helpful assistant');
   await page.getByTestId('prompt-text').fill('hello world');
 
   // All required fields now pass — save enables.

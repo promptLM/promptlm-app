@@ -72,6 +72,13 @@ export default defineConfig({
         timeout: 240_000,
         stdout: 'pipe',
         stderr: 'pipe',
+        env: {
+          // Feature flags consumed by featureFlags.ts at build time. The
+          // mock-mode suite drives feature-gated routes (e.g. `/prompts/:id/diff`
+          // under `promptDiff`) so we enable them here. Real-mode runs use
+          // PLAYWRIGHT_SKIP_WEB_SERVER and inherit the Java webapp's flags.
+          VITE_FEATURE_DIFF: 'true',
+        },
       },
   projects: [
     {

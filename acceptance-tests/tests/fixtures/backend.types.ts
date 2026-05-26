@@ -46,7 +46,18 @@ export type BackendMode = 'mock' | 'real';
  * matching calls were observed for `opId`.
  */
 export interface ExpectCalledOptions {
+  /**
+   * Exact number of matching calls expected. Defaults to `1` when neither
+   * `times` nor `atLeast` is supplied. Mutually exclusive with `atLeast`.
+   */
   readonly times?: number;
+  /**
+   * Lower bound on matching calls. Useful when the SPA's React lifecycle
+   * issues a request from multiple places (e.g. an initial render plus
+   * an effect rebind) and we only care that the wire shape was exercised
+   * at least once. Mutually exclusive with `times`.
+   */
+  readonly atLeast?: number;
   readonly withBodyMatching?: (body: unknown) => boolean;
 }
 
@@ -148,4 +159,14 @@ export interface BackendFixture {
    * annotation.
    */
   setModelCatalog(catalog: ModelCatalogResponse): void;
+
+  /* ---- schema-contract validation -------------------------------------- */
+
+  /**
+   * Validate a `(opId, status, body)` triple against the OpenAPI schema for
+   * that response. Throws `MockContractViolation` on mismatch. Used by the
+   * schema-contract canary specs to catch mock drift before tests rely on
+   * a malformed response. Real mode is unsupported (throws).
+   */
+  validateResponse(opId: string, status: number, body: unknown): void;
 }
