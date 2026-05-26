@@ -15,3 +15,4 @@
 export * from './generated/client/index';
 export * from './generated/asyncapi';
 export type { components, operations, paths } from './generated/openapi';
+export * from './mock';
