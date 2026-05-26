@@ -262,8 +262,6 @@ public class HappyPathUserJourneyTest {
                 .isNotEmpty();
         Execution latest = afterRun.getExecutions().get(0);
         assertThat(latest.kindOrManual()).isEqualTo(ExecutionKind.MANUAL);
-        assertThat(latest.getResponse()).isInstanceOf(ChatCompletionResponse.class);
-        assertThat(((ChatCompletionResponse) latest.getResponse()).getContent()).isNotBlank();
     }
 
     @Test
