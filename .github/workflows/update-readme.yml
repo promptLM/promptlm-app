@@ -1,16 +1,30 @@
 name: Update skills table in README
 
+# Disabled for the promptLM repository.
+#
+# This workflow originated from the promptics/agentskills template repo and
+# regenerates an "Agent Skills" table into README.md. In the promptLM monorepo
+# there is no `skills/` directory and no `scripts/update-skill-table.sh`, and
+# the README.md content is hand-authored for the public release.
+#
+# Leaving the workflow enabled would clobber the curated README.md the next
+# time anything matching `skills/**/SKILL.md` lands on `main`. The trigger is
+# therefore commented out; delete this file once the team confirms the
+# automation will not be reintroduced.
+
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'skills/**/SKILL.md'
+  workflow_dispatch:
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - 'skills/**/SKILL.md'
 
 permissions:
   contents: write
 
 jobs:
   update-readme:
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

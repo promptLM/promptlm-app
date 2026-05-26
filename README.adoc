@@ -11,15 +11,13 @@ promptLM is an open-source framework designed to help you manage, version, and r
 
 With the client SDKs, you can fetch released prompt specifications and use them in your application.
 
-[WARNING]
-====
-Clone or fork at your own risk.
-
-The `main` branch may be force-pushed at any time, which can rewrite history and invalidate existing clones, forks, or commit references.
-====
-
 == Introduction
-- Why, what, how, ...
+
+promptLM is a Git-backed prompt lifecycle management framework. It treats prompts as first-class versioned artifacts — authored, reviewed, released, and consumed with the same rigor as application code.
+
+Most teams today maintain prompts in scattered notebooks, configuration files, or vendor consoles. There is no shared history, no review trail, no rollback, and no clean way for a running application to pin to "the release I tested against". promptLM closes that gap. Prompt specifications live in a Git repository (locally, or on GitHub) with branches, commit history, and release tags. The promptLM CLI and Studio UI let prompt engineers iterate, run evaluations, and cut releases. Client SDKs in Java and TypeScript fetch released prompt specifications by name and version at runtime, with multi-model routing through Spring AI (OpenAI, Anthropic) or an optional LiteLLM gateway.
+
+promptLM is for engineering teams shipping LLM-powered features who want the same governance, reproducibility, and operational visibility for prompts that they already have for code: prompt engineers, application developers, platform teams, and the SREs who have to debug what was sent to the model on Tuesday.
 
 == Installation
 

@@ -60,6 +60,7 @@ import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -282,7 +283,15 @@ public class HappyPathUserJourneyTest {
 
         // YAML surface: the dev run should append a MANUAL Execution with the
         // response content. Refetch the development-branch YAML and assert.
-        PromptSpec afterRun = waitForPromptSpec("development", Duration.ofMinutes(2));
+        // The /execute HTTP call returns 200 OK before the server's async commit
+        // to the development branch lands, so poll the YAML until executions[]
+        // is populated (rather than fetching once on the off-chance the commit
+        // has landed by then — that's the race that has been flaking this test).
+        PromptSpec afterRun = waitForPromptSpec(
+                "development",
+                spec -> spec.getExecutions() != null && !spec.getExecutions().isEmpty(),
+                "at least one Execution in spec.executions[]",
+                Duration.ofMinutes(2));
         assertThat(afterRun.getExecutions())
                 .as("dev-run must append at least one Execution to spec.executions[]")
                 .isNotNull()
@@ -574,6 +583,22 @@ public class HappyPathUserJourneyTest {
     }
 
     private PromptSpec waitForPromptSpec(String branch, String expectedVersion, Duration timeout) {
+        Predicate<PromptSpec> condition =
+                expectedVersion == null
+                        ? spec -> true
+                        : spec -> expectedVersion.equals(spec.getVersion());
+        String description =
+                expectedVersion == null
+                        ? null
+                        : "version '" + expectedVersion + "'";
+        return waitForPromptSpec(branch, condition, description, timeout);
+    }
+
+    private PromptSpec waitForPromptSpec(
+            String branch,
+            Predicate<PromptSpec> condition,
+            String conditionDescription,
+            Duration timeout) {
         AtomicReference<PromptSpec> foundPrompt = new AtomicReference<>();
         AtomicReference<Exception> lastError = new AtomicReference<>();
         AtomicReference<String> lastSeenVersion = new AtomicReference<>();
@@ -596,11 +621,12 @@ public class HappyPathUserJourneyTest {
 
                             PromptSpec promptSpec = getPromptSpec(yaml.get());
                             lastSeenVersion.set(promptSpec.getVersion());
-                            if (expectedVersion == null || expectedVersion.equals(promptSpec.getVersion())) {
+                            if (condition.test(promptSpec)) {
                                 foundPrompt.set(promptSpec);
                                 return true;
                             }
-                            log.debug("Prompt spec on branch '{}' currently at version '{}', waiting for '{}'", branch, promptSpec.getVersion(), expectedVersion);
+                            log.debug("Prompt spec on branch '{}' at version '{}' does not yet satisfy condition '{}'",
+                                    branch, promptSpec.getVersion(), conditionDescription);
                             return false;
                         } catch (Exception exception) {
                             lastError.set(exception);
@@ -609,8 +635,8 @@ public class HappyPathUserJourneyTest {
                     });
         } catch (ConditionTimeoutException conditionTimeout) {
             String message = "Timed out waiting for prompt spec on branch '" + branch + "'";
-            if (expectedVersion != null) {
-                message = message + " with version '" + expectedVersion + "'";
+            if (conditionDescription != null) {
+                message = message + " satisfying " + conditionDescription;
             }
             if (lastSeenVersion.get() != null) {
                 message = message + " (last seen version '" + lastSeenVersion.get() + "')";

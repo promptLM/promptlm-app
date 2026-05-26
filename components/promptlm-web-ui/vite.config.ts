@@ -21,6 +21,7 @@ const resolveWorkspace = (relative: string) => new URL(relative, import.meta.url
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, cwd(), '');
+  // dev default; production must override via PROMPTLM_API_PROXY_TARGET or VITE_PROMPTLM_API_BASE_URL
   const proxyTarget =
     env.PROMPTLM_API_PROXY_TARGET ?? env.VITE_PROMPTLM_API_BASE_URL ?? 'http://localhost:8085';
 
