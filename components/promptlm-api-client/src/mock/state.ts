@@ -156,13 +156,41 @@ export class MockBackendState {
     const name = field<string>(req, 'name') ?? '';
     const reqId = field<string>(req, 'id');
     const id = reqId && reqId.length > 0 ? reqId : `${group}/${name}`;
+
+    // [B1 #253] The creation request flattens placeholders across three
+    // top-level fields (`placeholderStartPattern`, `placeholderEndPattern`,
+    // `placeholder` map); the PromptSpec response nests them under
+    // `placeholders.{startPattern, endPattern, defaults}`. The real backend
+    // performs this projection server-side — we mirror it here so
+    // round-trip assertions against the mock match the wire-format the
+    // Java HappyPath test exercises.
+    const startPattern = field<string>(req, 'placeholderStartPattern');
+    const endPattern = field<string>(req, 'placeholderEndPattern');
+    const defaultsRaw = field<Record<string, unknown>>(req, 'placeholder');
+    const defaults =
+      defaultsRaw != null && typeof defaultsRaw === 'object'
+        ? Object.fromEntries(
+            Object.entries(defaultsRaw).map(([k, v]) => [k, v == null ? '' : String(v)]),
+          )
+        : undefined;
+    const placeholders =
+      startPattern != null || endPattern != null || defaults != null
+        ? {
+            ...(startPattern != null ? { startPattern } : {}),
+            ...(endPattern != null ? { endPattern } : {}),
+            ...(defaults != null ? { defaults } : {}),
+          }
+        : undefined;
+
+    // [B3 #255] The SPA mirrors `messages` both onto `request.messages` (per
+    // `ChatCompletionRequest`) and as a top-level convenience field. The
+    // generated `PromptSpec` type only carries them nested under `request`,
+    // so fold the top-level array into the request if the request omitted
+    // them. This preserves the `type` discriminator and any kind-specific
+    // fields across a save → read round-trip — the wire-format guarantee
+    // B3 proves for chat / image / audio variants.
     const requestPayload = field<PromptSpec['request']>(req, 'request');
     const messagesField = field<unknown>(req, 'messages');
-    // The SPA mirrors `messages` both onto `request.messages` (per
-    // `ChatCompletionRequest`) and as a top-level convenience field. The
-    // generated `PromptSpec` type only carries them nested under
-    // `request`, so fold the top-level array into the request if the
-    // request omitted them.
     let finalRequest: PromptSpec['request'] | undefined = requestPayload;
     if (
       finalRequest != null &&
@@ -174,6 +202,7 @@ export class MockBackendState {
         messages: messagesField,
       } as PromptSpec['request'];
     }
+
     return {
       id,
       name,
@@ -181,7 +210,8 @@ export class MockBackendState {
       description: field<string>(req, 'description'),
       version: field<string>(req, 'version'),
       repositoryUrl: field<string>(req, 'repositoryUrl'),
-      request: finalRequest,
+      ...(placeholders != null ? { placeholders } : {}),
+      ...(finalRequest != null ? { request: finalRequest } : {}),
     };
   }
 
