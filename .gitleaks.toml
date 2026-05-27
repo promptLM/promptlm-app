@@ -1,0 +1,24 @@
+# gitleaks configuration for promptlm-app
+#
+# Extends the upstream default rule set (https://github.com/gitleaks/gitleaks)
+# and only adds project-specific allowlist entries to keep CI noise low.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "promptlm-app project allowlist"
+paths = [
+    # Acceptance-test fixtures contain synthetic tokens and bearer headers used
+    # to drive HTTP flows against a sandboxed Gitea / WireMock setup.
+    '''acceptance-tests/.*/fixtures/.*''',
+    # AsciiDoc documentation embeds example configuration that may look like
+    # secrets (e.g. ${OPENAI_API_KEY} placeholders).
+    '''.*\.adoc$''',
+    # Brand / marketing media — binary blobs, never secrets.
+    '''media/.*''',
+    # Local-dev Docker sandbox: throwaway tokens for the Gitea/Artifactory
+    # containers spun up by `docker compose up` for end-to-end development.
+    # Never used outside the developer's machine.
+    '''docker/.*''',
+]
