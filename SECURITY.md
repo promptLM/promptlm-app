@@ -1,22 +1,19 @@
 # Security Policy
 
-## Reporting a Vulnerability
+## Reporting a vulnerability
 
-If you discover a security vulnerability in this project, please report it
-responsibly.
+Please do not open a public issue, discussion, or pull request for security
+problems.
 
-**Please do NOT open a public GitHub issue.**
+Instead, open a [private security advisory](https://github.com/promptLM/promptlm-app/security/advisories/new)
+on this repository.
 
-Instead, email **security@promptics.dev** with:
-- A description of the vulnerability
+Useful information to include:
+
+- A description of the issue and where it lives (file, commit, or URL)
 - Steps to reproduce
-- Any relevant logs or screenshots
+- Impact assessment, if you have one
+- Any patch or proof-of-concept
 
-We will acknowledge your report within 48 hours and aim to provide a fix or
-mitigation plan within 7 days.
-
-## Supported Versions
-
-| Version | Supported |
-|---------|-----------|
-| main    | ✅         |
+We use coordinated disclosure: please give us a reasonable opportunity to
+ship a fix before publishing details.
