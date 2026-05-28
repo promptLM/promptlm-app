@@ -15,7 +15,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { ApiError } from '@promptlm/api-client';
-import { apiErrorToI18n, toDisplayError } from '@api-common/apiError';
+import { apiErrorToI18n, getFieldErrors, toDisplayError } from '@api-common/apiError';
 
 const createApiError = (body: unknown, status = 400) =>
   new ApiError(
@@ -64,6 +64,45 @@ describe('apiErrorToI18n', () => {
     );
 
     expect(result.message).toBe('name: must not be blank; messages[0].content: must not be blank');
+  });
+
+  it('exposes structured field errors from a fieldErrors array', () => {
+    const result = apiErrorToI18n(
+      createApiError({
+        detail: 'Validation failed',
+        properties: {
+          code: 'store.path.outsideWorkspace',
+          fieldErrors: [
+            { field: 'repoDir', message: 'repoDir must be located under workspace root /ws, but was /tmp' },
+          ],
+        },
+      }),
+    );
+
+    expect(result.code).toBe('store.path.outsideWorkspace');
+    expect(result.fieldErrors).toEqual([
+      { field: 'repoDir', message: 'repoDir must be located under workspace root /ws, but was /tmp' },
+    ]);
+  });
+});
+
+describe('getFieldErrors', () => {
+  it('maps field -> message for a field-scoped problem', () => {
+    const error = toDisplayError(
+      createApiError({
+        properties: {
+          code: 'store.path.outsideWorkspace',
+          fieldErrors: [{ field: 'repoDir', message: 'must be inside the workspace' }],
+        },
+      }),
+    );
+
+    expect(getFieldErrors(error)).toEqual({ repoDir: 'must be inside the workspace' });
+  });
+
+  it('returns an empty map when there are no field-scoped errors', () => {
+    const error = toDisplayError(createApiError({ detail: 'boom' }));
+    expect(getFieldErrors(error)).toEqual({});
   });
 });
 

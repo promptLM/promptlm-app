@@ -28,6 +28,7 @@ export type CreateProjectFormProps = {
   submitLabel?: string;
   isSubmitting?: boolean;
   error?: string | null;
+  fieldErrors?: Partial<Record<keyof CreateProjectFormValues, string>>;
   owners?: RepositoryOwnerOption[];
   isOwnersLoading?: boolean;
   ownersError?: string | null;
@@ -52,6 +53,7 @@ export const CreateProjectForm: React.FC<CreateProjectFormProps> = ({
   submitLabel = 'Create project',
   isSubmitting = false,
   error,
+  fieldErrors,
   owners,
   isOwnersLoading = false,
   ownersError,
@@ -99,6 +101,8 @@ export const CreateProjectForm: React.FC<CreateProjectFormProps> = ({
           value={values.repoName}
           onChange={handleChange('repoName')}
           inputProps={{ 'data-testid': 'repositoryName' }}
+          error={Boolean(fieldErrors?.repoName)}
+          helperText={fieldErrors?.repoName ?? undefined}
           fullWidth
           required
         />
@@ -108,6 +112,8 @@ export const CreateProjectForm: React.FC<CreateProjectFormProps> = ({
           value={values.parentDirectory}
           onChange={handleChange('parentDirectory')}
           inputProps={{ 'data-testid': 'newRepoPath' }}
+          error={Boolean(fieldErrors?.parentDirectory)}
+          helperText={fieldErrors?.parentDirectory ?? undefined}
           fullWidth
           required
         />

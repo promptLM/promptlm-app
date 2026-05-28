@@ -8,6 +8,12 @@
       "port": 5174
     },
     {
+      "name": "ui-storybook",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "storybook", "--workspace", "@promptlm/ui", "--", "--port", "6007", "--no-open"],
+      "port": 6007
+    },
+    {
       "name": "report-static",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--workspace", "@promptlm/report-static"],

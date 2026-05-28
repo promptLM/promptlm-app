@@ -51,3 +51,16 @@ export const WithError: Story = {
     error: 'Failed to create the repository in the selected directory.',
   },
 };
+
+export const WithFieldError: Story = {
+  args: {
+    initialValues: {
+      repoName: 'promptlm-studio',
+      parentDirectory: '/tmp',
+      description: 'Workspace for prompt experimentation',
+    },
+    fieldErrors: {
+      parentDirectory: 'repoDir must be located under workspace root /Users/alex, but was /tmp',
+    },
+  },
+};

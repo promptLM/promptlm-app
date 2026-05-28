@@ -18,6 +18,7 @@ package dev.promptlm.web;
 
 import dev.promptlm.domain.AppContext;
 import dev.promptlm.domain.projectspec.ProjectSpec;
+import dev.promptlm.store.api.FieldValidationException;
 import dev.promptlm.store.api.ProjectService;
 import dev.promptlm.store.api.RemoteRepositoryAlreadyExistsException;
 import dev.promptlm.store.api.RemoteRepositoryAuthenticationException;
@@ -131,12 +132,14 @@ public class PromptStoreController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, ex.getMessage(), ex);
         } catch (RemoteRepositoryProvisioningException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, ex.getMessage(), ex);
+        } catch (FieldValidationException ex) {
+            throw ex;
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
         }
     }
 
-    @Operation(summary = "Clone existing store", 
+    @Operation(summary = "Clone existing store",
                description = "Clones an existing prompt store repository from a remote URL")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Store cloned successfully, returns the result message",
