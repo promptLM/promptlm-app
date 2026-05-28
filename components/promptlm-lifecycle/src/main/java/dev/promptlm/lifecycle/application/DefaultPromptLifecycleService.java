@@ -163,10 +163,14 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
         defaultParams.put("presencePenalty", 0.0);
         defaultParams.put("stream", false);
 
+        // Issue #309: the New-prompt form must open blank. Clear all demo
+        // content (name, group, description, messages, placeholders) but keep a
+        // usable default vendor/model and parameters so the form is immediately
+        // runnable once the user fills in their messages (see issue #310).
         PromptSpec.Placeholders placeholders = new PromptSpec.Placeholders();
         placeholders.setStartPattern("{{");
         placeholders.setEndPattern("}}");
-        placeholders.setList(List.of(new PromptSpec.Placeholder("customer_name", "Taylor")));
+        placeholders.setList(List.of());
 
         Request request = ChatCompletionRequest.builder()
                 .withVendor("openai")
@@ -174,22 +178,22 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
                 .withMessages(List.of(
                         ChatCompletionRequest.Message.builder()
                                 .withRole("system")
-                                .withContent("You are a helpful assistant.")
+                                .withContent("")
                                 .build(),
                         ChatCompletionRequest.Message.builder()
                                 .withRole("user")
-                                .withContent("Help the customer.")
+                                .withContent("")
                                 .build()
                 ))
                 .withParameters(defaultParams)
                 .build();
 
         return PromptSpec.builder()
-                .withGroup("support")
-                .withName("support-prompt")
+                .withGroup("")
+                .withName("")
                 .withVersion("1.0.0-SNAPSHOT")
                 .withRevision(1)
-                .withDescription("Assist support agents")
+                .withDescription("")
                 .withRequest(request)
                 .withPlaceholders(placeholders)
                 .build();

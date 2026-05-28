@@ -441,7 +441,11 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
       createPrompt: data.createPrompt,
       updatePrompt: data.updatePrompt,
     });
-    if (result.updatedPrompt && mode === 'edit') {
+    // Re-hydrate the editor from the persisted spec after a successful save in
+    // both edit and create mode. This realigns the baseline with what the
+    // server stored, so the draft is no longer "dirty" and a subsequent Run
+    // executes the stored spec rather than the raw client body (issue #310).
+    if (result.updatedPrompt && (mode === 'edit' || mode === 'create')) {
       const refreshed = createPromptDraftFromPrompt(result.updatedPrompt);
       editor.replaceState(refreshed);
       setBaseline(refreshed);

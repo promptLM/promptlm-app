@@ -189,12 +189,15 @@ class DefaultPromptLifecycleServiceTest {
     }
 
     @Test
-    void createDefaultPromptSpecReturnsCanonicalDraftTemplate() {
+    void createDefaultPromptSpecReturnsBlankDraftTemplate() {
+        // Issue #309: the New-prompt form opens blank — no demo name/group/
+        // description/messages/placeholders. A usable default vendor/model and
+        // parameters remain so the form is immediately runnable (issue #310).
         PromptSpec templateSpec = service.createDefaultPromptSpec();
 
-        assertThat(templateSpec.getGroup()).isEqualTo("support");
-        assertThat(templateSpec.getName()).isEqualTo("support-prompt");
-        assertThat(templateSpec.getDescription()).isEqualTo("Assist support agents");
+        assertThat(templateSpec.getGroup()).isEmpty();
+        assertThat(templateSpec.getName()).isEmpty();
+        assertThat(templateSpec.getDescription()).isEmpty();
 
         ChatCompletionRequest request = (ChatCompletionRequest) templateSpec.getRequest();
         assertThat(request.getVendor()).isEqualTo("openai");
@@ -202,8 +205,8 @@ class DefaultPromptLifecycleServiceTest {
         assertThat(request.getMessages())
                 .extracting(ChatCompletionRequest.Message::getRole, ChatCompletionRequest.Message::getContent)
                 .containsExactly(
-                        tuple("system", "You are a helpful assistant."),
-                        tuple("user", "Help the customer.")
+                        tuple("system", ""),
+                        tuple("user", "")
                 );
         assertThat(request.getParameters()).containsEntry("maxTokens", 1024);
         assertThat(request.getParameters()).containsEntry("stream", false);
@@ -211,9 +214,7 @@ class DefaultPromptLifecycleServiceTest {
         assertThat(templateSpec.getPlaceholders()).isNotNull();
         assertThat(templateSpec.getPlaceholders().getStartPattern()).isEqualTo("{{");
         assertThat(templateSpec.getPlaceholders().getEndPattern()).isEqualTo("}}");
-        assertThat(templateSpec.getPlaceholders().getList())
-                .extracting(PromptSpec.Placeholder::getName, PromptSpec.Placeholder::getValue)
-                .containsExactly(tuple("customer_name", "Taylor"));
+        assertThat(templateSpec.getPlaceholders().getList()).isEmpty();
     }
 
     @Test

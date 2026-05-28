@@ -136,7 +136,8 @@ describe('savePromptDraftAction', () => {
   });
 
   it('creates a prompt in create mode before an id exists', async () => {
-    const createPrompt = vi.fn().mockResolvedValue(buildPrompt('prompt-1'));
+    const created = buildPrompt('prompt-1');
+    const createPrompt = vi.fn().mockResolvedValue(created);
     const updatePrompt = vi.fn();
 
     const result = await savePromptDraftAction({
@@ -155,6 +156,9 @@ describe('savePromptDraftAction', () => {
     expect(createPrompt).toHaveBeenCalledTimes(1);
     expect(updatePrompt).not.toHaveBeenCalled();
     expect(result.nextCreatedPromptId).toBe('prompt-1');
+    // Issue #310: the created spec is returned so the editor can re-hydrate its
+    // baseline and a subsequent Run targets the stored spec, not the raw draft.
+    expect(result.updatedPrompt).toBe(created);
     expect(result.toast).toEqual({
       severity: 'success',
       message: 'Prompt created.',

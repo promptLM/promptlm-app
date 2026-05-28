@@ -91,9 +91,13 @@ export const savePromptDraftAction = async ({
   try {
     if (mode === 'create' && !createdPromptId) {
       const created = await createPrompt(payload);
+      // Issue #310: return the persisted spec so the editor can re-hydrate its
+      // baseline from it (mirroring the edit path). Without this the draft stays
+      // "dirty" after a Save draft, so a subsequent Run executes the raw client
+      // body instead of the stored spec and never resolves a response.
       return {
         nextCreatedPromptId: created.id ?? null,
-        updatedPrompt: null,
+        updatedPrompt: created,
         shouldRefreshPrompt: false,
         toast: {
           severity: 'success',

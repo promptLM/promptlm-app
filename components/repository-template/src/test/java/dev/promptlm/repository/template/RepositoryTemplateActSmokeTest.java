@@ -77,7 +77,7 @@ class RepositoryTemplateActSmokeTest {
                             "-b",
                             "-C", repositoryDir.toString(),
                             "-e", eventFile.toString(),
-                            "-W", ".github/workflows/deploy-artifactory.yml",
+                            "-W", ".github/workflows/deploy-github-packages.yml",
                             "-j", "build",
                             "-P", "ubuntu-latest=" + ACT_PLATFORM_IMAGE,
                             "--var", "REPO_REMOTE_URL=file://" + bareRemoteRepository.toAbsolutePath(),
