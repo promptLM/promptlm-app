@@ -20,6 +20,8 @@ import dev.promptlm.domain.AppContext;
 import dev.promptlm.domain.projectspec.ProjectSpec;
 import dev.promptlm.store.api.ProjectService;
 import dev.promptlm.store.api.RemoteRepositoryAlreadyExistsException;
+import dev.promptlm.store.api.RemoteRepositoryAuthenticationException;
+import dev.promptlm.store.api.RemoteRepositoryProvisioningException;
 import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -187,6 +189,42 @@ class PromptStoreControllerWebMvcTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void createStoreShouldReturnUnauthorizedWhenCredentialsRejected(@TempDir Path tempDir) throws Exception {
+        Path repoDir = tempDir.resolve("repo-parent");
+        Files.createDirectories(repoDir);
+
+        CreateStoreRequest request = new CreateStoreRequest();
+        request.setRepoDir(repoDir.toString());
+        request.setRepoName("repo-name");
+
+        when(projectService.newProject(eq(repoDir), eq(null), eq("repo-name")))
+                .thenThrow(new RemoteRepositoryAuthenticationException("https://github.com", 406, new RuntimeException("boom")));
+
+        mockMvc.perform(post("/api/store")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void createStoreShouldReturnBadGatewayWhenProvisioningFails(@TempDir Path tempDir) throws Exception {
+        Path repoDir = tempDir.resolve("repo-parent");
+        Files.createDirectories(repoDir);
+
+        CreateStoreRequest request = new CreateStoreRequest();
+        request.setRepoDir(repoDir.toString());
+        request.setRepoName("repo-name");
+
+        when(projectService.newProject(eq(repoDir), eq(null), eq("repo-name")))
+                .thenThrow(new RemoteRepositoryProvisioningException("Creating repository failed", 500, new RuntimeException("boom")));
+
+        mockMvc.perform(post("/api/store")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadGateway());
     }
 
     @Test

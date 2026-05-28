@@ -17,6 +17,8 @@
 package dev.promptlm.store.github;
 
 import dev.promptlm.store.api.RemoteRepositoryAlreadyExistsException;
+import dev.promptlm.store.api.RemoteRepositoryAuthenticationException;
+import dev.promptlm.store.api.RemoteRepositoryProvisioningException;
 import dev.promptlm.store.api.RepositoryGenerationConfig;
 import dev.promptlm.store.api.RepositoryOwner;
 import org.kohsuke.github.*;
@@ -69,7 +71,7 @@ public class RemoteGitRepositoryProvisioner {
 
             return List.copyOf(owners);
         } catch (IOException ex) {
-            throw new RuntimeException(ex);
+            throw translateProvisioningFailure("Listing repository owners", ex);
         }
     }
 
@@ -141,12 +143,11 @@ public class RemoteGitRepositoryProvisioner {
             log.debug("Repository {} exists: {}", repoFullName, exists);
             return exists;
         } catch (GHFileNotFoundException notFound) {
-            log.debug("Repository {}/{} does not exist", owner, repoName);
+            log.debug("Repository {}/{} does not exist", effectiveOwner, repoName);
             return false;
         } catch (IOException e) {
-
-//            throw new RuntimeException("Could not check if repository exists: " + owner + "/" + repoName + ": " + e.getMessage(), e);
-            return false;
+            throw translateProvisioningFailure(
+                    "Checking whether repository %s/%s exists".formatted(effectiveOwner, repoName), e);
         }
     }
 
@@ -180,8 +181,28 @@ public class RemoteGitRepositoryProvisioner {
             }
             return GitHubRepository.create(r.getOwnerName(), r.getName(), r.getHtmlUrl());
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw translateProvisioningFailure("Creating repository %s/%s".formatted(owner, repoName), e);
         }
+    }
+
+    /**
+     * Translates a low-level {@link IOException} from the GitHub client into a
+     * typed provisioning exception. Rejected credentials (HTTP 401/403/406)
+     * become a {@link RemoteRepositoryAuthenticationException}; everything else
+     * becomes a {@link RemoteRepositoryProvisioningException} carrying the
+     * upstream status when available.
+     */
+    private RemoteRepositoryProvisioningException translateProvisioningFailure(String action, IOException ex) {
+        if (ex instanceof HttpException httpException) {
+            int status = httpException.getResponseCode();
+            if (status == 401 || status == 403 || status == 406) {
+                return new RemoteRepositoryAuthenticationException(gitHubProperties.getBaseUrl(), status, ex);
+            }
+            return new RemoteRepositoryProvisioningException(
+                    "%s failed against '%s' (HTTP %d)".formatted(action, gitHubProperties.getBaseUrl(), status), status, ex);
+        }
+        return new RemoteRepositoryProvisioningException(
+                "%s failed against '%s'".formatted(action, gitHubProperties.getBaseUrl()), ex);
     }
 
     private String resolveOwner(String requestedOwner) {

@@ -18,6 +18,7 @@ package dev.promptlm.store.github;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import dev.promptlm.store.api.RemoteRepositoryAuthenticationException;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -27,6 +28,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class RemoteGitRepositoryProvisionerRepositoryExistsTest {
 
@@ -53,18 +55,45 @@ class RemoteGitRepositoryProvisionerRepositoryExistsTest {
         }
     }
 
+    /**
+     * Rejected credentials on the target lookup must surface as an authentication
+     * failure rather than being masked as "repository does not exist", which would
+     * otherwise let `repo create` proceed and fail later with an opaque error.
+     */
+    @Test
+    void repositoryExistsRaisesAuthenticationFailureWhenCredentialsRejected() {
+        try (FakeGitHubApi api = FakeGitHubApi.start(401)) {
+            GitHubProperties properties = new GitHubProperties();
+            properties.setBaseUrl(api.baseApiUrl());
+            properties.setEndpoint(api.baseApiUrl());
+            properties.setUsername("alice");
+            properties.setToken("token");
+
+            RemoteGitRepositoryProvisioner provisioner = new RemoteGitRepositoryProvisioner(properties);
+
+            assertThatThrownBy(() -> provisioner.repositoryExists(api.baseApiUrl(), "owner", "repo"))
+                    .isInstanceOf(RemoteRepositoryAuthenticationException.class);
+        }
+    }
+
     private static final class FakeGitHubApi implements AutoCloseable {
         private final HttpServer server;
+        private final int repoStatus;
         private final List<String> requestPaths = new CopyOnWriteArrayList<>();
 
-        private FakeGitHubApi(HttpServer server) {
+        private FakeGitHubApi(HttpServer server, int repoStatus) {
             this.server = server;
+            this.repoStatus = repoStatus;
         }
 
         static FakeGitHubApi start() {
+            return start(404);
+        }
+
+        static FakeGitHubApi start(int repoStatus) {
             try {
                 HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-                FakeGitHubApi fakeGitHubApi = new FakeGitHubApi(server);
+                FakeGitHubApi fakeGitHubApi = new FakeGitHubApi(server, repoStatus);
                 server.createContext("/", fakeGitHubApi::handle);
                 server.start();
                 return fakeGitHubApi;
@@ -93,7 +122,7 @@ class RemoteGitRepositoryProvisionerRepositoryExistsTest {
             }
 
             if (path.endsWith("/repos/owner/repo")) {
-                writeJson(exchange, 404, """
+                writeJson(exchange, repoStatus, """
                         {"message":"Not Found"}
                         """);
                 return;

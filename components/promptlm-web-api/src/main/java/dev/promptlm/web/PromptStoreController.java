@@ -20,6 +20,8 @@ import dev.promptlm.domain.AppContext;
 import dev.promptlm.domain.projectspec.ProjectSpec;
 import dev.promptlm.store.api.ProjectService;
 import dev.promptlm.store.api.RemoteRepositoryAlreadyExistsException;
+import dev.promptlm.store.api.RemoteRepositoryAuthenticationException;
+import dev.promptlm.store.api.RemoteRepositoryProvisioningException;
 import dev.promptlm.store.api.RepositoryOwner;
 import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
@@ -94,7 +96,13 @@ public class PromptStoreController {
                     array = @ArraySchema(schema = @Schema(implementation = RepositoryOwner.class))))
     @GetMapping("/owners")
     public ResponseEntity<List<RepositoryOwner>> listOwners() {
-        return ResponseEntity.ok(projectService.listAvailableOwners());
+        try {
+            return ResponseEntity.ok(projectService.listAvailableOwners());
+        } catch (RemoteRepositoryAuthenticationException ex) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, ex.getMessage(), ex);
+        } catch (RemoteRepositoryProvisioningException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, ex.getMessage(), ex);
+        }
     }
 
     @Operation(summary = "Create new store", 
@@ -119,6 +127,10 @@ public class PromptStoreController {
             return ResponseEntity.ok(ensureProjectIdentity(projectSpec));
         } catch (RemoteRepositoryAlreadyExistsException ex) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
+        } catch (RemoteRepositoryAuthenticationException ex) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, ex.getMessage(), ex);
+        } catch (RemoteRepositoryProvisioningException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, ex.getMessage(), ex);
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
         }
