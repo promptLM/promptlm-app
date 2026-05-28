@@ -18,6 +18,7 @@ package dev.promptlm.web;
 
 import dev.promptlm.domain.AppContext;
 import dev.promptlm.domain.projectspec.ProjectSpec;
+import dev.promptlm.store.api.FieldValidationException;
 import dev.promptlm.store.api.ProjectService;
 import dev.promptlm.store.api.RemoteRepositoryAlreadyExistsException;
 import dev.promptlm.store.api.RemoteRepositoryAuthenticationException;
@@ -243,6 +244,31 @@ class PromptStoreControllerWebMvcTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createStoreShouldReturnFieldScopedProblemWhenRepoDirOutsideWorkspace(@TempDir Path tempDir) throws Exception {
+        Path repoDir = tempDir.resolve("repo-parent");
+        Files.createDirectories(repoDir);
+
+        CreateStoreRequest request = new CreateStoreRequest();
+        request.setRepoDir(repoDir.toString());
+        request.setRepoName("repo-name");
+
+        when(projectService.newProject(eq(repoDir), eq(null), eq("repo-name")))
+                .thenThrow(new FieldValidationException(
+                        "repoDir",
+                        "store.path.outsideWorkspace",
+                        "repoDir must be located under workspace root /workspace, but was /tmp"));
+
+        mockMvc.perform(post("/api/store")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("store.path.outsideWorkspace"))
+                .andExpect(jsonPath("$.fieldErrors[0].field").value("repoDir"))
+                .andExpect(jsonPath("$.fieldErrors[0].message", containsString("workspace root")));
     }
 
     @Test

@@ -32,6 +32,7 @@ import {
 } from '@api-common/projectModel';
 import type { StoreStatusEvent } from '@promptlm/api-client';
 import { useToast } from '@/hooks/use-toast';
+import { getFieldErrors } from '@api-common/apiError';
 import { useProjectsContext } from '@api-common/projects/ProjectsContext';
 import { useGeneratedApiClient } from '@api-common/generatedClientProvider';
 import {
@@ -65,6 +66,9 @@ export function ProjectModal({ open, onOpenChange }: ProjectModalProps) {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [createFieldErrors, setCreateFieldErrors] = useState<
+    Partial<Record<'repoName' | 'parentDirectory', string>>
+  >({});
   const [importError, setImportError] = useState<string | null>(null);
   const [cloneError, setCloneError] = useState<string | null>(null);
   const [cloneStatusEvent, setCloneStatusEvent] = useState<StoreStatusEvent | null>(null);
@@ -109,6 +113,7 @@ export function ProjectModal({ open, onOpenChange }: ProjectModalProps) {
   useEffect(() => {
     if (!open) {
       setCreateError(null);
+      setCreateFieldErrors({});
       setImportError(null);
       setCloneError(null);
       setCloneStatusEvent(null);
@@ -152,6 +157,7 @@ export function ProjectModal({ open, onOpenChange }: ProjectModalProps) {
   const handleAddProject = async (values: { repoName: string; parentDirectory: string; description: string; owner?: string }) => {
     setIsSubmitting(true);
     setCreateError(null);
+    setCreateFieldErrors({});
     try {
       const created = await createProject({
         repoName: values.repoName.trim(),
@@ -168,7 +174,18 @@ export function ProjectModal({ open, onOpenChange }: ProjectModalProps) {
       onOpenChange(false);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to create project. Please try again.';
-      setCreateError(message);
+      const backendFieldErrors = getFieldErrors(err);
+      const formFieldErrors: Partial<Record<'repoName' | 'parentDirectory', string>> = {};
+      if (backendFieldErrors.repoDir) {
+        formFieldErrors.parentDirectory = backendFieldErrors.repoDir;
+      }
+      if (backendFieldErrors.repoName) {
+        formFieldErrors.repoName = backendFieldErrors.repoName;
+      }
+
+      const hasFieldErrors = Object.keys(formFieldErrors).length > 0;
+      setCreateFieldErrors(formFieldErrors);
+      setCreateError(hasFieldErrors ? null : message);
       toast({
         title: 'Error',
         description: message,
@@ -340,6 +357,7 @@ export function ProjectModal({ open, onOpenChange }: ProjectModalProps) {
           onSubmit={handleAddProject}
           isSubmitting={isSubmitting}
           error={createError}
+          fieldErrors={createFieldErrors}
           owners={ownerOptions}
           isOwnersLoading={isOwnersLoading}
           ownersError={ownersError}

@@ -14,12 +14,18 @@
 
 import { ApiError } from '@promptlm/api-client';
 
+export type ApiFieldError = {
+  field?: string;
+  message: string;
+};
+
 export type ApiErrorI18n = {
   code: string;
   messageKey: string;
   message?: string;
   params?: Record<string, string | number>;
   status?: number;
+  fieldErrors?: ApiFieldError[];
 };
 
 type ProblemDetail = {
@@ -65,10 +71,18 @@ const toProblemValidationEntry = (value: unknown): ProblemValidationEntry | null
   return value as ProblemValidationEntry;
 };
 
-const normalizeValidationMessage = (value: unknown): string | undefined => {
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : undefined;
+const normalizeText = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const toFieldError = (value: unknown): ApiFieldError | undefined => {
+  const messageOnly = normalizeText(value);
+  if (messageOnly) {
+    return { message: messageOnly };
   }
 
   const entry = toProblemValidationEntry(value);
@@ -76,18 +90,16 @@ const normalizeValidationMessage = (value: unknown): string | undefined => {
     return undefined;
   }
 
-  const field = entry.field ?? entry.path ?? entry.name;
-  const message = entry.message ?? entry.detail ?? entry.defaultMessage ?? entry.reason;
-  const normalizedMessage = normalizeValidationMessage(message);
-  if (!normalizedMessage) {
+  const message = normalizeText(entry.message ?? entry.detail ?? entry.defaultMessage ?? entry.reason);
+  if (!message) {
     return undefined;
   }
 
-  const normalizedField = normalizeValidationMessage(field);
-  return normalizedField ? `${normalizedField}: ${normalizedMessage}` : normalizedMessage;
+  const field = normalizeText(entry.field ?? entry.path ?? entry.name);
+  return field ? { field, message } : { message };
 };
 
-const readProblemValidationMessages = (problem: ProblemDetail | null): string[] => {
+const readProblemFieldErrors = (problem: ProblemDetail | null): ApiFieldError[] => {
   if (!problem) {
     return [];
   }
@@ -99,22 +111,32 @@ const readProblemValidationMessages = (problem: ProblemDetail | null): string[] 
     problem.properties?.messages,
   ];
 
-  const uniqueMessages = new Set<string>();
+  const seen = new Set<string>();
+  const result: ApiFieldError[] = [];
   for (const candidate of candidates) {
     if (!Array.isArray(candidate)) {
       continue;
     }
 
     for (const item of candidate) {
-      const message = normalizeValidationMessage(item);
-      if (message) {
-        uniqueMessages.add(message);
+      const fieldError = toFieldError(item);
+      if (!fieldError) {
+        continue;
       }
+      const key = `${fieldError.field ?? ''}::${fieldError.message}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      result.push(fieldError);
     }
   }
 
-  return Array.from(uniqueMessages);
+  return result;
 };
+
+const formatFieldError = (fieldError: ApiFieldError): string =>
+  fieldError.field ? `${fieldError.field}: ${fieldError.message}` : fieldError.message;
 
 export const apiErrorToI18n = (error: unknown): ApiErrorI18n => {
   const fallbackMessage = error instanceof Error ? error.message : undefined;
@@ -123,9 +145,9 @@ export const apiErrorToI18n = (error: unknown): ApiErrorI18n => {
     const problem = toProblemDetail(error.body);
     const code = readProblemCode(problem);
     const status = error.status;
-    const validationMessages = readProblemValidationMessages(problem);
+    const fieldErrors = readProblemFieldErrors(problem);
     const message =
-      (validationMessages.length > 0 ? validationMessages.join('; ') : undefined) ??
+      (fieldErrors.length > 0 ? fieldErrors.map(formatFieldError).join('; ') : undefined) ??
       problem?.detail ??
       problem?.title ??
       error.message;
@@ -136,6 +158,7 @@ export const apiErrorToI18n = (error: unknown): ApiErrorI18n => {
       messageKey,
       message,
       status,
+      fieldErrors: fieldErrors.length > 0 ? fieldErrors : undefined,
     };
   }
 
@@ -156,4 +179,21 @@ export const toDisplayError = (error: unknown): Error => {
   const normalized = new Error(message);
   (normalized as { i18n?: ApiErrorI18n }).i18n = i18n;
   return normalized;
+};
+
+/**
+ * Extract field-scoped validation messages as a {@code field -> message} map, suitable for
+ * binding to form inputs. Reads the {@code i18n} payload attached by {@link toDisplayError}
+ * when present, otherwise derives it from the raw error.
+ */
+export const getFieldErrors = (error: unknown): Record<string, string> => {
+  const attached = (error as { i18n?: ApiErrorI18n } | null)?.i18n;
+  const i18n = attached ?? apiErrorToI18n(error);
+  const result: Record<string, string> = {};
+  for (const fieldError of i18n.fieldErrors ?? []) {
+    if (fieldError.field && !(fieldError.field in result)) {
+      result[fieldError.field] = fieldError.message;
+    }
+  }
+  return result;
 };

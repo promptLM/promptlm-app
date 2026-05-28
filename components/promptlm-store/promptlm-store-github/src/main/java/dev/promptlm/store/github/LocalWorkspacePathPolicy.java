@@ -16,6 +16,7 @@
 
 package dev.promptlm.store.github;
 
+import dev.promptlm.store.api.FieldValidationException;
 import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
@@ -31,13 +32,15 @@ class LocalWorkspacePathPolicy {
 
     public Path assertWithinWorkspace(Path candidatePath, String fieldName) {
         if (candidatePath == null) {
-            throw new IllegalArgumentException(fieldName + " must not be null");
+            throw new FieldValidationException(fieldName, "store.path.required", fieldName + " must not be null");
         }
 
         Path workspaceRoot = resolveWorkspaceRoot();
         Path normalizedCandidate = candidatePath.toAbsolutePath().normalize();
         if (!normalizedCandidate.startsWith(workspaceRoot)) {
-            throw new IllegalArgumentException(
+            throw new FieldValidationException(
+                    fieldName,
+                    "store.path.outsideWorkspace",
                     "%s must be located under workspace root %s, but was %s"
                             .formatted(fieldName, workspaceRoot, normalizedCandidate)
             );

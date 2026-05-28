@@ -16,6 +16,7 @@
 
 package dev.promptlm.store.github;
 
+import dev.promptlm.store.api.FieldValidationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -23,6 +24,7 @@ import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 class LocalWorkspacePathPolicyTest {
 
@@ -49,5 +51,11 @@ class LocalWorkspacePathPolicyTest {
         assertThatThrownBy(() -> policy.assertWithinWorkspace(Path.of("/tmp/outside"), "repoDir"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("repoDir must be located under workspace root");
+
+        FieldValidationException thrown = catchThrowableOfType(
+                FieldValidationException.class,
+                () -> policy.assertWithinWorkspace(Path.of("/tmp/outside"), "repoDir"));
+        assertThat(thrown.getField()).isEqualTo("repoDir");
+        assertThat(thrown.getCode()).isEqualTo("store.path.outsideWorkspace");
     }
 }
