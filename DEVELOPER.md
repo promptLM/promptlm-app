@@ -1,91 +1,32 @@
 # Developer Guide
 
-Technical details for working on the agentskills repository itself.
+Technical details for working on the promptLM application.
 
-## Repository structure
+## Running the webapp locally (IntelliJ)
+
+If you launch `promptlm-webapp` directly from IntelliJ and the browser shows:
 
 ```
-.github/workflows/
-  update-readme.yml        ← CI: regenerates skills table on push to main
-hooks/
-  pre-commit               ← Git hook: regenerates skills table before commit
-scripts/
-  update-skill-table.sh    ← Core script: parses SKILL.md front matter → README table
-skills/
-  <skill-name>/
-    SKILL.md               ← Skill definition (YAML front matter + Markdown body)
-    README.md              ← Optional: architecture / design notes
-    scripts/               ← Optional: supporting shell scripts
-install.sh                 ← Consumer-facing installer (curl | bash)
+PromptLM UI bundle placeholder
 ```
 
-## Auto-generated skills table
+…it means the frontend bundle was never built. The committed
+`apps/promptlm-webapp/src/main/resources/static/index.html` is only a
+placeholder. The real `@promptlm/web-ui` bundle is produced by the
+`frontend-maven-plugin`, whose `npm-build` execution is bound to the Maven
+**`prepare-package`** phase and writes to `target/classes/static`. IntelliJ's
+run only compiles classes and copies `src/main/resources`, so it never runs
+that phase — leaving the placeholder in place.
 
-The **Skills** section in `README.md` is generated automatically from the YAML
-front matter (`name`, `description`) of every `skills/*/SKILL.md` file.
-
-The table lives between two HTML comment markers:
-
-```markdown
-<!-- SKILL_TABLE_START -->
-| Skill | Description |
-|---|---|
-| ... | ... |
-<!-- SKILL_TABLE_END -->
-```
-
-**Do not edit the table by hand** — it will be overwritten.
-
-### How it works
-
-`scripts/update-skill-table.sh`:
-
-1. Finds every `skills/*/SKILL.md`.
-2. Extracts `name` and `description` from the YAML front matter.
-3. Builds a Markdown table.
-4. Replaces everything between the `<!-- SKILL_TABLE_START -->` and
-   `<!-- SKILL_TABLE_END -->` markers in `README.md`.
-
-The script is idempotent — running it twice produces the same output.
-
-### When it runs
-
-| Trigger | Mechanism | File |
-|---|---|---|
-| **Before each commit** (local) | Git pre-commit hook | `hooks/pre-commit` |
-| **On push to main** (CI) | GitHub Actions workflow | `.github/workflows/update-readme.yml` |
-
-The pre-commit hook only fires when a `SKILL.md` file is staged. The CI
-workflow is a safety net in case the hook was bypassed (e.g. `--no-verify`).
-
-## Setting up the pre-commit hook
-
-After cloning, activate the hook:
+To serve the real UI, build the bundle once with Maven, then run from
+IntelliJ:
 
 ```bash
-ln -sf ../../hooks/pre-commit .git/hooks/pre-commit
+./mvnw -pl apps/promptlm-webapp -am prepare-package -DskipTests
 ```
 
-This is a one-time step per clone.
-
-## Running the script manually
-
-```bash
-bash scripts/update-skill-table.sh
-```
-
-## Adding a new skill
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor-facing guide. The
-short version:
-
-1. Create `skills/<name>/SKILL.md` with `name` and `description` in the YAML
-   front matter.
-2. Commit — the hook updates the README table automatically.
-
-## install.sh
-
-The consumer-facing installer downloads only the `skills/` directory from this
-repo and places it at `.agents/skills/` in the target project. It supports
-branch names and tags as the first argument (default: `main`). It tries the
-branch archive URL first, then falls back to the tag archive URL.
+This populates `target/classes/static` with the compiled UI. Afterwards, run
+the app from IntelliJ as usual — but do **not** let IntelliJ rebuild/recopy
+resources, as that overwrites `target/classes/static` with the placeholder
+again. (For active frontend work, run the Vite dev server instead:
+`npm --workspace @promptlm/web-ui run dev`.)
