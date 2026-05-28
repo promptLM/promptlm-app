@@ -20,11 +20,30 @@ variables that the CLI and Studio expect.
 |===
 | Variable | Purpose
 
-| `REPO_REMOTE_URL`       | Base URL of the Git host's REST API (GitHub or self-hosted Gitea). Used by the store to create and read remote repositories.
+| `REPO_REMOTE_URL`       | Base URL of the Git host's REST API (GitHub or self-hosted Gitea). Used by the store to create and read remote repositories. See the endpoint table below.
 | `REPO_REMOTE_USERNAME`  | User or owner on the remote host.
 | `REPO_REMOTE_TOKEN`     | Personal access token with repo scope.
 | `OPENAI_API_KEY`        | Used by Spring AI's OpenAI client for prompt execution.
 |===
+
+[IMPORTANT]
+====
+`REPO_REMOTE_URL` must point at the host's *REST API endpoint*, not its
+web address:
+
+[cols="1,2"]
+|===
+| Host | `REPO_REMOTE_URL`
+
+| GitHub (SaaS)     | `https://api.github.com`
+| GitHub Enterprise | `https://<your-host>/api/v3`
+| Gitea / Forgejo   | `http://<your-host>:<port>/api/v1`
+|===
+
+A value of `https://github.com` (the web UI host) will *not* work: the
+store sends API calls there and every request fails. Use
+`https://api.github.com`, with no trailing slash.
+====
 
 `ANTHROPIC_API_KEY` is also read by the Spring AI Anthropic client when
 the model catalog routes a prompt to Claude.

@@ -126,8 +126,6 @@ public class PromptStoreController {
                 projectSpec.setDescription(request.getDescription().trim());
             }
             return ResponseEntity.ok(ensureProjectIdentity(projectSpec));
-        } catch (RemoteRepositoryAlreadyExistsException ex) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
         } catch (RemoteRepositoryAuthenticationException ex) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, ex.getMessage(), ex);
         } catch (RemoteRepositoryProvisioningException ex) {

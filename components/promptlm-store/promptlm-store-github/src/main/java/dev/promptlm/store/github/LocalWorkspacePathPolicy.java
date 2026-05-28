@@ -36,7 +36,7 @@ class LocalWorkspacePathPolicy {
         }
 
         Path workspaceRoot = resolveWorkspaceRoot();
-        Path normalizedCandidate = candidatePath.toAbsolutePath().normalize();
+        Path normalizedCandidate = expandUserHome(candidatePath).toAbsolutePath().normalize();
         if (!normalizedCandidate.startsWith(workspaceRoot)) {
             throw new FieldValidationException(
                     fieldName,
@@ -47,6 +47,22 @@ class LocalWorkspacePathPolicy {
         }
 
         return normalizedCandidate;
+    }
+
+    /**
+     * Expands a leading {@code ~} path element to the user's home directory. A bare {@code Path.of("~/foo")}
+     * is treated by the JVM as the literal relative path {@code ./~/foo}; without this the store would create
+     * a literal {@code ~} directory under the working directory instead of resolving against {@code $HOME}.
+     */
+    private static Path expandUserHome(Path path) {
+        if (path.isAbsolute() || path.getNameCount() == 0 || !path.getName(0).toString().equals("~")) {
+            return path;
+        }
+        Path home = Path.of(System.getProperty("user.home"));
+        if (path.getNameCount() == 1) {
+            return home;
+        }
+        return home.resolve(path.subpath(1, path.getNameCount()));
     }
 
     private Path resolveWorkspaceRoot() {

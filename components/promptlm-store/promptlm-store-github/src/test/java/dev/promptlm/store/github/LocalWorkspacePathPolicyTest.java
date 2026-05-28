@@ -43,6 +43,18 @@ class LocalWorkspacePathPolicyTest {
     }
 
     @Test
+    void shouldExpandLeadingTildeToUserHome() {
+        Path home = Path.of(System.getProperty("user.home"));
+        StoreLocalProperties properties = new StoreLocalProperties();
+        properties.setWorkspaceRoot(home);
+        LocalWorkspacePathPolicy policy = new LocalWorkspacePathPolicy(properties);
+
+        Path normalized = policy.assertWithinWorkspace(Path.of("~/dev/repos/test10"), "repoDir");
+
+        assertThat(normalized).isEqualTo(home.resolve("dev/repos/test10"));
+    }
+
+    @Test
     void shouldRejectPathOutsideWorkspace(@TempDir Path tempDir) {
         StoreLocalProperties properties = new StoreLocalProperties();
         properties.setWorkspaceRoot(tempDir);
