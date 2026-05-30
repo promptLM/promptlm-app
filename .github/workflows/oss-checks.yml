@@ -1,8 +1,14 @@
-name: OSS Hygiene Checks
+name: oss-checks
 
-# Read-only OSS hygiene gates: secret scanning. License header presence
-# is already enforced by .github/workflows/CI.yml via skywalking-eyes —
-# do not duplicate that check here.
+# Thin caller of the org-wide reusable workflow. The gitleaks install + run
+# logic and the license-header check both live in
+# promptLM/.github/.github/workflows/oss-checks.yml — keeping them there means
+# bumping the gitleaks CLI version (or its install method) is a one-PR change
+# org-wide, not a per-repo sweep.
+#
+# License-header check is OFF here because CI.yml already runs skywalking-eyes
+# on every PR — switching it on in both places would double-spend CI minutes
+# and surface duplicate failures.
 
 on:
   push:
@@ -14,35 +20,7 @@ permissions:
   contents: read
 
 jobs:
-  gitleaks:
-    name: Secret scan (gitleaks)
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    # We install the gitleaks CLI directly instead of using
-    # gitleaks/gitleaks-action@v2 — that wrapper requires a commercial
-    # GITLEAKS_LICENSE secret for org repos. The underlying CLI remains
-    # MIT-licensed and free.
-    env:
-      GITLEAKS_VERSION: "8.21.2"
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Install gitleaks
-        run: |
-          curl -sSfL \
-            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
-            | tar -xz gitleaks
-          sudo install -m 0755 gitleaks /usr/local/bin/gitleaks
-          gitleaks version
-
-      - name: Run gitleaks
-        run: |
-          gitleaks detect \
-            --config .gitleaks.toml \
-            --no-banner \
-            --redact \
-            --verbose \
-            --exit-code 1
+  run:
+    uses: promptLM/.github/.github/workflows/oss-checks.yml@main
+    with:
+      check-license-headers: false
