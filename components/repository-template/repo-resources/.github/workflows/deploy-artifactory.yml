@@ -1,11 +1,18 @@
 name: Build & Deploy Prompts to Artifactory
 
-# Opt-in deploy workflow for the local/acceptance-test stack only.
-# Normal GitHub repositories deploy to GitHub Packages via deploy-github-packages.yml.
-# This workflow runs only on manual dispatch so a normal repo never fails on the
-# Artifactory configuration validation below.
+# Conditional deploy workflow for the local/acceptance-test stack (or any repo
+# that has Artifactory variables configured).
+#
+# Normal GitHub repositories deploy to GitHub Packages via
+# deploy-github-packages.yml. This workflow always auto-runs on push to main and
+# on manual dispatch — the build job runs unconditionally so the workflow stays
+# green, but the deploy job is gated on `vars.ARTIFACTORY_URL` being set, so an
+# unconfigured normal repo NEVER fails on the Artifactory configuration check
+# (the original symptom of issue #311).
 
 on:
+  push:
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       release_version:
@@ -213,6 +220,11 @@ jobs:
 
   deploy:
     needs: [prepare, build]
+    # Issue #311: only run the Artifactory deploy when this repo has Artifactory
+    # configured. On a normal GitHub repo `vars.ARTIFACTORY_URL` is unset and
+    # the job is skipped (workflow conclusion stays "success"). The acceptance-
+    # test stack sets these vars, so the job runs there as before.
+    if: vars.ARTIFACTORY_URL != ''
     runs-on: ubuntu-latest
     container: maven:3.9.9-eclipse-temurin-21
     env:

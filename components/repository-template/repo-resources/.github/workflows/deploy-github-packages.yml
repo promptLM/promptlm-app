@@ -207,6 +207,13 @@ jobs:
 
   deploy:
     needs: [prepare, build]
+    # Issue #311: only deploy to GitHub Packages when running on real github.com.
+    # On Gitea (the local/acceptance-test stack) or self-hosted GHE the
+    # `maven.pkg.github.com` host isn't reachable, so we skip the job rather
+    # than fail it (workflow conclusion stays "success"). Override via
+    # `vars.PROMPTLM_FORCE_GITHUB_PACKAGES_DEPLOY = true` if a non-github.com
+    # host explicitly wants to publish here anyway.
+    if: github.server_url == 'https://github.com' || vars.PROMPTLM_FORCE_GITHUB_PACKAGES_DEPLOY == 'true'
     runs-on: ubuntu-latest
     container: maven:3.9.9-eclipse-temurin-21
     permissions:

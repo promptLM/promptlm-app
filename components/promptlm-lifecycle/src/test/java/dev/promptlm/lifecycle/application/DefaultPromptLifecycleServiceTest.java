@@ -202,12 +202,10 @@ class DefaultPromptLifecycleServiceTest {
         ChatCompletionRequest request = (ChatCompletionRequest) templateSpec.getRequest();
         assertThat(request.getVendor()).isEqualTo("openai");
         assertThat(request.getModel()).isEqualTo("gpt-4o");
-        assertThat(request.getMessages())
-                .extracting(ChatCompletionRequest.Message::getRole, ChatCompletionRequest.Message::getContent)
-                .containsExactly(
-                        tuple("system", ""),
-                        tuple("user", "")
-                );
+        // Issue #309: no pre-filled messages — the editor renders the "Add
+        // message" buttons; the user adds the rows they want. Empty-content
+        // scaffolds break save-validation when only one row is filled.
+        assertThat(request.getMessages()).isEmpty();
         assertThat(request.getParameters()).containsEntry("maxTokens", 1024);
         assertThat(request.getParameters()).containsEntry("stream", false);
 

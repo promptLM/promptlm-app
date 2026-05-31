@@ -22,15 +22,6 @@
       "presencePenalty": 0.0,
       "stream": false
     },
-    "messages": [
-      {
-        "role": "system",
-        "content": ""
-      },
-      {
-        "role": "user",
-        "content": ""
-      }
-    ]
+    "messages": []
   }
 }

@@ -172,19 +172,15 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
         placeholders.setEndPattern("}}");
         placeholders.setList(List.of());
 
+        // Issue #309: no pre-filled messages either. The editor renders the
+        // "Add system message" / "Add user message" buttons; the user adds the
+        // rows they want. Shipping empty-content message scaffolds instead
+        // breaks server-side validation when the form is saved with one
+        // message added but the empty scaffolds still present.
         Request request = ChatCompletionRequest.builder()
                 .withVendor("openai")
                 .withModel("gpt-4o")
-                .withMessages(List.of(
-                        ChatCompletionRequest.Message.builder()
-                                .withRole("system")
-                                .withContent("")
-                                .build(),
-                        ChatCompletionRequest.Message.builder()
-                                .withRole("user")
-                                .withContent("")
-                                .build()
-                ))
+                .withMessages(List.of())
                 .withParameters(defaultParams)
                 .build();
 

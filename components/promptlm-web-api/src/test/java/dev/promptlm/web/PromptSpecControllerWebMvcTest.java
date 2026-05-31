@@ -122,15 +122,7 @@ class PromptSpecControllerWebMvcTest {
                 .withRequest(ChatCompletionRequest.builder()
                         .withVendor("openai")
                         .withModel("gpt-4o")
-                        .withMessages(List.of(
-                                ChatCompletionRequest.Message.builder()
-                                        .withRole("system")
-                                        .withContent("")
-                                        .build(),
-                                ChatCompletionRequest.Message.builder()
-                                        .withRole("user")
-                                        .withContent("")
-                                        .build()))
+                        .withMessages(List.of())
                         .build())
                 .withPlaceholders(placeholders)
                 .build();
@@ -144,10 +136,7 @@ class PromptSpecControllerWebMvcTest {
                 .andExpect(jsonPath("$.description").value(""))
                 .andExpect(jsonPath("$.request.vendor").value("openai"))
                 .andExpect(jsonPath("$.request.model").value("gpt-4o"))
-                .andExpect(jsonPath("$.request.messages[0].role").value("system"))
-                .andExpect(jsonPath("$.request.messages[0].content").value(""))
-                .andExpect(jsonPath("$.request.messages[1].role").value("user"))
-                .andExpect(jsonPath("$.request.messages[1].content").value(""))
+                .andExpect(jsonPath("$.request.messages").isEmpty())
                 .andExpect(jsonPath("$.placeholders.startPattern").value("{{"))
                 .andExpect(jsonPath("$.placeholders.endPattern").value("}}"))
                 .andExpect(jsonPath("$.placeholders.list").isEmpty());
