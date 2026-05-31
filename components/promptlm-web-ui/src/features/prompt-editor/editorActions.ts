@@ -114,7 +114,12 @@ export const savePromptDraftAction = async ({
     const updated = await updatePrompt(targetPromptId, payload);
     return {
       nextCreatedPromptId: updated.id ?? targetPromptId,
-      updatedPrompt: mode === 'edit' ? updated : null,
+      // Issue #310: return the persisted spec on every successful save so the
+      // editor re-hydrates its baseline — applies to the second-and-later save
+      // in create mode too, not only the first create or edit-mode saves.
+      // `shouldRefreshPrompt` stays edit-only because create mode has no
+      // `refreshPrompt` for a freshly-minted id.
+      updatedPrompt: updated,
       shouldRefreshPrompt: mode === 'edit',
       toast: {
         severity: 'success',

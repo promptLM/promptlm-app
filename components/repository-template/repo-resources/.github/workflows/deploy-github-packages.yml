@@ -309,7 +309,11 @@ jobs:
       - name: Deploy to GitHub Packages
         shell: bash
         env:
+          # GITHUB_TOKEN is consumed by Maven via settings.xml; GITHUB_ACTOR is
+          # forwarded explicitly so it's available inside the container job
+          # regardless of self-hosted-runner propagation quirks.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
         run: |
           set -euo pipefail
 

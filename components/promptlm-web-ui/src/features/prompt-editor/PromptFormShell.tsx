@@ -205,6 +205,11 @@ const POPSTATE_SENTINEL_KEY = '__promptlmDirtyGuard';
 // already hydrated an empty draft". Distinct from `null` (no hydration yet
 // at all) so the once-only guard can tell them apart.
 const EMPTY_HYDRATION_TOKEN: unique symbol = Symbol('emptyHydration');
+// Issue #310: stamped after a successful persistDraft re-hydration so a later
+// React Query refetch of `data.promptTemplate` (window focus, reconnect, cache
+// invalidation) doesn't re-fire the create-mode hydration effect and clobber
+// the just-saved baseline back to the blank template seed.
+const POST_SAVE_HYDRATION_TOKEN: unique symbol = Symbol('postSaveHydration');
 
 export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
   const navigate = useNavigate();
@@ -252,6 +257,11 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
   // reference from the useReducer dispatch) — depending on `editor` triggers
   // an infinite loop because the memoised actions object changes per render.
   useEffect(() => {
+    // Issue #310: once persistDraft has re-hydrated from the persisted spec,
+    // a later refetch of `data.prompt`/`data.promptTemplate` must NOT clobber
+    // the saved baseline. The mode-change effect above resets this on
+    // navigation so a fresh route still hydrates normally.
+    if (hydrationSourceRef.current === POST_SAVE_HYDRATION_TOKEN) return;
     if (mode === 'edit' && data.prompt) {
       if (hydrationSourceRef.current === data.prompt) return;
       const next = createPromptDraftFromPrompt(data.prompt);
@@ -445,10 +455,13 @@ export const PromptFormShell = ({ mode, promptId }: PromptFormShellProps) => {
     // both edit and create mode. This realigns the baseline with what the
     // server stored, so the draft is no longer "dirty" and a subsequent Run
     // executes the stored spec rather than the raw client body (issue #310).
+    // Stamp the hydration sentinel so a later React Query refetch of the
+    // template/spec doesn't re-fire the hydration effect and clobber this.
     if (result.updatedPrompt && (mode === 'edit' || mode === 'create')) {
       const refreshed = createPromptDraftFromPrompt(result.updatedPrompt);
       editor.replaceState(refreshed);
       setBaseline(refreshed);
+      hydrationSourceRef.current = POST_SAVE_HYDRATION_TOKEN;
     }
     if (result.shouldRefreshPrompt) {
       await data.refreshPrompt();
