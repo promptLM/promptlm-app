@@ -104,30 +104,25 @@ class PromptSpecControllerWebMvcTest {
     private dev.promptlm.pricing.ModelPricingService modelPricingService;
 
     @Test
-    void getDefaultTemplateReturnsCanonicalDraftSeed() throws Exception {
+    void getDefaultTemplateReturnsBlankDraftSeed() throws Exception {
+        // Issue #309: the New-prompt form opens blank. The template carries no
+        // demo name/group/description/messages/placeholders, but keeps a usable
+        // default vendor/model so the form is runnable (issue #310).
         PromptSpec.Placeholders placeholders = new PromptSpec.Placeholders();
         placeholders.setStartPattern("{{");
         placeholders.setEndPattern("}}");
-        placeholders.setList(List.of(new PromptSpec.Placeholder("customer_name", "Taylor")));
+        placeholders.setList(List.of());
 
         PromptSpec template = PromptSpec.builder()
-                .withGroup("support")
-                .withName("support-prompt")
+                .withGroup("")
+                .withName("")
                 .withVersion("1.0.0-SNAPSHOT")
                 .withRevision(1)
-                .withDescription("Assist support agents")
+                .withDescription("")
                 .withRequest(ChatCompletionRequest.builder()
                         .withVendor("openai")
                         .withModel("gpt-4o")
-                        .withMessages(List.of(
-                                ChatCompletionRequest.Message.builder()
-                                        .withRole("system")
-                                        .withContent("You are a helpful assistant.")
-                                        .build(),
-                                ChatCompletionRequest.Message.builder()
-                                        .withRole("user")
-                                        .withContent("Help the customer.")
-                                        .build()))
+                        .withMessages(List.of())
                         .build())
                 .withPlaceholders(placeholders)
                 .build();
@@ -136,19 +131,15 @@ class PromptSpecControllerWebMvcTest {
         mockMvc.perform(get("/api/prompts/template"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.name").value("support-prompt"))
-                .andExpect(jsonPath("$.group").value("support"))
-                .andExpect(jsonPath("$.description").value("Assist support agents"))
+                .andExpect(jsonPath("$.name").value(""))
+                .andExpect(jsonPath("$.group").value(""))
+                .andExpect(jsonPath("$.description").value(""))
                 .andExpect(jsonPath("$.request.vendor").value("openai"))
                 .andExpect(jsonPath("$.request.model").value("gpt-4o"))
-                .andExpect(jsonPath("$.request.messages[0].role").value("system"))
-                .andExpect(jsonPath("$.request.messages[0].content").value("You are a helpful assistant."))
-                .andExpect(jsonPath("$.request.messages[1].role").value("user"))
-                .andExpect(jsonPath("$.request.messages[1].content").value("Help the customer."))
+                .andExpect(jsonPath("$.request.messages").isEmpty())
                 .andExpect(jsonPath("$.placeholders.startPattern").value("{{"))
                 .andExpect(jsonPath("$.placeholders.endPattern").value("}}"))
-                .andExpect(jsonPath("$.placeholders.list[0].name").value("customer_name"))
-                .andExpect(jsonPath("$.placeholders.list[0].value").value("Taylor"));
+                .andExpect(jsonPath("$.placeholders.list").isEmpty());
     }
 
     @Test

@@ -151,10 +151,12 @@ public final class ReleaseArtifactContractDelegate {
         assertThat(promptsNode.isArray())
                 .as("metadata.json prompts must be an array")
                 .isTrue();
-        assertThat(promptsNode.isEmpty())
-                .as("metadata.json prompts must not be empty")
-                .isFalse();
 
+        // Issue #309: a freshly provisioned repo starts blank, so an empty
+        // prompts[] is a valid release state. (prompts[] is seed/derived
+        // metadata the app does not maintain on prompt create — release
+        // history is tracked via versions[].) Validate each entry's shape only
+        // when entries are present.
         promptsNode.forEach(prompt -> {
             assertThat(prompt.path("id").asText()).as("prompt metadata id must not be blank").isNotBlank();
             assertThat(prompt.path("name").asText()).as("prompt metadata name must not be blank").isNotBlank();

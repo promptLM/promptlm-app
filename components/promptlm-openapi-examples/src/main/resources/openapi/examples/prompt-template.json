@@ -1,21 +1,14 @@
 {
-  "name": "support-prompt",
-  "group": "support",
-  "description": "Assist support agents",
+  "name": "",
+  "group": "",
+  "description": "",
   "version": "1.0.0-SNAPSHOT",
   "revision": 1,
   "placeholders": {
     "startPattern": "{{",
     "endPattern": "}}",
-    "list": [
-      {
-        "name": "customer_name",
-        "value": "Taylor"
-      }
-    ],
-    "defaults": {
-      "customer_name": "Taylor"
-    }
+    "list": [],
+    "defaults": {}
   },
   "request": {
     "type": "chat/completion",
@@ -29,15 +22,6 @@
       "presencePenalty": 0.0,
       "stream": false
     },
-    "messages": [
-      {
-        "role": "system",
-        "content": "You are a helpful assistant."
-      },
-      {
-        "role": "user",
-        "content": "Help the customer."
-      }
-    ]
+    "messages": []
   }
 }

@@ -1,18 +1,19 @@
-name: Build & Deploy Prompts to Artifactory
+name: Build & Deploy Prompts to GitHub Packages
 
-# Conditional deploy workflow for the local/acceptance-test stack (or any repo
-# that has Artifactory variables configured).
-#
-# Normal GitHub repositories deploy to GitHub Packages via
-# deploy-github-packages.yml. This workflow always auto-runs on push to main and
-# on manual dispatch — the build job runs unconditionally so the workflow stays
-# green, but the deploy job is gated on `vars.ARTIFACTORY_URL` being set, so an
-# unconfigured normal repo NEVER fails on the Artifactory configuration check
-# (the original symptom of issue #311).
+# Default deploy workflow for a normal GitHub repository.
+# Publishes the prompts Maven artifact to GitHub Packages
+# (https://maven.pkg.github.com/<owner>/<repo>) using the built-in GITHUB_TOKEN.
+# Artifactory deployment lives in the opt-in `deploy-artifactory.yml` workflow
+# (workflow_dispatch only) for the local/acceptance-test stack.
 
+# Issue #311: deploy to GitHub Packages on a release tag (matching release.yml's
+# `v*.*.*` trigger) or on manual dispatch. We intentionally do NOT trigger on
+# push-to-main: a normal repo publishes on release, and not triggering here keeps
+# the acceptance-test stack's push-driven Artifactory workflow unambiguous.
 on:
   push:
-    branches: [ main ]
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
     inputs:
       release_version:
@@ -32,21 +33,12 @@ on:
         required: false
         type: boolean
         default: false
-      environment:
-        description: 'Target environment label'
-        required: false
-        type: string
-      artifactory_url:
-        description: 'Override Artifactory base URL'
-        required: false
-        type: string
+
+permissions:
+  contents: read
+  packages: write
 
 env:
-  ARTIFACTORY_URL: ${{ github.event.inputs.artifactory_url || vars.ARTIFACTORY_URL }}
-  ARTIFACTORY_REPOSITORY: ${{ vars.ARTIFACTORY_REPOSITORY }}
-  ARTIFACTORY_USERNAME: ${{ secrets.ARTIFACTORY_USERNAME || vars.ARTIFACTORY_USERNAME }}
-  ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD || vars.ARTIFACTORY_PASSWORD }}
-  TARGET_ENVIRONMENT: ${{ github.event.inputs.environment || 'development' }}
   MAVEN_OPTS: '-Xmx1024m'
   MAVEN_ARGS: ${{ github.event.inputs.maven_args || vars.PROMPTLM_MAVEN_ARGS || '' }}
   MAVEN_PROJECTS: ${{ github.event.inputs.maven_projects || vars.PROMPTLM_MAVEN_PROJECTS || '' }}
@@ -62,8 +54,6 @@ jobs:
         run: |
           echo "Manual deployment triggered"
           echo "Version: ${{ github.event.inputs.release_version }}"
-          echo "Environment: ${{ github.event.inputs.environment }}"
-          echo "Artifactory URL: ${{ github.event.inputs.artifactory_url }}"
           echo "Skip Tests: ${{ github.event.inputs.skip_tests }}"
           echo "Maven Args: ${{ github.event.inputs.maven_args }}"
           echo "Maven Projects: ${{ github.event.inputs.maven_projects }}"
@@ -220,45 +210,24 @@ jobs:
 
   deploy:
     needs: [prepare, build]
-    # Issue #311: only run the Artifactory deploy when this repo has Artifactory
-    # configured. On a normal GitHub repo `vars.ARTIFACTORY_URL` is unset and
-    # the job is skipped (workflow conclusion stays "success"). The acceptance-
-    # test stack sets these vars, so the job runs there as before.
-    if: vars.ARTIFACTORY_URL != ''
+    # Issue #311: only deploy to GitHub Packages when running on real github.com.
+    # On Gitea (the local/acceptance-test stack) or self-hosted GHE the
+    # `maven.pkg.github.com` host isn't reachable, so we skip the job rather
+    # than fail it (workflow conclusion stays "success"). Override via
+    # `vars.PROMPTLM_FORCE_GITHUB_PACKAGES_DEPLOY = true` if a non-github.com
+    # host explicitly wants to publish here anyway.
+    if: github.server_url == 'https://github.com' || vars.PROMPTLM_FORCE_GITHUB_PACKAGES_DEPLOY == 'true'
     runs-on: ubuntu-latest
     container: maven:3.9.9-eclipse-temurin-21
+    permissions:
+      contents: read
+      packages: write
     env:
       DEPLOY_VERSION: ${{ needs.prepare.outputs.version }}
       REPO_REMOTE_URL: ${{ vars.REPO_REMOTE_URL }}
       REPO_REMOTE_USERNAME: ${{ vars.REPO_REMOTE_USERNAME }}
       REPO_REMOTE_TOKEN: ${{ vars.REPO_REMOTE_TOKEN }}
     steps:
-      - name: Validate Artifactory configuration
-        shell: bash
-        env:
-          ARTIFACTORY_URL: ${{ env.ARTIFACTORY_URL }}
-          ARTIFACTORY_REPOSITORY: ${{ env.ARTIFACTORY_REPOSITORY }}
-          ARTIFACTORY_USERNAME: ${{ env.ARTIFACTORY_USERNAME }}
-          ARTIFACTORY_PASSWORD: ${{ env.ARTIFACTORY_PASSWORD }}
-        run: |
-          set -eu
-          if [ -z "${ARTIFACTORY_URL}" ]; then
-            echo "ARTIFACTORY_URL is not configured. Set it as a repository variable." >&2
-            exit 1
-          fi
-          if [ -z "${ARTIFACTORY_REPOSITORY}" ]; then
-            echo "ARTIFACTORY_REPOSITORY is not configured. Set it as a repository variable." >&2
-            exit 1
-          fi
-          if [ -z "${ARTIFACTORY_USERNAME}" ]; then
-            echo "ARTIFACTORY_USERNAME is not configured. Set it as a repository secret or variable." >&2
-            exit 1
-          fi
-          if [ -z "${ARTIFACTORY_PASSWORD}" ]; then
-            echo "ARTIFACTORY_PASSWORD is not configured. Set it as a repository secret." >&2
-            exit 1
-          fi
-
       - name: Checkout repository
         shell: bash
         env:
@@ -325,6 +294,9 @@ jobs:
           java -version
           mvn -version
 
+      - name: Set project version
+        run: mvn -B -ntp versions:set -DnewVersion=${{ needs.prepare.outputs.version }} -DgenerateBackupPoms=false
+
       - name: Create Maven settings.xml
         run: |
           mkdir -p ~/.m2
@@ -336,33 +308,29 @@ jobs:
                                         http://maven.apache.org/xsd/settings-1.0.0.xsd">
             <servers>
               <server>
-                <id>artifactory</id>
-                <username>${env.ARTIFACTORY_USERNAME}</username>
-                <password>${env.ARTIFACTORY_PASSWORD}</password>
+                <id>github</id>
+                <username>${env.GITHUB_ACTOR}</username>
+                <password>${env.GITHUB_TOKEN}</password>
               </server>
             </servers>
           </settings>
           EOF
 
-      - name: Verify Artifactory availability
-        run: |
-          PING_URL="${ARTIFACTORY_URL%/}/api/system/ping"
-          echo "Pinging Artifactory: $PING_URL"
-          curl --fail --silent --show-error --max-time 20 "$PING_URL" > /dev/null
-
-      - name: Deploy to Artifactory
+      - name: Deploy to GitHub Packages
         shell: bash
+        env:
+          # GITHUB_TOKEN is consumed by Maven via settings.xml; GITHUB_ACTOR is
+          # forwarded explicitly so it's available inside the container job
+          # regardless of self-hosted-runner propagation quirks.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
         run: |
           set -euo pipefail
 
-          # Deploys to the top-level (Artifactory) distributionManagement using
-          # the artifactory.* coordinates passed below. Unchanged from the
-          # pre-#311 behaviour so the acceptance-test stack is unaffected.
-          MAVEN_COMMAND=(mvn -B -ntp deploy -DskipTests)
-          MAVEN_COMMAND+=(-Dartifactory.url="${ARTIFACTORY_URL}")
-          MAVEN_COMMAND+=(-Dartifactory.repository="${ARTIFACTORY_REPOSITORY}")
-          MAVEN_COMMAND+=(-Dartifactory.username="${ARTIFACTORY_USERNAME}")
-          MAVEN_COMMAND+=(-Dartifactory.password="${ARTIFACTORY_PASSWORD}")
+          # Issue #311: -Pgithub activates the GitHub Packages
+          # distributionManagement (maven.pkg.github.com/${GITHUB_REPOSITORY}),
+          # overriding the pom's top-level Artifactory default.
+          MAVEN_COMMAND=(mvn -B -ntp deploy -DskipTests -Pgithub)
 
           if [ -n "${MAVEN_PROJECTS}" ]; then
             MAVEN_COMMAND+=(-pl "${MAVEN_PROJECTS}")
@@ -374,12 +342,12 @@ jobs:
             MAVEN_COMMAND+=("${EXTRA_ARGS[@]}")
           fi
 
-          echo "Deploying version ${DEPLOY_VERSION} to ${ARTIFACTORY_URL}/${ARTIFACTORY_REPOSITORY}"
+          echo "Deploying version ${DEPLOY_VERSION} to GitHub Packages (${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY})"
           "${MAVEN_COMMAND[@]}"
 
       - name: Summarize deployment
         run: |
           echo "## Deployment Complete" >> "$GITHUB_STEP_SUMMARY"
           echo "- Version: ${DEPLOY_VERSION}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Repository: ${ARTIFACTORY_REPOSITORY}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Target URL: ${ARTIFACTORY_URL}/${ARTIFACTORY_REPOSITORY}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Target: GitHub Packages" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Repository: https://maven.pkg.github.com/${GITHUB_REPOSITORY}" >> "$GITHUB_STEP_SUMMARY"

@@ -163,33 +163,33 @@ class DefaultPromptLifecycleService implements PromptLifecycleService {
         defaultParams.put("presencePenalty", 0.0);
         defaultParams.put("stream", false);
 
+        // Issue #309: the New-prompt form must open blank. Clear all demo
+        // content (name, group, description, messages, placeholders) but keep a
+        // usable default vendor/model and parameters so the form is immediately
+        // runnable once the user fills in their messages (see issue #310).
         PromptSpec.Placeholders placeholders = new PromptSpec.Placeholders();
         placeholders.setStartPattern("{{");
         placeholders.setEndPattern("}}");
-        placeholders.setList(List.of(new PromptSpec.Placeholder("customer_name", "Taylor")));
+        placeholders.setList(List.of());
 
+        // Issue #309: no pre-filled messages either. The editor renders the
+        // "Add system message" / "Add user message" buttons; the user adds the
+        // rows they want. Shipping empty-content message scaffolds instead
+        // breaks server-side validation when the form is saved with one
+        // message added but the empty scaffolds still present.
         Request request = ChatCompletionRequest.builder()
                 .withVendor("openai")
                 .withModel("gpt-4o")
-                .withMessages(List.of(
-                        ChatCompletionRequest.Message.builder()
-                                .withRole("system")
-                                .withContent("You are a helpful assistant.")
-                                .build(),
-                        ChatCompletionRequest.Message.builder()
-                                .withRole("user")
-                                .withContent("Help the customer.")
-                                .build()
-                ))
+                .withMessages(List.of())
                 .withParameters(defaultParams)
                 .build();
 
         return PromptSpec.builder()
-                .withGroup("support")
-                .withName("support-prompt")
+                .withGroup("")
+                .withName("")
                 .withVersion("1.0.0-SNAPSHOT")
                 .withRevision(1)
-                .withDescription("Assist support agents")
+                .withDescription("")
                 .withRequest(request)
                 .withPlaceholders(placeholders)
                 .build();

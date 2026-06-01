@@ -17,10 +17,14 @@
 # validate-prompts.sh — pre-release prompt validation for the promptLM repository template.
 #
 # Exits non-zero with a clear message if:
-#   - prompts/ is missing or contains no files
+#   - prompts/ is missing
 #   - any file under prompts/ is empty (zero-byte or whitespace-only)
 #   - any per-prompt promptlm.yml / promptlm.yaml manifest under prompts/ is
 #     missing one of the required fields: id, name, group, version, request
+#
+# A prompts/ directory with no prompt files is VALID (issue #309: a freshly
+# provisioned repo starts blank). The script warns and exits 0 in that case so
+# the first push to a new, empty repo does not fail CI.
 #
 # The repository-level configuration file at <repo>/promptlm.yml (release
 # toggle, provider, …) is intentionally NOT validated by this script — it has
@@ -46,7 +50,7 @@ info() {
     echo "validate-prompts: $*"
 }
 
-# 1. prompts/ must exist and contain at least one file.
+# 1. prompts/ must exist. It may be empty — a blank repo is valid (issue #309).
 if [[ ! -d "${PROMPTS_DIR}" ]]; then
     fail "prompts/ directory not found at ${PROMPTS_DIR}"
 fi
@@ -66,7 +70,11 @@ while IFS= read -r -d '' f; do
 done < <(find "${PROMPTS_DIR}" -type f ! -name '.*' -print0)
 
 if [[ ${prompt_count} -eq 0 ]]; then
-    fail "prompts/ contains no prompt files"
+    # Issue #309: a blank repo (no prompts yet) is valid. Warn and succeed so
+    # the first push to a freshly provisioned, empty repo does not fail CI.
+    info "prompts/ contains no prompt files yet — nothing to validate (blank repo)"
+    info "OK"
+    exit 0
 fi
 
 # 2. Every prompt file must contain non-whitespace content.

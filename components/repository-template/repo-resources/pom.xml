@@ -137,7 +137,14 @@
         </plugins>
     </build>
 
-    <!-- Distribution Management - Configure where to deploy artifacts -->
+    <!-- Distribution Management.
+         The top-level default targets Artifactory and is used by the
+         local/acceptance-test stack (deploy-artifactory.yml). Issue #311:
+         a NORMAL GitHub repo deploys to GitHub Packages instead, via the
+         `github` profile below (deploy-github-packages.yml runs `mvn deploy
+         -Pgithub`), so a normal repo's release never requires Artifactory.
+         Keeping the Artifactory coordinates as the bare-`mvn deploy` default
+         means the acceptance harness's deploy path is unchanged. -->
     <distributionManagement>
         <repository>
             <id>artifactory</id>
@@ -171,7 +178,11 @@
             </properties>
         </profile>
 
-        <!-- GitHub Packages profile -->
+        <!-- GitHub Packages profile - issue #311: the default deploy target for a
+             normal GitHub repo. Activated by deploy-github-packages.yml via
+             `mvn deploy -Pgithub`; resolves owner/repo from the GITHUB_REPOSITORY
+             env var at deploy time. Defines both release and snapshot repositories
+             (GitHub Packages serves both from the same URL). -->
         <profile>
             <id>github</id>
             <distributionManagement>
@@ -180,6 +191,11 @@
                     <name>GitHub Packages</name>
                     <url>https://maven.pkg.github.com/${env.GITHUB_REPOSITORY}</url>
                 </repository>
+                <snapshotRepository>
+                    <id>github</id>
+                    <name>GitHub Packages</name>
+                    <url>https://maven.pkg.github.com/${env.GITHUB_REPOSITORY}</url>
+                </snapshotRepository>
             </distributionManagement>
         </profile>
     </profiles>
