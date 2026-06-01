@@ -139,7 +139,11 @@
 
     <!-- Distribution Management - default deploy target for a normal GitHub repo.
          Publishes to GitHub Packages using the built-in GITHUB_TOKEN (server id `github`).
-         Artifactory deployment is opt-in via the `dev`/`prod` profiles below. -->
+         Issue #311: GitHub Packages is the default so a normal repo's release does
+         not require Artifactory. Artifactory deployment remains available for the
+         local/acceptance-test stack via deploy-artifactory.yml, which targets it
+         explicitly with `-DaltDeploymentRepository` (no profile / distributionManagement
+         override needed, so this default is never in its way). -->
     <distributionManagement>
         <repository>
             <id>github</id>
@@ -153,49 +157,24 @@
         </snapshotRepository>
     </distributionManagement>
 
-    <!-- Profiles for alternate (opt-in) deployment scenarios -->
+    <!-- Profiles for different deployment scenarios -->
     <profiles>
-        <!-- Development profile - opt-in via `-Pdev`. Never active by default; CI must never inherit localhost coordinates.
-             Targets the local/acceptance-test Artifactory stack. -->
+        <!-- Development profile - opt-in via `-Pdev`. Never active by default; CI must never inherit localhost coordinates. -->
         <profile>
             <id>dev</id>
             <properties>
                 <artifactory.url>http://localhost:8091/artifactory</artifactory.url>
                 <artifactory.repository>ci-maven-local</artifactory.repository>
             </properties>
-            <distributionManagement>
-                <repository>
-                    <id>artifactory</id>
-                    <name>Artifactory Release Repository</name>
-                    <url>${artifactory.url}/${artifactory.repository}</url>
-                </repository>
-                <snapshotRepository>
-                    <id>artifactory</id>
-                    <name>Artifactory Snapshot Repository</name>
-                    <url>${artifactory.url}/${artifactory.repository}</url>
-                </snapshotRepository>
-            </distributionManagement>
         </profile>
 
-        <!-- Production profile - opt-in via `-Pprod`. Targets an externally configured Artifactory. -->
+        <!-- Production profile -->
         <profile>
             <id>prod</id>
             <properties>
                 <artifactory.url>${env.ARTIFACTORY_URL}</artifactory.url>
                 <artifactory.repository>${env.ARTIFACTORY_REPOSITORY}</artifactory.repository>
             </properties>
-            <distributionManagement>
-                <repository>
-                    <id>artifactory</id>
-                    <name>Artifactory Release Repository</name>
-                    <url>${artifactory.url}/${artifactory.repository}</url>
-                </repository>
-                <snapshotRepository>
-                    <id>artifactory</id>
-                    <name>Artifactory Snapshot Repository</name>
-                    <url>${artifactory.url}/${artifactory.repository}</url>
-                </snapshotRepository>
-            </distributionManagement>
         </profile>
     </profiles>
 </project>

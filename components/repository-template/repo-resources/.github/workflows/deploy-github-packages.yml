@@ -6,9 +6,12 @@ name: Build & Deploy Prompts to GitHub Packages
 # Artifactory deployment lives in the opt-in `deploy-artifactory.yml` workflow
 # (workflow_dispatch only) for the local/acceptance-test stack.
 
+# Issue #311: deploy to GitHub Packages on a release tag (matching release.yml's
+# `v*.*.*` trigger) or on manual dispatch. We intentionally do NOT trigger on
+# push-to-main: a normal repo publishes on release, and not triggering here keeps
+# the acceptance-test stack's push-driven Artifactory workflow unambiguous.
 on:
   push:
-    branches: [ main ]
     tags:
       - 'v*.*.*'
   workflow_dispatch:
