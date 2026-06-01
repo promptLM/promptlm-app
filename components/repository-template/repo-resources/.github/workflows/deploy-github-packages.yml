@@ -327,7 +327,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          MAVEN_COMMAND=(mvn -B -ntp deploy -DskipTests)
+          # Issue #311: -Pgithub activates the GitHub Packages
+          # distributionManagement (maven.pkg.github.com/${GITHUB_REPOSITORY}),
+          # overriding the pom's top-level Artifactory default.
+          MAVEN_COMMAND=(mvn -B -ntp deploy -DskipTests -Pgithub)
 
           if [ -n "${MAVEN_PROJECTS}" ]; then
             MAVEN_COMMAND+=(-pl "${MAVEN_PROJECTS}")

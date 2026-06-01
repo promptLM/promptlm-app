@@ -355,13 +355,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Issue #311: the template pom defaults distributionManagement to
-          # GitHub Packages. Target Artifactory explicitly via
-          # -DaltDeploymentRepository (server id `artifactory`, matching the
-          # settings.xml below) so this deploy is independent of the pom default
-          # and of any profile.
+          # Deploys to the top-level (Artifactory) distributionManagement using
+          # the artifactory.* coordinates passed below. Unchanged from the
+          # pre-#311 behaviour so the acceptance-test stack is unaffected.
           MAVEN_COMMAND=(mvn -B -ntp deploy -DskipTests)
-          MAVEN_COMMAND+=(-DaltDeploymentRepository="artifactory::${ARTIFACTORY_URL%/}/${ARTIFACTORY_REPOSITORY}")
           MAVEN_COMMAND+=(-Dartifactory.url="${ARTIFACTORY_URL}")
           MAVEN_COMMAND+=(-Dartifactory.repository="${ARTIFACTORY_REPOSITORY}")
           MAVEN_COMMAND+=(-Dartifactory.username="${ARTIFACTORY_USERNAME}")
