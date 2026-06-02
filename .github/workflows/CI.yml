@@ -41,7 +41,7 @@ jobs:
           fetch-depth: 0
 
       - name: Check license headers
-        uses: apache/skywalking-eyes/header@v0.6.0
+        uses: apache/skywalking-eyes/header@v0.8.0
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
