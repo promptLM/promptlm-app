@@ -38,7 +38,7 @@ jobs:
       version: ${{ steps.set-version.outputs.version }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set Next Version
         id: set-version
@@ -83,7 +83,7 @@ jobs:
     needs: calculate_version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up JDK
         uses: actions/setup-java@v5
         with:
@@ -97,7 +97,7 @@ jobs:
     needs: jvm-verify
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up JDK
         uses: actions/setup-java@v5
         with:
@@ -132,7 +132,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -226,7 +226,7 @@ jobs:
             platform: windows
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up GraalVM
         uses: graalvm/setup-graalvm@v1
         with:
@@ -280,7 +280,7 @@ jobs:
     needs: jvm-acceptance
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up GraalVM
         uses: graalvm/setup-graalvm@v1
         with:
@@ -320,7 +320,7 @@ jobs:
     needs: [calculate_version, release, build-native-matrix, native-smoke]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Prep dir
         run: |

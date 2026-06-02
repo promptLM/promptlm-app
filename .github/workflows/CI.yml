@@ -36,7 +36,7 @@ jobs:
           echo "REPO_REMOTE_USERNAME=${REPO_REMOTE_USERNAME:+set}"
           echo "REPO_REMOTE_TOKEN=${REPO_REMOTE_TOKEN:+set}"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
